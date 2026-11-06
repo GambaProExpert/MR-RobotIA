@@ -1,3 +1,3 @@
 """MRRobot — auditor de postura defensiva para despliegues locales de LLM (TFG)."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

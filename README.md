@@ -1,10 +1,13 @@
 # MRRobot — auditor de postura defensiva de LLM auto alojados
 
-Suite de **auditoría defensiva** (hardening) para despliegues locales de modelos
-abiertos, parte del TFG. Revisa la postura de seguridad de **infraestructura propia**
-y produce un informe con severidades y referencias a OWASP LLM Top 10 2025, MITRE
-ATLAS y NIST AI 600-1. Es el complemento operativo de `../MODELO_AMENAZAS.md`: cada
-módulo cubre uno de los atacantes A1–A5.
+Herramienta de **auditoría defensiva** (hardening) para **cualquier servidor LLM auto
+alojado** (llama.cpp, Ollama, vLLM, LM Studio…). MRRobot **orquesta herramientas ya
+consolidadas** (garak, promptfoo, Trivy, DeepEval…) de forma local y offline y
+**normaliza sus datos** a un informe único con severidades y referencias a OWASP LLM
+Top 10 2025, MITRE ATLAS y NIST AI 600-1: «la auditoría no la hace MRRobot; los datos
+sí los saca». El laboratorio del TFG es solo uno de los objetivos posibles. La hoja de
+ruta por capas está en [HITOS.md](HITOS.md); el modelo de amenazas (atacantes A1–A5),
+en `../MODELO_AMENAZAS.md`.
 
 ## Instalación
 Requiere Python >= 3.10. Desde la raíz del proyecto (donde está `pyproject.toml`):
@@ -39,6 +42,9 @@ Además de `autorizacion`, `host` y `permitir_activos`, cada módulo lee sus pro
   - `usuarios` — ruta de `usuarios.json` (PBKDF2, contraseñas en claro, permisos).
   - `auditoria` — ruta del `auditoria.jsonl`, **o** `dir_logs` (directorio donde buscar `auditoria.jsonl`).
   - `app_dir` *(opcional)* — directorio de la app; M3 busca en él `.streamlit/config.toml` para revisar `server.address` y TLS.
+- **Núcleo orquestador (H0+):** `herramientas` *(opcional)* — overrides por herramienta, p. ej.
+  `{"garak": {"ruta": "/ruta/a/garak", "timeout": 1200}}`. Sin esto, cada herramienta se busca
+  en el `PATH` y se usa un timeout por defecto.
 
 ## Principios (y por qué son parte del TFG)
 - **Autorización explícita.** El objetivo (`objetivo.json`) declara que tienes permiso.
@@ -50,12 +56,28 @@ Además de `autorizacion`, `host` y `permitir_activos`, cada módulo lee sus pro
 - **Solo tu infraestructura o con permiso escrito.** No escanea ni prueba sistemas
   de terceros.
 
+## Modelo de orquestación
+MRRobot no reimplementa cada comprobación: **ejecuta herramientas externas** a través de
+`ModuloHerramienta` (`mrrobot.herramientas`) y normaliza su salida al informe. El patrón:
+1. **Detecta** la herramienta (`PATH` o la ruta declarada en `objetivo['herramientas']`); si no
+   está, emite un hallazgo **INFO** con cómo instalarla y no sigue — nunca la da por ejecutada.
+2. La **ejecuta** por `subprocess`, siempre con la orden como lista y **nunca `shell=True`**,
+   con timeout y captura de salida, de forma local y offline.
+3. **Normaliza** su salida (JSON/JSONL/texto) a `Hallazgo` con severidad y marcos.
+4. Deja un hallazgo de **trazabilidad** con la versión usada, para resultados reproducibles.
+
+Así, cada hito de herramienta (H3 Trivy, H4 garak, H5 promptfoo, H6 DeepEval) solo aporta su
+envoltorio. MRRobot no añade dependencias de ejecución: las herramientas externas son
+prerrequisitos del sistema que se instalan aparte.
+
 ## Estructura del proyecto
 ```
 MRRobot/
 ├── pyproject.toml          # empaquetado (src-layout, comando `mrrobot`)
 ├── README.md
 ├── CHANGELOG.md
+├── HITOS.md                # hoja de ruta por capas (hitos)
+├── Guia_agentes.md         # enfoque de orquestación (origen del rediseño)
 ├── LICENSE
 ├── ejemplos/
 │   └── objetivo.ejemplo.json
@@ -65,29 +87,37 @@ MRRobot/
 │       ├── __main__.py     # `python -m mrrobot`
 │       ├── cli.py          # punto de entrada del comando `mrrobot`
 │       ├── nucleo.py       # hallazgos, autorización e informe
+│       ├── herramientas.py # núcleo orquestador (H0): ejecuta herramientas externas
+│       ├── datos/          # recursos (p. ej. probes_base.jsonl)
 │       └── modulos/
 │           ├── __init__.py
 │           ├── m2_integridad.py
-│           └── m3_configuracion.py
+│           ├── m3_configuracion.py
+│           └── m1_robustez.py   # prober propio previo; se reconcilia con garak en H4
 └── tests/
     ├── test_nucleo.py
     ├── test_m2.py
-    └── test_m3.py
+    ├── test_m3.py
+    └── test_herramientas.py
 ```
 
-## Módulos (hoja de ruta)
-| Módulo | Atacante | Estado | Qué comprueba |
-|---|---|---|---|
-| M2 Integridad de artefactos | A4, A3 | **Hecho** | SHA-256 de `.gguf` y `chroma.sqlite3` contra un manifiesto firmado; ausentes, alterados, sin firma |
-| M1 Robustez de prompts | A1 | Pendiente (defensivo) | Pasa la batería de jailbreak/inyección y mide fuga neta y rechazo (reutiliza `Caso1/v2/evaluar.py`) |
-| M3 Auditoría de configuración | A3, A5 | **Hecho** | PBKDF2 (iteraciones/sal/hash) y contraseñas en claro en `usuarios.json`; que la auditoría guarde solo el hash de la pregunta, no su texto; rotación y permisos de los logs; enlace de red y TLS (`.streamlit/config.toml`). Mapea a OWASP LLM02 y NIST AI 600-1 (2.4, 2.9) |
-| M4 Higiene de secretos | A3 | Pendiente (defensivo) | Configuración que expone secretos: permisos de fichero, swap/volcados, secretos en entorno o logs |
-| M5 Resiliencia y límites | A5 | Pendiente (defensivo) | Revisión de límites (consultas, timeout, contexto, concurrencia) y prueba de carga controlada contra tu propio servicio |
+## Hitos (resumen)
+Cada herramienta externa es un hito; el detalle, el orden y qué extrae cada uno están
+en [HITOS.md](HITOS.md). MRRobot **orquesta y normaliza**, no reimplementa.
 
-M4 y M5 son **defensivos por diseño**: M4 no extrae memoria de procesos, comprueba
-que la configuración no exponga secretos; M5 no es una herramienta de DoS, mide el
-punto de saturación de tu propio servicio para recomendar límites y se detiene al
-degradar.
+| Hito | Capa | Base | Atacante | Estado |
+|---|---|---|---|---|
+| H0 Núcleo orquestador | — | propio | — | **Hecho** |
+| H1 Integridad de artefactos (SHA-256) | 1 | propio (M2) | A4, A3 | **Hecho** |
+| M3 Configuración (se integra en H2) | 1 | propio | A3, A5 | **Hecho** |
+| H2 Inventario y exposición (bind, puertos, usuario, claves) | 1 | propio | A5, A3 | Pendiente |
+| H3 Vulnerabilidades del host | 1 | Trivy | A4, A3 | Pendiente |
+| H4 Barrido del endpoint | 2 | garak | A1 | Pendiente |
+| H5 Prompt injection / evals | 2 | promptfoo | A1 | Pendiente |
+| H6 Prompts/salidas no salen de la red | 2 | DeepEval | A1, A5 | Pendiente |
+
+El prober propio `modulos/m1_robustez.py` quedó de una iteración previa; su función
+(barrido del endpoint) la asume **garak** en H4, donde se reconcilia.
 
 ## No incluye
 - Extracción de secretos de la memoria de procesos.

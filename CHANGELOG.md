@@ -3,6 +3,26 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.3.0] - 2026-11-06
+
+### Añadido
+- **Núcleo orquestador de herramientas externas** (`mrrobot.herramientas`): MRRobot pasa
+  a **orquestar** herramientas ya consolidadas (garak, promptfoo, Trivy, DeepEval…) y
+  **normalizar** su salida a `Hallazgo`, en lugar de reimplementarlas (ver `HITOS.md`).
+  - `Herramienta`/`Deteccion`/`Resultado`; `detectar()` (ruta del `PATH` o de
+    `objetivo['herramientas'][nombre]['ruta']`, con versión best-effort); `ejecutar()`
+    (subprocess con timeout, **sin `shell=True`**, no propaga excepciones); y la base
+    `ModuloHerramienta`: si la herramienta no está instalada emite un hallazgo INFO con
+    cómo instalarla; si está, antepone un hallazgo de trazabilidad con la versión usada.
+  - Solo biblioteca estándar; las herramientas externas son prerrequisitos del sistema.
+  - Clave de objetivo `herramientas` (overrides de ruta/timeout) y `tests/test_herramientas.py`
+    (sin herramientas externas: usan el propio intérprete de Python).
+- Hoja de ruta por capas en `HITOS.md` (alcance: LLM + RAG + host).
+
+### Cambiado
+- El roadmap pasa del esquema M1–M5 a **hitos por herramienta y capa** (H0–H6). El prober
+  propio `modulos/m1_robustez.py` queda pendiente de reconciliar con garak (H4).
+
 ## [0.2.0] - 2026-11-06
 
 ### Añadido
