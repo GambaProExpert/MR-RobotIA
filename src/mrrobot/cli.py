@@ -16,9 +16,10 @@ from pathlib import Path
 
 from mrrobot import nucleo
 from mrrobot.modulos.m2_integridad import M2Integridad
+from mrrobot.modulos.m3_configuracion import M3Configuracion
 
-# Registro de módulos. Se irán añadiendo M1, M3, M4 y M5 en su forma defensiva.
-MODULOS = [M2Integridad()]
+# Registro de módulos. Se irán añadiendo M1, M4 y M5 en su forma defensiva.
+MODULOS = [M2Integridad(), M3Configuracion()]
 
 
 def main():

@@ -3,6 +3,28 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.2.0] - 2026-11-06
+
+### Añadido
+- **Módulo M3 — Auditoría de configuración** (`mrrobot.modulos.m3_configuracion`):
+  módulo pasivo y de solo lectura que, a partir de las rutas declaradas en el objetivo
+  (`usuarios`, `auditoria`/`dir_logs` y, opcional, `app_dir`), comprueba:
+  - `usuarios.json`: PBKDF2 con iteraciones suficientes (>= 100000), sal presente y de
+    longitud razonable (>= 16 bytes) y hash presente; detecta campos con pinta de
+    contraseña en claro (CRÍTICA); revisa permisos (ALTA en POSIX si es legible por
+    grupo/otros, INFO en Windows recordando revisar las ACL NTFS a mano).
+  - Registro de auditoría: avisa (ALTA) si alguna entrada guarda el **texto** de la
+    pregunta en vez de solo su hash; rotación por tamaño (> 50 MB) y permisos.
+  - TLS y enlace de red: si existe `.streamlit/config.toml` informa de `server.address`
+    (ALTA si enlaza a `0.0.0.0`) y de `sslCertFile`/`sslKeyFile`; si no, recuerda que el
+    enlace a 127.0.0.1 y el TLS dependen del arranque.
+  - Atacantes A3 (acceso a disco) y A5 (exposición); marcos OWASP LLM02 y LLM10,
+    NIST AI 600-1 (2.4, 2.9), MITRE ATLAS AML.T0049. **Nunca imprime secretos**: solo
+    recuentos y nombres de campo, con hashes y valores truncados u omitidos.
+- M3 registrado en la CLI (`mrrobot`/`python -m mrrobot`), tras M2.
+- Claves nuevas del objetivo de ejemplo (`usuarios`, `auditoria`/`dir_logs`, `app_dir`)
+  y pruebas `tests/test_m3.py` (fixtures sintéticas con `tmp_path`, sin datos reales).
+
 ## [0.1.0] - 2026-11-06
 
 ### Añadido

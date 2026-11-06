@@ -31,6 +31,15 @@ Copia `ejemplos/objetivo.ejemplo.json` a `objetivo.json`, ajusta rutas y
 autorización, y ejecútalo. `objetivo.json` y los informes contienen rutas de tu
 sistema: no los subas a la nube (ya están en `.gitignore`).
 
+### Claves del fichero de objetivo
+Además de `autorizacion`, `host` y `permitir_activos`, cada módulo lee sus propias claves
+(todas son rutas que M3 solo **lee**; una ruta que no exista genera un hallazgo INFO):
+- **M2:** `manifiesto`, `manifiesto_firmado`, `artefactos` (lista de `{ruta, sha256?}`).
+- **M3 (configuración):**
+  - `usuarios` — ruta de `usuarios.json` (PBKDF2, contraseñas en claro, permisos).
+  - `auditoria` — ruta del `auditoria.jsonl`, **o** `dir_logs` (directorio donde buscar `auditoria.jsonl`).
+  - `app_dir` *(opcional)* — directorio de la app; M3 busca en él `.streamlit/config.toml` para revisar `server.address` y TLS.
+
 ## Principios (y por qué son parte del TFG)
 - **Autorización explícita.** El objetivo (`objetivo.json`) declara que tienes permiso.
   Sin `autorizacion.tengo_autorizacion = true`, la herramienta no corre. Un host no
@@ -58,10 +67,12 @@ MRRobot/
 │       ├── nucleo.py       # hallazgos, autorización e informe
 │       └── modulos/
 │           ├── __init__.py
-│           └── m2_integridad.py
+│           ├── m2_integridad.py
+│           └── m3_configuracion.py
 └── tests/
     ├── test_nucleo.py
-    └── test_m2.py
+    ├── test_m2.py
+    └── test_m3.py
 ```
 
 ## Módulos (hoja de ruta)
@@ -69,7 +80,7 @@ MRRobot/
 |---|---|---|---|
 | M2 Integridad de artefactos | A4, A3 | **Hecho** | SHA-256 de `.gguf` y `chroma.sqlite3` contra un manifiesto firmado; ausentes, alterados, sin firma |
 | M1 Robustez de prompts | A1 | Pendiente (defensivo) | Pasa la batería de jailbreak/inyección y mide fuga neta y rechazo (reutiliza `Caso1/v2/evaluar.py`) |
-| M3 Auditoría de configuración | A3, A5 | Pendiente (defensivo) | Permisos de `usuarios.json`/logs, PBKDF2, enlace a 127.0.0.1, TLS, rotación de logs |
+| M3 Auditoría de configuración | A3, A5 | **Hecho** | PBKDF2 (iteraciones/sal/hash) y contraseñas en claro en `usuarios.json`; que la auditoría guarde solo el hash de la pregunta, no su texto; rotación y permisos de los logs; enlace de red y TLS (`.streamlit/config.toml`). Mapea a OWASP LLM02 y NIST AI 600-1 (2.4, 2.9) |
 | M4 Higiene de secretos | A3 | Pendiente (defensivo) | Configuración que expone secretos: permisos de fichero, swap/volcados, secretos en entorno o logs |
 | M5 Resiliencia y límites | A5 | Pendiente (defensivo) | Revisión de límites (consultas, timeout, contexto, concurrencia) y prueba de carga controlada contra tu propio servicio |
 

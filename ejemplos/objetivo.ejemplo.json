@@ -14,5 +14,9 @@
     {"ruta": "../Caso1/v2/adapters/qwen3-14b/lora_ingeniero.gguf"},
     {"ruta": "../Caso1/v2/adapters/qwen3-14b/lora_mantenimiento.gguf"},
     {"ruta": "../Caso1/v2/modelos/Qwen3-14B-Q4_K_M.gguf", "sha256": "pon_aqui_un_hash_de_confianza_del_modelo_base"}
-  ]
+  ],
+  "usuarios": "../Caso1/v2/usuarios.json",
+  "auditoria": "../Caso1/v2/logs/auditoria.jsonl",
+  "dir_logs": "../Caso1/v2/logs",
+  "app_dir": "../Caso1/v2"
 }
