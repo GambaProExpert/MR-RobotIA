@@ -1,0 +1,24 @@
+# Bytecode y cachés de Python
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Empaquetado / build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Pruebas y entornos
+.pytest_cache/
+.venv/
+venv/
+
+# Datos de objetivo y salidas de informe (contienen rutas y datos locales del sistema)
+objetivo.json
+/informe_mrrobot.*
+/informe*.json
+/informe*.md
+
+# El ejemplo SÍ se versiona (nombre distinto de objetivo.json, no lo ignora nada de arriba)
+!ejemplos/objetivo.ejemplo.json

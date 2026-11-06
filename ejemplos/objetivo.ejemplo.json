@@ -1,0 +1,18 @@
+{
+  "nombre": "Caso 1 - Qwen3-14B local",
+  "host": "127.0.0.1",
+  "autorizacion": {
+    "tengo_autorizacion": true,
+    "autorizado_por": "Sergio (propietario del equipo de laboratorio)",
+    "ambito": "Laboratorio del TFG, aislado; infraestructura propia",
+    "fecha": "2026-11-06"
+  },
+  "permitir_activos": false,
+  "manifiesto": "../Caso1/v2/adapters/qwen3-14b/manifiesto.json",
+  "manifiesto_firmado": false,
+  "artefactos": [
+    {"ruta": "../Caso1/v2/adapters/qwen3-14b/lora_ingeniero.gguf"},
+    {"ruta": "../Caso1/v2/adapters/qwen3-14b/lora_mantenimiento.gguf"},
+    {"ruta": "../Caso1/v2/modelos/Qwen3-14B-Q4_K_M.gguf", "sha256": "pon_aqui_un_hash_de_confianza_del_modelo_base"}
+  ]
+}

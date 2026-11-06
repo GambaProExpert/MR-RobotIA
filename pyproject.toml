@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mrrobot"
+version = "0.1.0"
+description = "Auditor de postura defensiva para despliegues locales de LLM auto alojados (TFG)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+# De momento solo usa la biblioteca estándar; sin dependencias en ejecución.
+dependencies = []
+authors = [
+    # TODO: completar con el nombre y apellidos de Sergio.
+    {name = "Sergio"},
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+mrrobot = "mrrobot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
