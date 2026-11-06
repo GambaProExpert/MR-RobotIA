@@ -78,6 +78,10 @@ class Modulo:
     nombre = "M?"
     titulo = ""
     activo = False
+    # El CLI lo pone a True cuando el sondeo activo está autorizado (bandera
+    # --permitir-activos + permitir_activos en el objetivo). Los módulos híbridos
+    # lo leen para decidir si hacen comprobaciones activas.
+    activos_ok = False
 
     def ejecutar(self, objetivo) -> list[Hallazgo]:
         raise NotImplementedError

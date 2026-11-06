@@ -3,6 +3,27 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.4.0] - 2026-11-06
+
+### Añadido
+- **Módulo H2 — Inventario y exposición del servidor LLM** (`mrrobot.modulos.h2_exposicion`),
+  para **llama.cpp (llama-server)**. Módulo HÍBRIDO: parte PASIVA siempre (enlace de red del
+  puerto vía `netstat`/`ss`, claves de proveedor en el entorno —solo NOMBRES—, propietario del
+  proceso best-effort) y parte ACTIVA gated (sondeo del endpoint: sin API key, `/slots` —fuga de
+  prompts—, `/props` —ruta del modelo y build—, `/v1/models`, `/metrics`, CORS reflejado/DNS
+  rebinding, HTTP sin TLS, interfaz web, y severidad compuesta de exposición). **Nunca vuelca
+  prompts ni valores de entorno.** Atacantes A5/A3; marcos OWASP LLM10/LLM02/LLM03, MITRE ATLAS,
+  NIST AI 600-1. Clave de objetivo `endpoint` + `exposicion` (`puerto`, `bind_esperado`,
+  `proxy_autenticador`, `api_key_esperada`, `builds_vulnerables`) y `tests/test_h2.py`.
+- **Gating de sondeo activo granular**: atributo `Modulo.activos_ok` (lo pone el CLI con
+  `--permitir-activos`/`MRROBOT_PERMITIR_ACTIVOS` + `permitir_activos`), para módulos híbridos
+  cuya parte pasiva debe correr siempre.
+
+### Cambiado
+- El CLI registra H2 y **desvincula el prober propio M1**: `m1_robustez.py` queda en disco, sin
+  cablear, a sustituir por garak en H4. Se conservan `MRROBOT_OBJETIVO` y `MRROBOT_PERMITIR_ACTIVOS`.
+  Objetivo de ejemplo con `endpoint` + `exposicion`.
+
 ## [0.3.0] - 2026-11-06
 
 ### Añadido

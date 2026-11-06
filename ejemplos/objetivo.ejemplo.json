@@ -1,6 +1,7 @@
 {
   "nombre": "Caso 1 - Qwen3-14B local",
   "host": "127.0.0.1",
+  "endpoint": "http://127.0.0.1:8080/v1/chat/completions",
   "autorizacion": {
     "tengo_autorizacion": true,
     "autorizado_por": "Sergio (propietario del equipo de laboratorio)",
@@ -8,6 +9,12 @@
     "fecha": "2026-11-06"
   },
   "permitir_activos": false,
+  "exposicion": {
+    "puerto": 8080,
+    "bind_esperado": "127.0.0.1",
+    "proxy_autenticador": false,
+    "api_key_esperada": true
+  },
   "manifiesto": "../Caso1/v2/adapters/qwen3-14b/manifiesto.json",
   "manifiesto_firmado": false,
   "artefactos": [

@@ -42,6 +42,9 @@ Además de `autorizacion`, `host` y `permitir_activos`, cada módulo lee sus pro
   - `usuarios` — ruta de `usuarios.json` (PBKDF2, contraseñas en claro, permisos).
   - `auditoria` — ruta del `auditoria.jsonl`, **o** `dir_logs` (directorio donde buscar `auditoria.jsonl`).
   - `app_dir` *(opcional)* — directorio de la app; M3 busca en él `.streamlit/config.toml` para revisar `server.address` y TLS.
+- **H2 (exposición):** `endpoint` — URL base del servidor LLM (p. ej. `http://127.0.0.1:8080`);
+  `exposicion` *(opcional)* con `puerto`, `bind_esperado`, `proxy_autenticador`, `api_key_esperada`
+  y `builds_vulnerables`. La parte activa (sondeo del endpoint) solo corre con `--permitir-activos`.
 - **Núcleo orquestador (H0+):** `herramientas` *(opcional)* — overrides por herramienta, p. ej.
   `{"garak": {"ruta": "/ruta/a/garak", "timeout": 1200}}`. Sin esto, cada herramienta se busca
   en el `PATH` y se usa un timeout por defecto.
@@ -93,12 +96,14 @@ MRRobot/
 │           ├── __init__.py
 │           ├── m2_integridad.py
 │           ├── m3_configuracion.py
-│           └── m1_robustez.py   # prober propio previo; se reconcilia con garak en H4
+│           ├── h2_exposicion.py     # H2: inventario y exposición del servidor LLM
+│           └── m1_robustez.py       # prober propio previo (sin cablear); a sustituir por garak en H4
 └── tests/
     ├── test_nucleo.py
     ├── test_m2.py
     ├── test_m3.py
-    └── test_herramientas.py
+    ├── test_herramientas.py
+    └── test_h2.py
 ```
 
 ## Hitos (resumen)
@@ -110,7 +115,7 @@ en [HITOS.md](HITOS.md). MRRobot **orquesta y normaliza**, no reimplementa.
 | H0 Núcleo orquestador | — | propio | — | **Hecho** |
 | H1 Integridad de artefactos (SHA-256) | 1 | propio (M2) | A4, A3 | **Hecho** |
 | M3 Configuración (se integra en H2) | 1 | propio | A3, A5 | **Hecho** |
-| H2 Inventario y exposición (bind, puertos, usuario, claves) | 1 | propio | A5, A3 | Pendiente |
+| H2 Inventario y exposición (bind, puertos, usuario, claves) | 1 | propio | A5, A3 | **Hecho** |
 | H3 Vulnerabilidades del host | 1 | Trivy | A4, A3 | Pendiente |
 | H4 Barrido del endpoint | 2 | garak | A1 | Pendiente |
 | H5 Prompt injection / evals | 2 | promptfoo | A1 | Pendiente |
