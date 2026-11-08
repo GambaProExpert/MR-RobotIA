@@ -6,7 +6,9 @@ servicio. Una coincidencia aquí solo dice que hay una API con esa forma, de ah�
 """
 from __future__ import annotations
 
-from mrrobotia.perfiles.base import MAX_MODELOS, Identificacion, Perfil, nombre_modelo
+from mrrobotia.perfiles.base import (
+    MAX_MODELOS, Identificacion, Perfil, hallazgo_autenticacion, hallazgo_modelos, ids_modelos, nombre_modelo,
+)
 
 
 class Generico(Perfil):
@@ -25,3 +27,25 @@ class Generico(Perfil):
         if respuesta.estado in (401, 403) and "error" in datos:
             return Identificacion(self.id, "baja", None, "activa", [f"/v1/models responde {respuesta.estado} con error JSON"])
         return None
+
+    def sondear(self, cliente, servidor, expuesto, proxy) -> list:
+        """De un servidor así solo se puede preguntar por `/v1/models`: basta para saber si
+        exige clave y qué modelos publica. Una respuesta distinta no permite concluir."""
+        respuesta = cliente.get("/v1/models")
+        datos = respuesta.json() if respuesta.estado == 200 else None
+        if isinstance(datos, dict) and isinstance(datos.get("data"), list):
+            autenticacion = "abierta"
+        elif respuesta.estado in (401, 403):
+            autenticacion = "activa"
+        else:
+            autenticacion = "indeterminada"
+        if autenticacion != "indeterminada":
+            servidor.autenticacion = autenticacion
+        estado = respuesta.estado if respuesta.estado is not None else "sin respuesta"
+        hallazgos = [hallazgo_autenticacion(autenticacion, f"GET /v1/models sin credenciales: {estado}", expuesto, proxy,
+                                            "Exige una clave de API o ponlo tras un proxy que autentique")]
+        if autenticacion == "abierta":
+            modelos = hallazgo_modelos(ids_modelos(datos))
+            if modelos is not None:
+                hallazgos.append(modelos)
+        return hallazgos

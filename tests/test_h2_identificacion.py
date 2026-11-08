@@ -17,6 +17,7 @@ from mrrobotia.modulos.h2_identificacion import H2Identificacion, interpretar_ju
 from mrrobotia.nucleo import Severidad
 from mrrobotia.perfiles import PERFILES
 from mrrobotia.procesos import Proceso
+from mrrobotia.red import Respuesta
 from servidor_falso import ServidorFalso, generico_openai, http_simple, llamacpp, vllm
 
 CANARIO = "canario-clave-no-debe-salir"
@@ -85,15 +86,15 @@ def test_prefijo_de_ruta(ruta, esperado):
 
 
 def test_destino_del_endpoint():
-    d = h2id._destino(objetivo(endpoint="https://srv.local/lab/v1/models"))
+    d = h2id.destino_declarado(objetivo(endpoint="https://srv.local/lab/v1/models"))
     assert (d.esquema, d.host, d.puerto, d.prefijo) == ("https", "srv.local", 443, "/lab")
 
 
 def test_destino_por_exposicion_y_sin_datos():
-    d = h2id._destino(objetivo(exposicion={"puerto": 8123}))
+    d = h2id.destino_declarado(objetivo(exposicion={"puerto": 8123}))
     assert (d.host, d.puerto) == ("127.0.0.1", 8123)
-    assert h2id._destino({}).puerto is None
-    assert h2id._destino(objetivo(endpoint="http://[::1")).host == "127.0.0.1"
+    assert h2id.destino_declarado({}).puerto is None
+    assert h2id.destino_declarado(objetivo(endpoint="http://[::1")).host == "127.0.0.1"
 
 
 @pytest.mark.parametrize("valor,esperado", [
@@ -713,3 +714,70 @@ def test_cli_pasivo_no_pregunta_por_red(entorno, monkeypatch, tmp_path):
         obj = objetivo(endpoint=s.url, permitir_activos=True)
         _ejecutar_cli(monkeypatch, tmp_path, obj, "--escaneo", "identificacion,pasivo", "--permitir-activos")
     assert s.peticiones == []
+
+
+# ------------------------------------------------- Julius y las redirecciones
+def _redirige(destino):
+    def responder(p):
+        if p.ruta == "/":
+            return 302, {"Location": destino, "Content-Length": "0"}, b""
+        return http_simple(p)
+
+    return responder
+
+
+def test_julius_no_se_usa_si_redirige_a_otro_host(entorno):
+    entorno.julius = "julius-falso"
+    with ServidorFalso(_redirige("https://portal.invalid/entrar")) as s:
+        entorno.abiertos = {s.puerto}
+        _, h = ejecutar(objetivo(endpoint=s.url), activos=True)
+    assert entorno.ordenes_julius == []
+    assert "redirige a otro host (portal.invalid): no se usa Julius" in uno(h, "H2-ID-OTRO").evidencia
+
+
+def test_redireccion_externa_queda_como_senal_del_servidor(entorno):
+    entorno.julius = "julius-falso"
+    with ServidorFalso(_redirige("https://portal.invalid/")) as s:
+        entorno.procesos = [proceso_llama(s.puerto)]
+        entorno.abiertos = {s.puerto}
+        m, _ = ejecutar(objetivo(endpoint=s.url), activos=True)
+    assert entorno.ordenes_julius == []
+    assert any("redirige a otro host" in x for x in m.contexto.principal().senales)
+
+
+def test_senal_de_redireccion_llega_al_generico(entorno):
+    entorno.julius = "julius-falso"
+    base = generico_openai()
+
+    def responder(p):
+        if p.ruta == "/":
+            return 301, {"Location": "http://otro.invalid/", "Content-Length": "0"}, b""
+        return base(p)
+
+    with ServidorFalso(responder) as s:
+        entorno.abiertos = {s.puerto}
+        m, _ = ejecutar(objetivo(endpoint=s.url), activos=True)
+    d = m.contexto.principal()
+    assert d.tipo == "generico" and any("redirige a otro host" in x for x in d.senales)
+
+
+@pytest.mark.parametrize("destino", ["/entrar", "entrar", "http://127.0.0.1:1/x", "http://localhost/x"])
+def test_redireccion_sin_salir_del_host_no_impide_julius(entorno, destino):
+    entorno.julius = "julius-falso"
+    with ServidorFalso(_redirige(destino)) as s:
+        entorno.abiertos = {s.puerto}
+        ejecutar(objetivo(endpoint=s.url), activos=True)
+    assert len(entorno.ordenes_julius) == 1
+
+
+def test_sin_julius_no_se_pregunta_la_raiz(entorno):
+    with ServidorFalso(generico_openai()) as s:
+        entorno.abiertos = {s.puerto}
+        ejecutar(objetivo(endpoint=s.url), activos=True)
+    assert ("GET", "/") not in s.rutas()
+
+
+def test_host_de_redireccion_saneado():
+    candidato = h2id._Candidato("http", "127.0.0.1", 80)
+    respuesta = Respuesta(302, {"location": "http://a|b.invalid/"}, b"")
+    assert "|" not in (h2id._host_de_redireccion(respuesta, candidato) or "")

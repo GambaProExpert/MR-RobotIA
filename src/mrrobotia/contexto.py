@@ -19,6 +19,21 @@ def texto_enlace(enlace):
     return enlace or "desconocido"
 
 
+def texto_direccion(servidor):
+    """`host:puerto` de un servidor, o que el puerto no se conoce."""
+    if servidor.puerto is None:
+        return f"{servidor.host} (puerto desconocido)"
+    return f"{servidor.host}:{servidor.puerto}"
+
+
+def rotular(hallazgos, servidor):
+    """Antepone a la evidencia de cada hallazgo de qué servidor habla: en un mismo host
+    puede haber varios y sus hallazgos comparten identificador."""
+    for hallazgo in hallazgos:
+        hallazgo.evidencia = f"{servidor.tipo} en {texto_direccion(servidor)}: {hallazgo.evidencia}"
+    return hallazgos
+
+
 @dataclass
 class ServidorDetectado:
     tipo: str                 # "llama.cpp" | "vllm" | "generico" | "otro:<servicio>"
@@ -36,6 +51,12 @@ class ServidorDetectado:
     autenticacion: str | None = None  # "activa" | "abierta" | "indeterminada"
     modelos: list[str] = field(default_factory=list)  # nombre de fichero o alias, nunca ruta absoluta
     senales: list[str] = field(default_factory=list)  # evidencia corta y sin secretos
+
+    @property
+    def url(self):
+        """URL base con la que preguntarle, incluido el prefijo. Exige que tenga puerto."""
+        host = f"[{self.host}]" if ":" in self.host else self.host
+        return f"{self.esquema}://{host}:{self.puerto}{self.prefijo}"
 
 
 @dataclass

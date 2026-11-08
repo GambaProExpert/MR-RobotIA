@@ -14,8 +14,8 @@ Audita SOLO la infraestructura que declara el objetivo, que debe incluir la
 autorización. Los módulos activos (que interactúan con el servicio) se omiten salvo
 que se habiliten con --permitir-activos (o MRROBOTIA_PERMITIR_ACTIVOS) Y
 permitir_activos=true en el objetivo. H2 (exposición) es HÍBRIDO: la parte pasiva
-(enlace de red, entorno, propietario del proceso) corre siempre; la parte activa
-(sondeo del endpoint llama.cpp de 'endpoint') solo con el sondeo activo habilitado.
+(enlace de red y propietario del proceso) corre siempre; la parte activa (sondeo HTTP
+de los servidores identificados) solo con el sondeo activo habilitado.
 
 Antes de cualquier módulo, H2-ID identifica con qué se está tratando (servidor, versión,
 arranque y SO); corre siempre, y con la misma regla para su parte activa.
@@ -30,6 +30,8 @@ from mrrobotia.modulos.m2_integridad import M2Integridad
 from mrrobotia.modulos.m3_configuracion import M3Configuracion
 from mrrobotia.modulos.h2_identificacion import H2Identificacion
 from mrrobotia.modulos.h2_exposicion import H2Exposicion
+from mrrobotia.modulos.h2_arranque import H2Arranque
+from mrrobotia.modulos.h2_cve import H2Cve
 from mrrobotia.modulos.h3_ssh import H3Ssh
 from mrrobotia.modulos.h3_puertos import H3Puertos
 from mrrobotia.modulos.h3_host import H3Host
@@ -39,9 +41,10 @@ from mrrobotia.modulos.h3_host import H3Host
 IDENTIFICACION = H2Identificacion()
 
 # Registro de módulos. M2/M3 pasivos; H2, H3-SSH y H3-PUERTOS híbridos (parte activa
-# autogateada); H3-HOST (Trivy) pasivo. El prober propio M1 queda sin cablear: su
-# cometido (barrido del endpoint) lo asumirá garak en H4.
-MODULOS = [M2Integridad(), M3Configuracion(), H2Exposicion(),
+# autogateada); H2-ARRANQUE, H2-CVE y H3-HOST (Trivy) pasivos. H2 va antes de los otros
+# dos porque su sondeo concreta la autenticación y la versión. El prober propio M1 queda
+# sin cablear: su cometido (barrido del endpoint) lo asumirá garak en H4.
+MODULOS = [M2Integridad(), M3Configuracion(), H2Exposicion(), H2Arranque(), H2Cve(),
            H3Ssh(), H3Puertos(), H3Host()]
 
 # Grupos del selector --escaneo (además de las etiquetas individuales de cada módulo).

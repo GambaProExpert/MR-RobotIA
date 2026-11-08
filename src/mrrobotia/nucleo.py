@@ -45,7 +45,7 @@ class Hallazgo:
     id: str
     titulo: str
     severidad: Severidad
-    estado: str                 # "confirmado" | "informativo"
+    estado: str                 # "confirmado" | "potencial" | "informativo"
     evidencia: str
     recomendacion: str = ""
     refs: dict = field(default_factory=dict)   # {"owasp": "...", "atlas": "...", "nist": "..."}
@@ -90,6 +90,22 @@ class Modulo:
 
     def ejecutar(self, objetivo) -> list[Hallazgo]:
         raise NotImplementedError
+
+    def motivo_omision_activa(self, objetivo, local):
+        """Por qué no se puede sondear por red, o None si se puede: hace falta el doble
+        consentimiento y, si el host auditado no es este equipo, confirmo_no_local."""
+        if not local and objetivo.get("autorizacion", {}).get("confirmo_no_local") is not True:
+            return "host no local sin confirmo_no_local"
+        if not self.activos_ok:
+            return "requiere --permitir-activos y permitir_activos=true"
+        return None
+
+    def hallazgo_sin_contexto(self):
+        """Lo que devuelve un módulo que depende de la identificación si se usa suelto."""
+        return Hallazgo(
+            self.nombre, f"{self.nombre}-SIN-CONTEXTO", "Sin identificación previa del servidor",
+            Severidad.INFO, "informativo", "el módulo no ha recibido el contexto de H2-ID",
+            "Ejecuta MRRobotIA desde su línea de órdenes: identifica el servidor antes que nada.")
 
 
 def _celda(valor):
@@ -174,7 +190,8 @@ class Informe:
         L += ["", "| Severidad | Módulo | Hallazgo | Evidencia | Marcos |", "|---|---|---|---|---|"]
         for h in self._ordenados():
             refs = " · ".join(f"{k}:{v}" for k, v in h.refs.items())
-            L.append(f"| {h.severidad.name} | {h.modulo} | {h.titulo} | {h.evidencia} | {refs} |")
+            titulo = h.titulo + (" *(potencial)*" if h.estado == "potencial" else "")
+            L.append(f"| {h.severidad.name} | {h.modulo} | {titulo} | {h.evidencia} | {refs} |")
         recs = [h for h in self._ordenados() if h.recomendacion]
         if recs:
             L += ["", "## Recomendaciones", ""]

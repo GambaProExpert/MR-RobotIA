@@ -384,8 +384,7 @@ def test_registro_de_perfiles():
     assert perfil_de(ServidorDetectado("otro:ollama", "h", 1)) is GENERICO
 
 
-@pytest.mark.parametrize("perfil", [*PERFILES, GENERICO], ids=lambda p: p.id)
-def test_partes_de_otros_hitos_devuelven_lista(perfil):
-    servidor = ServidorDetectado(perfil.id, "h", 1)
-    assert perfil.evaluar_arranque(servidor, False) == []
-    assert perfil.sondear(None, servidor, False, False) == []
+def test_partes_de_otros_hitos_devuelven_lista():
+    servidor = ServidorDetectado(VLLM.id, "h", 1)
+    assert VLLM.evaluar_arranque(servidor, False) == []
+    assert VLLM.sondear(None, servidor, False, False) == []

@@ -238,6 +238,14 @@ def ip_rutable():
                 pass
 
 
+def es_host_local(host):
+    """¿El host auditado es este equipo? Solo entonces sus procesos son los del objetivo."""
+    if clasificar_direccion(host) in ("loopback", "todas"):
+        return True
+    texto = str(host).lower()
+    return texto in {socket.gethostname().lower(), (ip_rutable() or "").lower()}
+
+
 def sondear(host, port, timeout=TIMEOUT_SONDEO):
     """¿Hay algo escuchando en host:port? connect_ex con timeout; True/False."""
     fam = socket.AF_INET6 if ":" in str(host) else socket.AF_INET

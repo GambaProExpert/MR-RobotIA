@@ -187,3 +187,13 @@ def leer_entorno(pid, variables, raiz="/proc"):
         if igual and clave in variables:
             resultado[clave] = True if variables[clave] else decodificar(valor)
     return resultado
+
+
+def entorno_legible(pid, raiz="/proc"):
+    """¿Se puede leer el entorno del proceso? Distingue «no hay ninguna de esas variables» de
+    «no se ha podido mirar», que `leer_entorno` devuelve igual: `{}`."""
+    try:
+        with open(os.path.join(raiz, str(int(pid)), "environ"), "rb"):
+            return True
+    except (OSError, ValueError):
+        return False

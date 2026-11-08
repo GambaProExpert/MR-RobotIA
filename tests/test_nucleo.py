@@ -107,3 +107,12 @@ def test_informe_genera_markdown_y_json():
     # ordenado por severidad descendente: la CRITICA va primero
     assert datos["hallazgos"][0]["severidad"] == "CRITICA"
     assert datos["hallazgos"][0]["modulo"] == "M2"
+
+
+def test_informe_marca_lo_potencial():
+    obj = {"nombre": "x", "autorizacion": {"autorizado_por": "x", "ambito": "x"}}
+    informe = Informe(obj)
+    informe.anadir([Hallazgo("H", "A", "Coincide por versión", Severidad.ALTA, "potencial", "e"),
+                    Hallazgo("H", "B", "Observado", Severidad.ALTA, "confirmado", "e")])
+    md = informe.to_markdown()
+    assert "Coincide por versión *(potencial)*" in md and "Observado *(potencial)*" not in md

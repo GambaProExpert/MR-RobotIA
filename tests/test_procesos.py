@@ -6,7 +6,7 @@ import subprocess
 import pytest
 
 from mrrobotia import procesos
-from mrrobotia.procesos import Proceso, leer_entorno, procesos_desde_json, trocear_linea_windows
+from mrrobotia.procesos import Proceso, entorno_legible, leer_entorno, procesos_desde_json, trocear_linea_windows
 
 
 # ------------------------------------------------------------ línea de órdenes
@@ -128,3 +128,11 @@ def test_leer_entorno_solo_lista_blanca_y_secretos_a_true(tmp_path):
 def test_leer_entorno_no_legible(tmp_path):
     assert leer_entorno(12345, {"X": False}, str(tmp_path)) == {}
     assert leer_entorno("no-es-pid", {"X": False}, str(tmp_path)) == {}
+
+
+def test_entorno_legible(tmp_path):
+    (tmp_path / "9").mkdir()
+    (tmp_path / "9" / "environ").write_bytes(b"")
+    assert entorno_legible(9, str(tmp_path)) is True
+    assert entorno_legible(12345, str(tmp_path)) is False
+    assert entorno_legible("no-es-pid", str(tmp_path)) is False

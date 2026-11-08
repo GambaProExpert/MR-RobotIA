@@ -1,0 +1,434 @@
+[
+  {
+    "id": "CVE-2024-21802",
+    "resumen": "[gguf] Desbordamiento de montón al analizar info->ne de un GGUF manipulado; ejecución de código al cargar el modelo. Commit probado 18c2e17 (b1796).",
+    "afecta": "<=b1796",
+    "corregido_en": null,
+    "cvss": 8.8,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2024-21802"
+  },
+  {
+    "id": "CVE-2024-21825",
+    "resumen": "[gguf] Desbordamiento de montón en GGUF_TYPE_ARRAY/GGUF_TYPE_STRING de un GGUF manipulado. Commit probado 18c2e17 (b1796).",
+    "afecta": "<=b1796",
+    "corregido_en": null,
+    "cvss": 8.8,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2024-21825"
+  },
+  {
+    "id": "CVE-2024-21836",
+    "resumen": "[gguf] Desbordamiento de montón en header.n_tensors de un GGUF manipulado. Commit probado 18c2e17 (b1796).",
+    "afecta": "<=b1796",
+    "corregido_en": null,
+    "cvss": 8.8,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2024-21836"
+  },
+  {
+    "id": "CVE-2024-23496",
+    "resumen": "[gguf] Desbordamiento de montón en gguf_fread_str de un GGUF manipulado. Commit probado 18c2e17 (b1796).",
+    "afecta": "<=b1796",
+    "corregido_en": null,
+    "cvss": 8.8,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2024-23496"
+  },
+  {
+    "id": "CVE-2024-23605",
+    "resumen": "[gguf] Desbordamiento de montón en header.n_kv de un GGUF manipulado. Commit probado 18c2e17 (b1796).",
+    "afecta": "<=b1796",
+    "corregido_en": null,
+    "cvss": 8.8,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2024-23605"
+  },
+  {
+    "id": "CVE-2024-32878",
+    "resumen": "[gguf] Uso de variable de montón sin inicializar en gguf_init_from_file; caída y posible ejecución de código al cargar un GGUF.",
+    "afecta": ">=b2715,<b2740",
+    "corregido_en": "b2740",
+    "cvss": 7.1,
+    "severidad": "ALTA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-p5mv-gjc5-mwqv"
+  },
+  {
+    "id": "CVE-2024-41130",
+    "resumen": "[gguf] Desreferencia de puntero nulo en gguf_init_from_file; caída al cargar un GGUF.",
+    "afecta": "<b3427",
+    "corregido_en": "b3427",
+    "cvss": 5.4,
+    "severidad": "MEDIA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-49q7-2jmh-92fp"
+  },
+  {
+    "id": "CVE-2024-42477",
+    "resumen": "[rpc] rpc_tensor.type sin validar: desbordamiento global en ggml_type_size con posible fuga de memoria. Solo backend RPC.",
+    "afecta": "<b3561",
+    "corregido_en": "b3561",
+    "cvss": 5.3,
+    "severidad": "MEDIA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-mqp6-7pv6-fqjf"
+  },
+  {
+    "id": "CVE-2024-42478",
+    "resumen": "[rpc] rpc_tensor.data sin validar: lectura de dirección arbitraria en rpc_server::get_tensor. Solo backend RPC.",
+    "afecta": "<b3561",
+    "corregido_en": "b3561",
+    "cvss": 5.3,
+    "severidad": "MEDIA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-5vm9-p64x-gqw9"
+  },
+  {
+    "id": "CVE-2024-42479",
+    "resumen": "[rpc] rpc_tensor.data sin validar: escritura arbitraria en rpc_server::set_tensor. Solo backend RPC.",
+    "afecta": "<b3561",
+    "corregido_en": "b3561",
+    "cvss": 9.8,
+    "severidad": "CRITICA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-wcr5-566p-9cwj"
+  },
+  {
+    "id": "CVE-2024-58399",
+    "resumen": "[gguf] Lectura fuera de límites en llama_model_loader por desplazamientos de tensor manipulados en un GGUF.",
+    "afecta": "<b2731",
+    "corregido_en": "b2731",
+    "cvss": 6.1,
+    "severidad": "MEDIA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2024-58399"
+  },
+  {
+    "id": "CVE-2024-58400",
+    "resumen": "[llama-server] Lectura fuera de límites en llama_decode/encode por identificadores de token sin validar enviados a /completion, sin autenticación.",
+    "afecta": "<b3701",
+    "corregido_en": "b3701",
+    "cvss": 8.2,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2024-58400"
+  },
+  {
+    "id": "CVE-2025-49847",
+    "resumen": "[gguf] Desbordamiento de búfer por vocabulario manipulado (token_to_piece); corrupción de memoria al cargar el modelo.",
+    "afecta": "<b5662",
+    "corregido_en": "b5662",
+    "cvss": 8.8,
+    "severidad": "ALTA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-8wwf-w4qm-gpqr"
+  },
+  {
+    "id": "CVE-2025-52566",
+    "resumen": "[tokenizador] Desbordamiento de montón por conversión con signo en llama_vocab::tokenize con texto de entrada manipulado.",
+    "afecta": "<b5721",
+    "corregido_en": "b5721",
+    "cvss": 8.6,
+    "severidad": "ALTA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-7rxv-5jhh-j6xx"
+  },
+  {
+    "id": "CVE-2025-53630",
+    "resumen": "[gguf] Desbordamiento de entero en gguf_init_from_file_impl; lectura/escritura fuera de límites al cargar un GGUF. Corregido en el commit 26a48ad (b5854). CVSS v4.0.",
+    "afecta": "<b5854",
+    "corregido_en": "b5854",
+    "cvss": 8.9,
+    "severidad": "ALTA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-vgg9-87g3-85w8"
+  },
+  {
+    "id": "CVE-2025-71439",
+    "resumen": "[gguf] Lectura de montón fuera de límites en llama_vocab::impl::print_info por identificadores de tokens especiales demasiado grandes (GHSA-g4cc-763q-h9h6).",
+    "afecta": "<b5649",
+    "corregido_en": "b5649",
+    "cvss": 6.6,
+    "severidad": "MEDIA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-g4cc-763q-h9h6"
+  },
+  {
+    "id": "CVE-2026-107183",
+    "resumen": "[llama-server] Uso tras liberación y doble liberación en common_chat_peg_mapper::map mediante un chat_parser enviado a POST /completion, sin autenticación.",
+    "afecta": "<b11393",
+    "corregido_en": "b11393",
+    "cvss": 8.1,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-107183"
+  },
+  {
+    "id": "CVE-2026-116096",
+    "resumen": "[mtmd] Escritura fuera de límites en Pocket-TTS (list_pockettts_state_slots) con un mmproj malicioso; ataque local. Tras la corrección el defecto aborta por aserción.",
+    "afecta": "<b11796",
+    "corregido_en": "b11796",
+    "cvss": 5.3,
+    "severidad": "MEDIA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-116096"
+  },
+  {
+    "id": "CVE-2026-116467",
+    "resumen": "[llama-server] Aserción alcanzable en el muestreador Mirostat (llama-sampler.cpp) por vía remota; denegación de servicio. NVD: hasta 0.7.0 (b11669); PR 29992 cerrado sin fusionar.",
+    "afecta": "<=b11669",
+    "corregido_en": null,
+    "cvss": 5.3,
+    "severidad": "MEDIA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-116467"
+  },
+  {
+    "id": "CVE-2026-116816",
+    "resumen": "[gguf] Escritura de montón fuera de límites en llm_tokenizer_plamo2::build con un GGUF manipulado.",
+    "afecta": ">=b5899,<b10261",
+    "corregido_en": "b10261",
+    "cvss": 7.8,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-116816"
+  },
+  {
+    "id": "CVE-2026-116829",
+    "resumen": "[gguf] Desbordamiento de entero en gguf_init_from_reader que elude la validación de elementos del tensor.",
+    "afecta": ">=b10398,<b11301",
+    "corregido_en": "b11301",
+    "cvss": 6.6,
+    "severidad": "MEDIA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-116829"
+  },
+  {
+    "id": "CVE-2026-116840",
+    "resumen": "[gguf] Desbordamiento de entero en gguf_init_from_reader que elude la comprobación de CVE-2025-53630.",
+    "afecta": ">=b5854,<b11275",
+    "corregido_en": "b11275",
+    "cvss": 6.1,
+    "severidad": "MEDIA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-116840"
+  },
+  {
+    "id": "CVE-2026-118375",
+    "resumen": "[rpc] Escritura fuera de límites en rdma_recv() del transporte RDMA de ggml-rpc: desbordamiento de pila en rpc-server, sin autenticación. Solo rpc-server con RDMA.",
+    "afecta": ">=b8841,<b11865",
+    "corregido_en": "b11865",
+    "cvss": 8.1,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-118375"
+  },
+  {
+    "id": "CVE-2026-119052",
+    "resumen": "[rpc] Excepción no capturada por longitud de mensaje excesiva: caída de rpc-server sin autenticación. Solo rpc-server.",
+    "afecta": ">=b2877,<b11935",
+    "corregido_en": "b11935",
+    "cvss": 7.5,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-119052"
+  },
+  {
+    "id": "CVE-2026-17500",
+    "resumen": "[gramatica] Desreferencia nula en _visit_pattern de json-schema-to-grammar.cpp, alcanzable por vía remota. Notificado en d006858/e15efe0 (b8660/b8635); issue 25284 cerrado sin plan y PR 25308 sin fusionar.",
+    "afecta": "<=b8660",
+    "corregido_en": null,
+    "cvss": 5.3,
+    "severidad": "MEDIA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-17500"
+  },
+  {
+    "id": "CVE-2026-17501",
+    "resumen": "[gramatica] Recursión sin control en transform de json-schema-to-grammar.cpp, alcanzable por vía remota. Notificado en e15efe0 (b8635); issue 25283 cerrado sin plan.",
+    "afecta": "<=b8635",
+    "corregido_en": null,
+    "cvss": 5.3,
+    "severidad": "MEDIA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-17501"
+  },
+  {
+    "id": "CVE-2026-18581",
+    "resumen": "[jinja] Aserción alcanzable en common/jinja/parser.cpp con una plantilla malformada; ataque local. Notificado en e15efe0 (b8635); issue 25282 cerrado sin plan.",
+    "afecta": "<=b8635",
+    "corregido_en": null,
+    "cvss": 3.3,
+    "severidad": "BAJA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-18581"
+  },
+  {
+    "id": "CVE-2026-2069",
+    "resumen": "[gramatica] Desbordamiento de pila en llama_grammar_advance_stack (GBNF); ataque local. NVD: hasta 55abc39 (b7675); PR 18993 abierto.",
+    "afecta": "<=b7675",
+    "corregido_en": null,
+    "cvss": 3.3,
+    "severidad": "BAJA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-2069"
+  },
+  {
+    "id": "CVE-2026-21869",
+    "resumen": "[llama-server] n_discard negativo sin validar en los endpoints de completado: escritura fuera de límites al llenarse el contexto. Corregido en c78fb90 (b8908). El GHSA figura hoy como low sin impacto; NVD conserva 8.8 (CNA) y 9.8 (analista).",
+    "afecta": "<b8908",
+    "corregido_en": "b8908",
+    "cvss": 8.8,
+    "severidad": "ALTA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-8947-pfff-2f3c"
+  },
+  {
+    "id": "CVE-2026-27940",
+    "resumen": "[gguf] Desbordamiento de entero en el cálculo de mem_size de gguf_init_from_file_impl; elude la corrección de CVE-2025-53630.",
+    "afecta": "<b8146",
+    "corregido_en": "b8146",
+    "cvss": 7.8,
+    "severidad": "ALTA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-3p4r-fq3f-q74v"
+  },
+  {
+    "id": "CVE-2026-33298",
+    "resumen": "[gguf] Desbordamiento de entero en ggml_nbytes: tamaño insuficiente y desbordamiento de montón al procesar el tensor.",
+    "afecta": "<b7824",
+    "corregido_en": "b7824",
+    "cvss": 7.8,
+    "severidad": "ALTA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-96jg-mvhq-q7q7"
+  },
+  {
+    "id": "CVE-2026-34159",
+    "resumen": "[rpc] deserialize_tensor() omite la validación con buffer 0: lectura/escritura arbitraria y ejecución remota sin autenticación. Solo backend RPC.",
+    "afecta": "<b8492",
+    "corregido_en": "b8492",
+    "cvss": 9.8,
+    "severidad": "CRITICA",
+    "fuente": "https://github.com/ggml-org/llama.cpp/security/advisories/GHSA-j8rj-fmpv-wcxw"
+  },
+  {
+    "id": "CVE-2026-43622",
+    "resumen": "[android-jni] Doble liberación en el envoltorio LLaMA-Android; no afecta a llama-server.",
+    "afecta": ">=b1886,<=b7445",
+    "corregido_en": "b7446",
+    "cvss": 7.8,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-43622"
+  },
+  {
+    "id": "CVE-2026-43627",
+    "resumen": "[lib] Desbordamiento de entero en llama_batch_init() por multiplicaciones sin comprobar. NVD: hasta b9058; sin corrección documentada.",
+    "afecta": ">=b1283,<=b9058",
+    "corregido_en": null,
+    "cvss": 7.8,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-43627"
+  },
+  {
+    "id": "CVE-2026-43628",
+    "resumen": "[llama-server] Subdesbordamiento en el muestreador DRY con dry_allowed_length INT32_MIN en /v1/completions o /v1/chat/completions, sin autenticación. NVD: hasta b9058; sin corrección documentada.",
+    "afecta": ">=b3978,<=b9058",
+    "corregido_en": null,
+    "cvss": 7.8,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-43628"
+  },
+  {
+    "id": "CVE-2026-43629",
+    "resumen": "[slot-restore] Desbordamiento de montón al restaurar el estado del KV en state_read_data(); requiere escritura en slot_save_path. NVD: hasta b9058; sin corrección documentada.",
+    "afecta": ">=b4882,<=b9058",
+    "corregido_en": null,
+    "cvss": 8.1,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-43629"
+  },
+  {
+    "id": "CVE-2026-43630",
+    "resumen": "[slot-restore] Lectura fuera de límites al restaurar el estado de memoria recurrente; requiere escritura en el directorio de slots. Corregido en f93c09e (b8487).",
+    "afecta": ">=b4882,<b8487",
+    "corregido_en": "b8487",
+    "cvss": 6.5,
+    "severidad": "MEDIA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-43630"
+  },
+  {
+    "id": "CVE-2026-43631",
+    "resumen": "[llama-server] Uso tras liberación del puntero vocab con --sleep-idle-seconds; ejecución remota sin autenticación. NVD: hasta b9060; sin corrección documentada.",
+    "afecta": ">=b7492,<=b9060",
+    "corregido_en": null,
+    "cvss": 8.1,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-43631"
+  },
+  {
+    "id": "CVE-2026-43632",
+    "resumen": "[llama-server] Uso tras liberación en /tokenize, /detokenize, /infill, /apply-template, /rerank y conteo Anthropic con --sleep-idle-seconds. NVD: hasta b9060; sin corrección documentada.",
+    "afecta": ">=b7492,<=b9060",
+    "corregido_en": null,
+    "cvss": 8.1,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-43632"
+  },
+  {
+    "id": "CVE-2026-52130",
+    "resumen": "[gramatica] Recursión sin control en json-schema-to-grammar.cpp; denegación de servicio. NVD: b5693 y anteriores; sin corrección documentada.",
+    "afecta": "<=b5693",
+    "corregido_en": null,
+    "cvss": 7.5,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-52130"
+  },
+  {
+    "id": "CVE-2026-52131",
+    "resumen": "[gguf] Aserción alcanzable en gguf_reader::read. NVD: b5693 y anteriores; sin corrección documentada.",
+    "afecta": "<=b5693",
+    "corregido_en": null,
+    "cvss": 7.5,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-52131"
+  },
+  {
+    "id": "CVE-2026-52132",
+    "resumen": "[llama-server] Con --reranking, top_n negativo en POST /rerank: denegación de servicio. Notificado hasta 97f06e9 (b9053); sin corrección documentada.",
+    "afecta": "<=b9053",
+    "corregido_en": null,
+    "cvss": 7.5,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-52132"
+  },
+  {
+    "id": "CVE-2026-70638",
+    "resumen": "[android-jni] Desbordamiento de entero en new_1batch() del envoltorio LLaMA-Android; no afecta a llama-server.",
+    "afecta": ">=b1886,<=b7445",
+    "corregido_en": "b7446",
+    "cvss": 7.8,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-70638"
+  },
+  {
+    "id": "CVE-2026-70639",
+    "resumen": "[android-jni] Desreferencia nula en bench_1model() del envoltorio LLaMA-Android; no afecta a llama-server.",
+    "afecta": ">=b1886,<=b7445",
+    "corregido_en": "b7446",
+    "cvss": 5.5,
+    "severidad": "MEDIA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-70639"
+  },
+  {
+    "id": "CVE-2026-70640",
+    "resumen": "[android-jni] Condición de carrera con uso tras liberación en bench_1model()/free_1context() del envoltorio LLaMA-Android; no afecta a llama-server.",
+    "afecta": ">=b1886,<=b7445",
+    "corregido_en": "b7446",
+    "cvss": 7.0,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-70640"
+  },
+  {
+    "id": "CVE-2026-78147",
+    "resumen": "[rpc] Falta de validación de op/op_params en deserialize_tensor de ggml-rpc, distinta de CVE-2026-34159. Notificado en bec4772f6 (b9913); issue 25289 cerrado sin plan. Solo backend RPC.",
+    "afecta": "<=b9913",
+    "corregido_en": null,
+    "cvss": 7.3,
+    "severidad": "ALTA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-78147"
+  },
+  {
+    "id": "CVE-2026-78148",
+    "resumen": "[rpc] Desreferencia nula en rpc_server::graph_compute. Notificado en bec4772f6 (b9913); PR 25670 abierto. Solo backend RPC.",
+    "afecta": "<=b9913",
+    "corregido_en": null,
+    "cvss": 5.3,
+    "severidad": "MEDIA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-78148"
+  },
+  {
+    "id": "CVE-2026-86317",
+    "resumen": "[rpc] Aserción alcanzable en rpc_server::deserialize_tensor por el argumento ne. NVD: hasta 0.4.0 (b10809); issue 25288 cerrado sin plan. Solo backend RPC.",
+    "afecta": "<=b10809",
+    "corregido_en": null,
+    "cvss": 5.3,
+    "severidad": "MEDIA",
+    "fuente": "https://nvd.nist.gov/vuln/detail/CVE-2026-86317"
+  }
+]

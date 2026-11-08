@@ -27,13 +27,12 @@ import json
 import os
 import platform
 import re
-import socket
 import urllib.parse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from mrrobotia import herramientas, procesos, red
-from mrrobotia.contexto import Contexto, ServidorDetectado, texto_enlace
+from mrrobotia.contexto import Contexto, ServidorDetectado, texto_direccion, texto_enlace
 from mrrobotia.herramientas import Herramienta
 from mrrobotia.nucleo import Hallazgo, Modulo, Severidad
 from mrrobotia.perfiles import GENERICO, PERFILES
@@ -76,6 +75,7 @@ class _Candidato:
     puerto: int
     prefijo: str = ""
     por_defecto: bool = False   # solo es un puerto por defecto de un perfil: nadie lo ha indicado
+    senales: list[str] = field(default_factory=list)    # lo observado de este candidato sin identificar
 
     @property
     def raiz(self):
@@ -93,7 +93,7 @@ def _prefijo_de_ruta(ruta):
     return _RE_SUFIJO_API.sub("", ruta or "").rstrip("/")
 
 
-def _destino(objetivo):
+def destino_declarado(objetivo):
     """Interpreta `endpoint`, `host` y `exposicion.puerto` del objetivo."""
     cfg = objetivo.get("exposicion") or {}
     host = objetivo.get("host") or cfg.get("host") or "127.0.0.1"
@@ -192,12 +192,17 @@ def _detectar_so():
     return so, wsl
 
 
-def _es_local(host):
-    """¿El host auditado es este equipo? Solo entonces sus procesos son los del objetivo."""
-    if red.clasificar_direccion(host) in ("loopback", "todas"):
-        return True
-    texto = str(host).lower()
-    return texto in {socket.gethostname().lower(), (red.ip_rutable() or "").lower()}
+def _host_de_redireccion(respuesta, candidato):
+    """Host al que redirige una respuesta si no es el del candidato; None si no sale de él.
+    `127.0.0.1` y `localhost` son el mismo equipo y no cuentan como otro host."""
+    destino = respuesta.cabeceras.get("location", "")
+    if not (respuesta.estado and 300 <= respuesta.estado < 400 and destino):
+        return None
+    host = urllib.parse.urlsplit(urllib.parse.urljoin(candidato.url + "/", destino)).hostname or ""
+    ambos_locales = red.clasificar_direccion(host) == red.clasificar_direccion(candidato.host) == "loopback"
+    if host.lower() == candidato.host.lower() or ambos_locales:
+        return None
+    return limpiar(host, 60)
 
 
 def _servidor_de_proceso(perfil, proceso, tabla):
@@ -316,14 +321,8 @@ def _solo_declarado(servidor):
 
 
 # -------------------------------------------------------------------- hallazgos
-def _direccion(servidor):
-    if servidor.puerto is None:
-        return f"{servidor.host} (puerto desconocido)"
-    return f"{servidor.host}:{servidor.puerto}"
-
-
 def _evidencia_servidor(s):
-    partes = [f"{s.tipo} {s.version or '(versión desconocida)'} en {_direccion(s)}",
+    partes = [f"{s.tipo} {s.version or '(versión desconocida)'} en {texto_direccion(s)}",
               f"fuentes: {', '.join(s.fuentes)}", f"confianza: {s.confianza}",
               f"enlace: {texto_enlace(s.enlace)}", f"autenticación: {s.autenticacion or 'sin comprobar'}"]
     if s.pid is not None:
@@ -375,21 +374,13 @@ class H2Identificacion(Modulo):
                 type(e).__name__, "Los módulos siguientes tendrán menos información del servidor.", REFS))
         return hallazgos
 
-    def _motivo_omision(self, objetivo, local):
-        """Por qué no se puede sondear por red, o None si se puede."""
-        if not local and objetivo.get("autorizacion", {}).get("confirmo_no_local") is not True:
-            return "host no local sin confirmo_no_local"
-        if not getattr(self, "activos_ok", False):
-            return "requiere --permitir-activos y permitir_activos=true"
-        return None
-
     def _identificar(self, objetivo, h):
-        destino = _destino(objetivo)
-        local = _es_local(destino.host)
+        destino = destino_declarado(objetivo)
+        local = red.es_host_local(destino.host)
         tabla = red.tabla_puertos() if local else ""
         servidores, enumerados = _desde_procesos(tabla) if local else ([], False)
         cerrados = []
-        omision = self._motivo_omision(objetivo, local)
+        omision = self.motivo_omision_activa(objetivo, local)
         if omision:
             h.append(Hallazgo(
                 MODULO, "H2-ID-ACTIVO-OMITIDO", "Identificación por red omitida", Severidad.INFO, "informativo",
@@ -424,14 +415,19 @@ class H2Identificacion(Modulo):
                     "informativo", f"{c.host}:{c.puerto}: {type(e).__name__}", "", REFS))
                 continue
             if ident is not None:
+                ident.senales.extend(c.senales)
                 _incorporar(servidores, c, ident, fuente, tabla)
-            elif not any(s.puerto == c.puerto for s in servidores):
-                servidor = limpiar(cliente.head("/").cabeceras.get("server", ""), 60)
-                h.append(Hallazgo(
-                    MODULO, "H2-ID-OTRO", "Servicio en escucha sin identificar", Severidad.INFO, "informativo",
-                    f"{c.host}:{c.puerto} acepta conexiones, pero ni los perfiles ni Julius lo reconocen"
-                    + (f"; Server: {servidor}" if servidor else ""),
-                    "Comprueba qué servicio es y si debe estar en este host.", REFS))
+                continue
+            conocido = next((s for s in servidores if s.puerto == c.puerto), None)
+            if conocido is not None:
+                conocido.senales.extend(c.senales)
+                continue
+            servidor = limpiar(cliente.head("/").cabeceras.get("server", ""), 60)
+            h.append(Hallazgo(
+                MODULO, "H2-ID-OTRO", "Servicio en escucha sin identificar", Severidad.INFO, "informativo",
+                f"{c.host}:{c.puerto} acepta conexiones, pero ni los perfiles ni Julius lo reconocen"
+                + (f"; Server: {servidor}" if servidor else "") + "".join(f"; {x}" for x in c.senales),
+                "Comprueba qué servicio es y si debe estar en este host.", REFS))
 
     def _identificar_candidato(self, candidato, cliente, objetivo, h):
         """Perfiles específicos, después Julius y por último el genérico: si el genérico fuera
@@ -440,12 +436,12 @@ class H2Identificacion(Modulo):
             ident = perfil.identificar_http(cliente)
             if ident is not None:
                 return ident, "http"
-        ident = self._julius(candidato, objetivo, h)
+        ident = self._julius(candidato, cliente, objetivo, h)
         if ident is not None:
             return ident, "julius"
         return GENERICO.identificar_http(cliente), "http"
 
-    def _julius(self, candidato, objetivo, h):
+    def _julius(self, candidato, cliente, objetivo, h):
         det = herramientas.detectar(JULIUS, objetivo.get("herramientas") or {})
         if not det.disponible:
             if not self._julius_avisada:
@@ -454,6 +450,13 @@ class H2Identificacion(Modulo):
                     MODULO, "H2-ID-JULIUS-NO-INSTALADA", "Julius no está instalada", Severidad.INFO,
                     "informativo", det.error or "",
                     f"Instálala para reconocer más servicios: {JULIUS.instalar_con}", REFS))
+            return None
+        # Julius sigue las redirecciones y no tiene opción para evitarlo: podría salir del host
+        # autorizado. Mirar solo `/` es una mitigación parcial, porque sus sondas piden otras
+        # rutas que también podrían redirigir, pero evita el caso habitual de un portal delante.
+        externo = _host_de_redireccion(cliente.get("/"), candidato)
+        if externo is not None:
+            candidato.senales.append(f"redirige a otro host ({externo}): no se usa Julius")
             return None
         orden = [det.ruta, "probe", "-o", "json", "-p", str(DIR_SONDAS), "-t", "3", "-c", "4", "--no-color", "-q"]
         if candidato.prefijo:
@@ -487,7 +490,7 @@ class H2Identificacion(Modulo):
                 prefijo=destino.prefijo, confianza="alta", fuentes=["forzado"]))
             return
         if servidor.tipo not in (forzado, GENERICO.id):
-            h.append(_conflicto(f"forzado: {forzado}; detectado: {servidor.tipo} en {_direccion(servidor)}. "
+            h.append(_conflicto(f"forzado: {forzado}; detectado: {servidor.tipo} en {texto_direccion(servidor)}. "
                                 "Se usa lo forzado."))
         servidor.tipo, servidor.confianza = forzado, "alta"
         servidor.fuentes.insert(0, "forzado")
@@ -507,7 +510,7 @@ class H2Identificacion(Modulo):
         if servidor.tipo == GENERICO.id:
             servidor.tipo = declarado       # «compatible con OpenAI» no contradice nada: se concreta
         elif servidor.tipo != declarado:
-            h.append(_conflicto(f"declarado: {declarado}; detectado: {servidor.tipo} en {_direccion(servidor)}. "
+            h.append(_conflicto(f"declarado: {declarado}; detectado: {servidor.tipo} en {texto_direccion(servidor)}. "
                                 "Se usa lo detectado."))
             return
         servidor.fuentes.append("declarado")

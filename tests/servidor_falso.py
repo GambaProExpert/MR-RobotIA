@@ -28,6 +28,7 @@ RUTA_MODELO_FALSA = "/srv/modelos/privados/modelo-falso-q4.gguf"
 _JSON = "application/json; charset=utf-8"
 _NO_ENCONTRADO = {"error": {"message": "File Not Found", "type": "not_found_error", "code": 404}}
 _CLAVE_INVALIDA = {"error": {"message": "Invalid API Key", "type": "authentication_error", "code": 401}}
+_NO_DISPONIBLE = {"error": {"code": 501, "type": "not_supported_error", "message": "x"}}
 _PUBLICAS_LLAMACPP = {"/health", "/v1/health", "/", "/index.html", "/sw.js", "/manifest.webmanifest",
                       "/_app/version.json", "/build.json", "/favicon.ico"}
 _PROTEGIDAS_VLLM = ("/v1", "/v2", "/inference", "/cohere")
@@ -102,34 +103,60 @@ def desde_rutas(rutas, defecto=(404, {}, b"")):
     return lambda p: rutas.get(f"{p.metodo} {p.ruta}", defecto)
 
 
-def props_llamacpp(build=BUILD_LLAMACPP, modelo=RUTA_MODELO_FALSA):
+def props_llamacpp(build=BUILD_LLAMACPP, modelo=RUTA_MODELO_FALSA, plantilla="{{ messages }}", **extra):
     """Cuerpo de `/props` con los campos de la captura real."""
     return {
         "default_generation_settings": {"params": {"seed": 4294967295, "temperature": 0.8}, "n_ctx": 256},
         "total_slots": 1, "model_alias": modelo, "model_ftype": "Q4_K - Medium", "model_path": modelo,
         "modalities": {"vision": False, "video": False, "audio": False},
         "media_marker": "<__media_falso__>", "endpoint_slots": True, "endpoint_props": False,
-        "endpoint_metrics": False, "ui": True, "ui_settings": {}, "chat_template": "{{ messages }}",
+        "endpoint_metrics": False, "ui": True, "ui_settings": {}, "chat_template": plantilla,
         "chat_template_caps": {"supports_tools": True}, "bos_token": "<|endoftext|>",
         "eos_token": "<|im_end|>", "build_info": build, "is_sleeping": False, "cors_proxy_enabled": False,
+        **extra,
     }
 
 
+def _cors_llamacpp(cors, credenciales, origen):
+    """`Access-Control-Allow-Origin` según `--cors-origins`; None si no se envía."""
+    if cors == "*" and credenciales:
+        return origen or ""         # refleja el Origin; vacía si la petición no lo lleva
+    if cors == "localhost":
+        host = origen.partition("://")[2].rpartition(":")[0] or origen.partition("://")[2]
+        return origen if origen and host in ("localhost", "127.0.0.1", "[::1]") else None
+    return cors
+
+
 def llamacpp(clave=None, webui=True, prefijo="", build=BUILD_LLAMACPP, modelo=RUTA_MODELO_FALSA,
-             cargando=False, server="llama.cpp"):
+             cargando=False, server="llama.cpp", plantilla="{{ messages }}", prompt=None, dormido=False,
+             metricas=False, props_post=False, guardado_slots=False, sin_slots=False, adaptadores=(),
+             herramientas=(), cors_proxy=False, router=False, cors="*", credenciales=True, validar_host=False):
     """llama-server b11583. Orden real del middleware: OPTIONS, carga, clave, enrutado.
-    Las rutas públicas con clave no incluyen el prefijo."""
+    Las rutas públicas con clave no incluyen el prefijo. `prompt` es el texto que publicaría
+    `/slots` con LLAMA_SERVER_SLOTS_DEBUG. Los parámetros de abajo reproducen cada arranque."""
     base = {"Access-Control-Allow-Origin": ""}
     if server:
         base["Server"] = server
     version = build.split("-", 1)[0]
-    modelos = {"models": [{"name": modelo}], "object": "list", "data": [
-        {"id": modelo, "aliases": [], "tags": [], "object": "model", "created": 1, "owned_by": "llamacpp", "meta": {}}]}
+    if router:
+        fila = {"id": "alias-router", "aliases": [], "tags": [], "object": "model", "owned_by": "llamacpp", "created": 1,
+                "status": {"value": "unloaded", "args": ["/srv/llama-server", "--model", modelo], "preset": f"model = {modelo}"}}
+        modelos = {"data": [fila], "object": "list"}
+    else:
+        modelos = {"models": [{"name": modelo}], "object": "list", "data": [
+            {"id": modelo, "aliases": [], "tags": [], "object": "model", "created": 1, "owned_by": "llamacpp", "meta": {}}]}
 
     def responder(p):
         ruta = p.ruta.partition("?")[0]
+        if validar_host and p.cabeceras.get("host", "").partition(":")[0] != "127.0.0.1":
+            return 421, base, b""
+        acao = _cors_llamacpp(cors, credenciales, p.cabeceras.get("origin", ""))
+        cabeceras_cors = {k: v for k, v in base.items() if k != "Access-Control-Allow-Origin"}
+        if acao is not None:
+            cabeceras_cors["Access-Control-Allow-Origin"] = acao
         if p.metodo == "OPTIONS":
-            return 200, {**base, "Access-Control-Allow-Credentials": "true"}, b""
+            return 200, {**cabeceras_cors, "Access-Control-Allow-Credentials": "true" if credenciales else "false",
+                         "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "*"}, b""
         if cargando and ruta in ("/health", "/props"):
             return _respuesta_json(503, {"error": {"message": "Loading model", "type": "unavailable_error", "code": 503}}, base)
         if clave and ruta not in _PUBLICAS_LLAMACPP and p.cabeceras.get("authorization") != f"Bearer {clave}":
@@ -141,13 +168,47 @@ def llamacpp(clave=None, webui=True, prefijo="", build=BUILD_LLAMACPP, modelo=RU
         if ruta in ("/health", "/v1/health"):
             return _respuesta_json(200, {"status": "ok"}, base)
         if ruta == "/props":
-            return _respuesta_json(200, props_llamacpp(build, modelo), base)
+            if router:
+                return _respuesta_json(200, {"role": "router", "max_instances": 4, "models_autoload": False, "model_alias": "llama-server",
+                                             "model_path": "none", "default_generation_settings": {"params": None, "n_ctx": 0},
+                                             "ui_settings": {}, "build_info": build, "cors_proxy_enabled": cors_proxy}, base)
+            indicadores = {"is_sleeping": dormido, "endpoint_metrics": metricas, "endpoint_props": props_post,
+                           "endpoint_slots": not sin_slots, "ui": webui, "cors_proxy_enabled": cors_proxy}
+            return _respuesta_json(200, props_llamacpp(build, modelo, plantilla, **indicadores), base)
         if ruta in ("/v1/models", "/models"):
             return _respuesta_json(200, modelos, base)
         if ruta == "/metrics":
-            return _respuesta_json(501, {"error": {"code": 501, "type": "not_supported_error", "message": "x"}}, base)
+            if metricas:
+                return 200, {**base, "Content-Type": "text/plain"}, b"llamacpp:prompt_tokens_total 1\n"
+            return _respuesta_json(501, _NO_DISPONIBLE, base)
+        if router and ruta in ("/slots", "/lora-adapters"):
+            return _respuesta_json(400, {"error": {"code": 400, "message": "model name is missing from the request"}}, base)
         if ruta == "/slots":
-            return _respuesta_json(200, [{"id": 0, "n_ctx": 256, "speculative": False, "is_processing": False}], base)
+            if sin_slots:
+                return _respuesta_json(501, _NO_DISPONIBLE, base)
+            fila = {"id": 0, "n_ctx": 256, "speculative": False, "is_processing": False, "params": {"lora": list(adaptadores)}}
+            if prompt:
+                fila.update({"prompt": prompt, "generated": prompt})
+            return _respuesta_json(200, [fila], base)
+        if p.metodo == "POST" and ruta.startswith("/slots/"):
+            if not guardado_slots:
+                return _respuesta_json(501, _NO_DISPONIBLE, base)
+            return _respuesta_json(400, {"error": {"code": 400, "message": "Invalid action", "type": "invalid_request_error"}}, base)
+        if ruta == "/lora-adapters":
+            return _respuesta_json(200, [{"id": i, "path": a, "scale": 1.0} for i, a in enumerate(adaptadores)], base)
+        if ruta == "/tools":
+            if not herramientas:
+                return _respuesta_json(403, {"error": {"code": 403, "message": "tools disabled"}}, base)
+            return _respuesta_json(200, list(herramientas), base)
+        if ruta == "/cors-proxy":
+            if cors_proxy:
+                return _respuesta_json(500, {"error": {"code": 500, "message": "invalid URL: no scheme"}}, base)
+            return _respuesta_json(403, {"error": {"code": 403, "message": "disabled"}}, base)
+        if ruta in ("/", "/index.html") and webui:
+            if "gzip" not in p.cabeceras.get("accept-encoding", ""):
+                return 415, {**base, "Content-Type": "text/plain"}, b"Error: gzip is not supported by this browser"
+            cuerpo = gzip.compress(b"<!doctype html><html></html>")
+            return 200, {**base, "Content-Encoding": "gzip", "Content-Type": "text/html; charset=utf-8"}, cuerpo
         if ruta == "/build.json" and webui:
             if "gzip" not in p.cabeceras.get("accept-encoding", ""):
                 return 415, {**base, "Content-Type": "text/plain"}, b"Error: gzip is not supported by this browser"

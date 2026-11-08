@@ -12,15 +12,27 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from mrrobotia.nucleo import Hallazgo, Severidad
 from mrrobotia.red import a_puerto
 
 _RE_VERSION = re.compile(r"[\w.+-]{1,64}")
 _RE_NO_SEGURO = re.compile(r"[^\w.+:@ /=~-]")
 _RE_CREDENCIAL_URL = re.compile(r"://[^/\s]*@")
 _RE_RUTA = re.compile(r"^(?:[A-Za-z]:|[/\\~.]|file:)")
+_RE_RUTA_ABSOLUTA = re.compile(r"^(?:[A-Za-z]:[\\/]|[\\/]|~[\\/]|file:)")
 _EXTENSIONES_MODELO = (".gguf", ".bin", ".safetensors", ".pt", ".pth")
 MAX_TEXTO = 120
 MAX_MODELOS = 16
+
+# Módulos a los que pertenecen los hallazgos que construyen los perfiles.
+MODULO_EXPOSICION = "H2"
+MODULO_ARRANQUE = "H2-ARRANQUE"
+# Marcos por tipo de debilidad.
+REFS_EXPO = {"owasp": "LLM10", "atlas": "AML.T0049", "nist": "2.9"}      # exposición del servicio
+REFS_FUGA = {"owasp": "LLM02", "atlas": "AML.T0057", "nist": "2.4"}      # fuga de prompt/estado
+REFS_SECRETOS = {"owasp": "LLM02", "atlas": "AML.T0025", "nist": "2.9"}  # secretos en el arranque o el entorno
+REFS_SUPPLY = {"owasp": "LLM03", "atlas": "AML.T0010", "nist": "2.12"}   # versión y avisos publicados
+REFS_MODELS = {"owasp": "LLM02", "atlas": "AML.T0025", "nist": "2.4"}    # enumeración y rutas de modelos
 
 
 def nombre_fichero(ruta):
@@ -63,6 +75,57 @@ def normalizar_prefijo(valor):
     return "" if prefijo == "/" else prefijo
 
 
+def es_ruta_absoluta(valor):
+    """¿Es una ruta absoluta de disco? Un identificador `org/modelo:Q4` no lo es."""
+    return isinstance(valor, str) and bool(_RE_RUTA_ABSOLUTA.match(valor.strip()))
+
+
+def ids_modelos(datos):
+    """Identificadores de la respuesta de `/v1/models` (lista de objetos o de cadenas)."""
+    lista = datos.get("data") if isinstance(datos, dict) else datos
+    if not isinstance(lista, list):
+        return []
+    ids = []
+    for d in lista:
+        valor = d.get("id") if isinstance(d, dict) else d
+        if isinstance(valor, str) and valor:
+            ids.append(valor)
+    return ids
+
+
+# ------------------------------------------------------- hallazgos compartidos
+def hallazgo_autenticacion(autenticacion, detalle, expuesto, proxy, consejo):
+    """H2-AUTH según lo observado. `detalle` dice qué se ha pedido y qué ha respondido."""
+    if autenticacion == "abierta":
+        severidad = Severidad.CRITICA if expuesto and not proxy else Severidad.MEDIA
+        return Hallazgo(
+            MODULO_EXPOSICION, "H2-AUTH", "El servidor responde sin exigir API key", severidad, "confirmado",
+            detalle, f"{consejo}; sin clave, cualquiera que alcance el puerto puede usar el modelo (A5).", REFS_EXPO)
+    if autenticacion == "activa":
+        return Hallazgo(MODULO_EXPOSICION, "H2-AUTH", "El servidor exige API key", Severidad.INFO, "informativo",
+                        detalle, "", REFS_EXPO)
+    return Hallazgo(
+        MODULO_EXPOSICION, "H2-AUTH", "No se pudo determinar si el servidor exige API key", Severidad.INFO,
+        "informativo", detalle, "Comprueba a mano si la API exige autenticación: esto no demuestra que esté protegida.",
+        REFS_EXPO)
+
+
+def hallazgo_modelos(ids):
+    """H2-MODELS a partir de los identificadores: rutas de disco (MEDIA) o alias (BAJA)."""
+    if not ids:
+        return None
+    if any(es_ruta_absoluta(i) for i in ids):
+        return Hallazgo(
+            MODULO_EXPOSICION, "H2-MODELS", "El endpoint /v1/models revela rutas de disco de los modelos",
+            Severidad.MEDIA, "confirmado", f"{len(ids)} modelo(s); algún id es una ruta absoluta",
+            "Expón alias en lugar de rutas en /v1/models: la ruta en disco informa al atacante de la "
+            "estructura del despliegue (LLM02).", REFS_MODELS)
+    return Hallazgo(
+        MODULO_EXPOSICION, "H2-MODELS", "El endpoint /v1/models enumera los modelos servidos", Severidad.BAJA,
+        "confirmado", f"{len(ids)} modelo(s) enumerables (ids tipo alias)",
+        "Si no es necesario, restringe /v1/models; permite enumerar los modelos disponibles.", REFS_MODELS)
+
+
 @dataclass(frozen=True)
 class Op:
     clave: str                # nombre canónico en ServidorDetectado.opciones
@@ -92,6 +155,7 @@ class Perfil:
     variables_clave = ()      # variables cuya presencia activa la autenticación
     post_permitidos = frozenset()
     fichero_cve = None
+    clave_version = None      # versión -> valor comparable para `cve.py`; None si no se sabe comparar
     abreviaturas = False      # argparse admite prefijos únicos de las opciones largas
 
     # ------------------------------------------------------------ proceso local
@@ -175,3 +239,7 @@ class Perfil:
 
     def sondear(self, cliente, servidor, expuesto, proxy) -> list:
         return []
+
+    def componente_en_uso(self, aviso, servidor):
+        """¿Usa este servidor el componente del aviso? True, False o None si no se puede saber."""
+        return None
