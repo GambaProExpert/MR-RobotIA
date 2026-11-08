@@ -16,17 +16,22 @@ y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/)
     puerto/bind/pid, nunca banners.
   - **H3-HOST** (`modulos/h3_host.py`): **Trivy** (`trivy fs`, offline) para CVEs, malas
     configuraciones y secretos; PASIVO. Nunca vuelca el valor del secreto (solo regla@fichero:línea).
-  - `mrrobot/red.py`: utilidades de red/SO compartidas (tabla de puertos, enlace, sondeo, propietario).
+  - `mrrobotia/red.py`: utilidades de red/SO compartidas (tabla de puertos, enlace, sondeo, propietario).
   - Atacantes A5/A4/A3; marcos OWASP LLM10/LLM03/LLM02, MITRE ATLAS, NIST AI 600-1.
 - **Selector `--escaneo`**: elige qué correr por etiqueta (`integridad, config, exposicion, ssh,
   puertos, vulns`) o grupo (`todo, host, activo, pasivo`); `pasivo` fuerza a omitir todo sondeo
   activo. Cada módulo declara su `etiqueta_escaneo`.
 - Claves de objetivo `servidor`, `ssh`, `puertos`, `host_trivy`.
 
+### Cambiado
+- La herramienta pasa a llamarse **MRRobotIA** por motivos de derechos de autor: el paquete
+  Python es `mrrobotia`, el comando de consola es `mrrobotia`, y las variables de entorno son
+  `MRROBOTIA_OBJETIVO` / `MRROBOTIA_PERMITIR_ACTIVOS`.
+
 ## [0.4.0] - 2026-11-06
 
 ### Añadido
-- **Módulo H2 — Inventario y exposición del servidor LLM** (`mrrobot.modulos.h2_exposicion`),
+- **Módulo H2 — Inventario y exposición del servidor LLM** (`mrrobotia.modulos.h2_exposicion`),
   para **llama.cpp (llama-server)**. Módulo HÍBRIDO: parte PASIVA siempre (enlace de red del
   puerto vía `netstat`/`ss`, claves de proveedor en el entorno —solo NOMBRES—, propietario del
   proceso best-effort) y parte ACTIVA gated (sondeo del endpoint: sin API key, `/slots` —fuga de
@@ -36,18 +41,18 @@ y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/)
   NIST AI 600-1. Clave de objetivo `endpoint` + `exposicion` (`puerto`, `bind_esperado`,
   `proxy_autenticador`, `api_key_esperada`, `builds_vulnerables`) y `tests/test_h2.py`.
 - **Gating de sondeo activo granular**: atributo `Modulo.activos_ok` (lo pone el CLI con
-  `--permitir-activos`/`MRROBOT_PERMITIR_ACTIVOS` + `permitir_activos`), para módulos híbridos
+  `--permitir-activos`/`MRROBOTIA_PERMITIR_ACTIVOS` + `permitir_activos`), para módulos híbridos
   cuya parte pasiva debe correr siempre.
 
 ### Cambiado
 - El CLI registra H2 y **desvincula el prober propio M1**: `m1_robustez.py` queda en disco, sin
-  cablear, a sustituir por garak en H4. Se conservan `MRROBOT_OBJETIVO` y `MRROBOT_PERMITIR_ACTIVOS`.
+  cablear, a sustituir por garak en H4. Se conservan `MRROBOTIA_OBJETIVO` y `MRROBOTIA_PERMITIR_ACTIVOS`.
   Objetivo de ejemplo con `endpoint` + `exposicion`.
 
 ## [0.3.0] - 2026-11-06
 
 ### Añadido
-- **Núcleo orquestador de herramientas externas** (`mrrobot.herramientas`): MRRobot pasa
+- **Núcleo orquestador de herramientas externas** (`mrrobotia.herramientas`): MRRobotIA pasa
   a **orquestar** herramientas ya consolidadas (garak, promptfoo, Trivy, DeepEval…) y
   **normalizar** su salida a `Hallazgo`, en lugar de reimplementarlas (ver `HITOS.md`).
   - `Herramienta`/`Deteccion`/`Resultado`; `detectar()` (ruta del `PATH` o de
@@ -67,7 +72,7 @@ y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/)
 ## [0.2.0] - 2026-11-06
 
 ### Añadido
-- **Módulo M3 — Auditoría de configuración** (`mrrobot.modulos.m3_configuracion`):
+- **Módulo M3 — Auditoría de configuración** (`mrrobotia.modulos.m3_configuracion`):
   módulo pasivo y de solo lectura que, a partir de las rutas declaradas en el objetivo
   (`usuarios`, `auditoria`/`dir_logs` y, opcional, `app_dir`), comprueba:
   - `usuarios.json`: PBKDF2 con iteraciones suficientes (>= 100000), sal presente y de
@@ -82,22 +87,22 @@ y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/)
   - Atacantes A3 (acceso a disco) y A5 (exposición); marcos OWASP LLM02 y LLM10,
     NIST AI 600-1 (2.4, 2.9), MITRE ATLAS AML.T0049. **Nunca imprime secretos**: solo
     recuentos y nombres de campo, con hashes y valores truncados u omitidos.
-- M3 registrado en la CLI (`mrrobot`/`python -m mrrobot`), tras M2.
+- M3 registrado en la CLI (`mrrobotia`/`python -m mrrobotia`), tras M2.
 - Claves nuevas del objetivo de ejemplo (`usuarios`, `auditoria`/`dir_logs`, `app_dir`)
   y pruebas `tests/test_m3.py` (fixtures sintéticas con `tmp_path`, sin datos reales).
 
 ## [0.1.0] - 2026-11-06
 
 ### Añadido
-- **Núcleo del auditor** (`mrrobot.nucleo`): modelo de `Hallazgo` con severidades
+- **Núcleo del auditor** (`mrrobotia.nucleo`): modelo de `Hallazgo` con severidades
   (INFO…CRITICA), carga de objetivo con **autorización explícita** (deniega por
   defecto; un host no local exige confirmación aparte) e **informe** en Markdown y
   JSON ordenado por severidad.
-- **Módulo M2 — Integridad de artefactos** (`mrrobot.modulos.m2_integridad`):
+- **Módulo M2 — Integridad de artefactos** (`mrrobotia.modulos.m2_integridad`):
   verificación SHA-256 de `.gguf` y bases vectoriales contra un manifiesto; detecta
   artefactos ausentes, alterados, sin hash de referencia y manifiestos sin firmar
   (atacantes A3 y A4 del modelo de amenazas).
-- **Interfaz de línea de órdenes** `mrrobot` (y `python -m mrrobot`) con las opciones
+- **Interfaz de línea de órdenes** `mrrobotia` (y `python -m mrrobotia`) con las opciones
   `--objetivo`, `--permitir-activos` y `--salida`.
 - **Empaquetado instalable** con src-layout (`pip install -e .`), ejemplo de objetivo
   en `ejemplos/` y batería de pruebas con pytest.

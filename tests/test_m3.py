@@ -8,8 +8,8 @@ import os
 
 import pytest
 
-from mrrobot.modulos.m3_configuracion import M3Configuracion
-from mrrobot.nucleo import Severidad
+from mrrobotia.modulos.m3_configuracion import M3Configuracion
+from mrrobotia.nucleo import Severidad
 
 
 def _por_id(hallazgos):

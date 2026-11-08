@@ -6,9 +6,9 @@ pasivo (con la tabla de puertos y el propietario parcheados, sin tocar la red). 
 también el invariante de privacidad: la evidencia es puerto/bind/pid y nunca vuelca datos
 ni banners del servicio.
 """
-from mrrobot.modulos import h3_puertos as h3
-from mrrobot.modulos.h3_puertos import H3Puertos, _evaluar_puertos, PELIGROSOS
-from mrrobot.nucleo import Severidad
+from mrrobotia.modulos import h3_puertos as h3
+from mrrobotia.modulos.h3_puertos import H3Puertos, _evaluar_puertos, PELIGROSOS
+from mrrobotia.nucleo import Severidad
 
 
 # --------------------------------------------------- casos obligatorios (función pura)

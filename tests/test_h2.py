@@ -7,9 +7,9 @@ el texto de un prompt ni el VALOR de una variable de entorno.
 """
 import os
 
-from mrrobot.modulos import h2_exposicion as h2
-from mrrobot.modulos.h2_exposicion import H2Exposicion
-from mrrobot.nucleo import Severidad
+from mrrobotia.modulos import h2_exposicion as h2
+from mrrobotia.modulos.h2_exposicion import H2Exposicion
+from mrrobotia.nucleo import Severidad
 
 
 # --------------------------------------------------------------- _bind_desde_tabla

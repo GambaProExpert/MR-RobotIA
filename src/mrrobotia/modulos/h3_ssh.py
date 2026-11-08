@@ -19,7 +19,7 @@ ssh-audit se ignora a propósito), ni ningún secreto: el informe de auditoría 
 convertirse él mismo en una filtración.
 
 Diseño GENERAL (no depende de ningún caso del TFG): solo biblioteca estándar (os, re,
-json) y `mrrobot.herramientas` para orquestar ssh-audit (nunca shell=True).
+json) y `mrrobotia.herramientas` para orquestar ssh-audit (nunca shell=True).
 
 Separación para testabilidad: `_evaluar_sshd(cfg)` y `_evaluar_sshaudit(obj)` son
 funciones PURAS y se prueban sin servidor SSH ni ssh-audit instalado; los métodos del
@@ -36,8 +36,8 @@ import json
 import os
 import re
 
-from mrrobot import herramientas
-from mrrobot.nucleo import Modulo, Hallazgo, Severidad
+from mrrobotia import herramientas
+from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
 
 # --------------------------------------------------------------------- constantes
 REFS = {"owasp": "LLM10", "atlas": "AML.T0049", "nist": "2.9"}

@@ -3,7 +3,7 @@ H3 — Vulnerabilidades, secretos y malas configuraciones del host (Trivy).
 
 Módulo PASIVO: Trivy (`trivy fs`) solo LEE el disco local del despliegue, no
 interactúa con el servicio, así que no está condicionado a `--permitir-activos`.
-MRRobot no reimplementa el escaneo de CVEs: orquesta Trivy de forma LOCAL y
+MRRobotIA no reimplementa el escaneo de CVEs: orquesta Trivy de forma LOCAL y
 OFFLINE y normaliza su salida JSON a los `Hallazgo` del informe único.
 
 Tres categorías de hallazgo, con su encaje en los marcos del TFG:
@@ -25,16 +25,16 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from mrrobot import herramientas
-from mrrobot.herramientas import Herramienta, ModuloHerramienta
-from mrrobot.nucleo import Hallazgo, Severidad
+from mrrobotia import herramientas
+from mrrobotia.herramientas import Herramienta, ModuloHerramienta
+from mrrobotia.nucleo import Hallazgo, Severidad
 
 # Vulnerabilidades y malas configuraciones: cadena de suministro / integridad.
 REFS_SUPPLY = {"owasp": "LLM03", "atlas": "AML.T0010", "nist": "2.12"}
 # Secretos expuestos: fuga de información sensible.
 REFS_SECRETOS = {"owasp": "LLM02", "atlas": "AML.T0025", "nist": "2.9"}
 
-# Traducción de la severidad de Trivy a la escala interna de MRRobot.
+# Traducción de la severidad de Trivy a la escala interna de MRRobotIA.
 MAPA_SEV = {
     "CRITICAL": Severidad.CRITICA,
     "HIGH": Severidad.ALTA,
@@ -212,7 +212,7 @@ class H3Host(ModuloHerramienta):
                 "H3-HOST", "H3-HOST-ERROR",
                 "No se pudo interpretar la salida JSON de Trivy",
                 Severidad.MEDIA, "informativo", f"{type(e).__name__}",
-                "Comprueba la versión de Trivy; MRRobot espera la salida de "
+                "Comprueba la versión de Trivy; MRRobotIA espera la salida de "
                 "'trivy fs --format json'.", REFS_SUPPLY)]
 
         hallazgos = _hallazgos_desde_trivy(obj)

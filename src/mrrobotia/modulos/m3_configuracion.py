@@ -30,7 +30,7 @@ import string
 import unicodedata
 from pathlib import Path
 
-from mrrobot.nucleo import Modulo, Hallazgo, Severidad
+from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
 
 REFS = {"owasp": "LLM02", "nist": "2.4, 2.9"}
 REFS_RED = {"owasp": "LLM10", "atlas": "AML.T0049", "nist": "2.9"}

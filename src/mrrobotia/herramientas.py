@@ -1,7 +1,7 @@
 """
-Núcleo orquestador de herramientas externas de seguridad para MRRobot.
+Núcleo orquestador de herramientas externas de seguridad para MRRobotIA.
 
-MRRobot no reimplementa cada comprobación: ejecuta herramientas ya consolidadas
+MRRobotIA no reimplementa cada comprobación: ejecuta herramientas ya consolidadas
 (garak, promptfoo, Trivy, DeepEval…) de forma LOCAL y OFFLINE, y normaliza su
 salida a los `Hallazgo` del informe único. Este módulo es el andamiaje reutilizable
 para ese patrón; todavía no integra ninguna herramienta concreta (cada hito H3–H6
@@ -23,7 +23,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 
-from mrrobot.nucleo import Modulo, Hallazgo, Severidad
+from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
 
 # Primer número de versión tipo "x.y" o "x.y.z" que aparezca en la salida de --version.
 _RE_VERSION = re.compile(r"\d+\.\d+(?:\.\d+)?")

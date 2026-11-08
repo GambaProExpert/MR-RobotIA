@@ -8,10 +8,10 @@ dict fabricado) y las rutas de ejecución se simulan sustituyendo
 import json
 import types
 
-from mrrobot import herramientas
-from mrrobot.herramientas import Resultado
-from mrrobot.modulos.h3_host import H3Host, _hallazgos_desde_trivy
-from mrrobot.nucleo import Severidad
+from mrrobotia import herramientas
+from mrrobotia.herramientas import Resultado
+from mrrobotia.modulos.h3_host import H3Host, _hallazgos_desde_trivy
+from mrrobotia.nucleo import Severidad
 
 
 # Valor de secreto de juguete que JAMÁS debe acabar en un hallazgo.

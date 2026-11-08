@@ -1,22 +1,22 @@
-# MRRobot — Hitos (roadmap por capas)
+# MRRobotIA — Hitos (roadmap por capas)
 
 > Operativiza [Guia_agentes.md](Guia_agentes.md). Alcance elegido: **LLM + RAG + host**.
 > Estado de este documento: **plan**. La investigación exhaustiva por hito se hará con savvy-flow.
 
-## Qué es ahora MRRobot
+## Qué es ahora MRRobotIA
 
 Un **orquestador defensivo**: no reimplementa cada comprobación, sino que **ejecuta herramientas
 ya consolidadas** contra un servidor LLM local y **normaliza sus datos** a un informe único
 (`Hallazgo` + `Severidad` + marcos OWASP LLM Top 10 2025 · MITRE ATLAS · NIST AI 600-1).
-«La auditoría no la hace MRRobot; los datos sí los saca.» Cada herramienta = un hito.
+«La auditoría no la hace MRRobotIA; los datos sí los saca.» Cada herramienta = un hito.
 
 ### Principios
 
-- **Orquestar, no reinventar.** Si una herramienta no está instalada, MRRobot emite un hallazgo
+- **Orquestar, no reinventar.** Si una herramienta no está instalada, MRRobotIA emite un hallazgo
   informativo con cómo instalarla; nunca revienta ni la da por ejecutada.
 - **Todo local y offline.** Nada de prompts ni salidas sale de la red (ver H6, *muy importante*).
 - **Deny-by-default + doble consentimiento** para módulos activos (ya en el núcleo).
-- **Sin dependencias de ejecución nuevas en MRRobot**: las herramientas externas se invocan por
+- **Sin dependencias de ejecución nuevas en MRRobotIA**: las herramientas externas se invocan por
   `subprocess` y su salida (JSON/JSONL) se parsea a `Hallazgo`.
 
 ## Hitos

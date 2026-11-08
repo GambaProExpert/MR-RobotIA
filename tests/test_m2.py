@@ -1,8 +1,8 @@
 """Pruebas de M2: integridad SHA-256 de artefactos contra el manifiesto."""
 import json
 
-from mrrobot.modulos.m2_integridad import M2Integridad, sha256_fichero
-from mrrobot.nucleo import Severidad
+from mrrobotia.modulos.m2_integridad import M2Integridad, sha256_fichero
+from mrrobotia.nucleo import Severidad
 
 
 def _crear(ruta, contenido):

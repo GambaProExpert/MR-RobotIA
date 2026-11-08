@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-from mrrobot import nucleo
-from mrrobot.nucleo import Informe, Hallazgo, Severidad, ErrorAutorizacion
+from mrrobotia import nucleo
+from mrrobotia.nucleo import Informe, Hallazgo, Severidad, ErrorAutorizacion
 
 
 def _escribir(tmp_path, datos):
@@ -94,13 +94,13 @@ def test_informe_genera_markdown_y_json():
     ])
 
     md = informe.to_markdown()
-    assert md.startswith("# Informe MRRobot")
+    assert md.startswith("# Informe MRRobotIA")
     assert "Sergio" in md
     assert "CRITICA" in md
     assert "## Recomendaciones" in md
 
     datos = json.loads(informe.to_json())
-    assert datos["herramienta"] == "MRRobot"
+    assert datos["herramienta"] == "MRRobotIA"
     assert datos["autorizado_por"] == "Sergio"
     # la autorización no debe volcarse dentro del objetivo del informe
     assert "autorizacion" not in datos["objetivo"]

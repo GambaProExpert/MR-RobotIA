@@ -11,7 +11,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from mrrobot.nucleo import Modulo, Hallazgo, Severidad
+from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
 
 REFS = {"owasp": "LLM03", "atlas": "AML.T0010", "nist": "2.12"}
 

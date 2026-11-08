@@ -42,7 +42,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from mrrobot.nucleo import Modulo, Hallazgo, Severidad
+from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
 
 # --------------------------------------------------------------------- constantes
 # Marcos por tipo de debilidad.
@@ -797,7 +797,7 @@ class H2Exposicion(Modulo):
         h.append(_evaluar_metrics(st_metrics, expuesto))
 
         # CORS (sonda con un Origin inventado sobre /health).
-        origin_probe = "http://mrrobot.invalid"
+        origin_probe = "http://mrrobotia.invalid"
         _, hd_health, _ = self._http(base + "/health", origin=origin_probe)
         acao = hd_health.get("access-control-allow-origin")
         allow_cred = str(hd_health.get("access-control-allow-credentials", "")).lower() == "true"

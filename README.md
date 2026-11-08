@@ -1,10 +1,10 @@
-# MRRobot — auditor de postura defensiva de LLM auto alojados
+# MRRobotIA — auditor de postura defensiva de LLM auto alojados
 
 Herramienta de **auditoría defensiva** (hardening) para **cualquier servidor LLM auto
-alojado** (llama.cpp, Ollama, vLLM, LM Studio…). MRRobot **orquesta herramientas ya
+alojado** (llama.cpp, Ollama, vLLM, LM Studio…). MRRobotIA **orquesta herramientas ya
 consolidadas** (garak, promptfoo, Trivy, DeepEval…) de forma local y offline y
 **normaliza sus datos** a un informe único con severidades y referencias a OWASP LLM
-Top 10 2025, MITRE ATLAS y NIST AI 600-1: «la auditoría no la hace MRRobot; los datos
+Top 10 2025, MITRE ATLAS y NIST AI 600-1: «la auditoría no la hace MRRobotIA; los datos
 sí los saca». El laboratorio del TFG es solo uno de los objetivos posibles. La hoja de
 ruta por capas está en [HITOS.md](HITOS.md); el modelo de amenazas (atacantes A1–A5),
 en `../MODELO_AMENAZAS.md`.
@@ -14,7 +14,7 @@ Requiere Python >= 3.10. Desde la raíz del proyecto (donde está `pyproject.tom
 ```
 pip install -e .
 ```
-Esto instala el paquete `mrrobot` y el comando de consola `mrrobot`. Para ejecutar
+Esto instala el paquete `mrrobotia` y el comando de consola `mrrobotia`. Para ejecutar
 las pruebas, instala además las dependencias de desarrollo:
 ```
 pip install -e ".[dev]"
@@ -24,11 +24,11 @@ ejecución.
 
 ## Uso
 ```
-mrrobot --objetivo ejemplos/objetivo.ejemplo.json --salida informe_mrrobot
+mrrobotia --objetivo ejemplos/objetivo.ejemplo.json --salida informe_mrrobotia
 ```
 También puede ejecutarse como módulo, sin instalar:
 ```
-python -m mrrobot --objetivo ejemplos/objetivo.ejemplo.json
+python -m mrrobotia --objetivo ejemplos/objetivo.ejemplo.json
 ```
 Copia `ejemplos/objetivo.ejemplo.json` a `objetivo.json`, ajusta rutas y
 autorización, y ejecútalo. `objetivo.json` y los informes contienen rutas de tu
@@ -65,8 +65,8 @@ Además de `autorizacion`, `host` y `permitir_activos`, cada módulo lee sus pro
   de terceros.
 
 ## Modelo de orquestación
-MRRobot no reimplementa cada comprobación: **ejecuta herramientas externas** a través de
-`ModuloHerramienta` (`mrrobot.herramientas`) y normaliza su salida al informe. El patrón:
+MRRobotIA no reimplementa cada comprobación: **ejecuta herramientas externas** a través de
+`ModuloHerramienta` (`mrrobotia.herramientas`) y normaliza su salida al informe. El patrón:
 1. **Detecta** la herramienta (`PATH` o la ruta declarada en `objetivo['herramientas']`); si no
    está, emite un hallazgo **INFO** con cómo instalarla y no sigue — nunca la da por ejecutada.
 2. La **ejecuta** por `subprocess`, siempre con la orden como lista y **nunca `shell=True`**,
@@ -75,13 +75,13 @@ MRRobot no reimplementa cada comprobación: **ejecuta herramientas externas** a 
 4. Deja un hallazgo de **trazabilidad** con la versión usada, para resultados reproducibles.
 
 Así, cada hito de herramienta (H3 Trivy, H4 garak, H5 promptfoo, H6 DeepEval) solo aporta su
-envoltorio. MRRobot no añade dependencias de ejecución: las herramientas externas son
+envoltorio. MRRobotIA no añade dependencias de ejecución: las herramientas externas son
 prerrequisitos del sistema que se instalan aparte.
 
 ## Estructura del proyecto
 ```
-MRRobot/
-├── pyproject.toml          # empaquetado (src-layout, comando `mrrobot`)
+MRRobotIA/
+├── pyproject.toml          # empaquetado (src-layout, comando `mrrobotia`)
 ├── README.md
 ├── CHANGELOG.md
 ├── HITOS.md                # hoja de ruta por capas (hitos)
@@ -90,10 +90,10 @@ MRRobot/
 ├── ejemplos/
 │   └── objetivo.ejemplo.json
 ├── src/
-│   └── mrrobot/
+│   └── mrrobotia/
 │       ├── __init__.py     # __version__
-│       ├── __main__.py     # `python -m mrrobot`
-│       ├── cli.py          # punto de entrada del comando `mrrobot`
+│       ├── __main__.py     # `python -m mrrobotia`
+│       ├── cli.py          # punto de entrada del comando `mrrobotia`
 │       ├── nucleo.py       # hallazgos, autorización e informe
 │       ├── herramientas.py # núcleo orquestador (H0): ejecuta herramientas externas
 │       ├── red.py          # utilidades de red/SO compartidas (puertos, enlace)
@@ -120,7 +120,7 @@ MRRobot/
 
 ## Hitos (resumen)
 Cada herramienta externa es un hito; el detalle, el orden y qué extrae cada uno están
-en [HITOS.md](HITOS.md). MRRobot **orquesta y normaliza**, no reimplementa.
+en [HITOS.md](HITOS.md). MRRobotIA **orquesta y normaliza**, no reimplementa.
 
 | Hito | Capa | Base | Atacante | Estado |
 |---|---|---|---|---|

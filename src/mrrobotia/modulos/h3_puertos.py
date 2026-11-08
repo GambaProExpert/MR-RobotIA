@@ -21,7 +21,7 @@ verifica, se resume como "proceso privilegiado" (sin volcar el nombre de usuario
 
 Separación para testabilidad: `_evaluar_puertos` (y sus auxiliares `_subir_nivel`,
 `_texto_bind`, `_evidencia_puerto`) son PURAS y se prueban sin red ni herramientas; la
-recogida (tabla de puertos, sondeo, propietario) se delega en `mrrobot.red`.
+recogida (tabla de puertos, sondeo, propietario) se delega en `mrrobotia.red`.
 
 Nota: el barrido activo es un connect TCP simple de la biblioteca estándar. Un backend
 opcional basado en `nmap` (detección de versión/estado más fina) queda como trabajo
@@ -35,8 +35,8 @@ from __future__ import annotations
 
 import urllib.parse
 
-from mrrobot.nucleo import Modulo, Hallazgo, Severidad
-from mrrobot.red import (
+from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
+from mrrobotia.red import (
     tabla_puertos, bind_desde_tabla, pid_desde_tabla, puertos_en_escucha,
     ip_rutable, sondear, owner_proceso, es_no_loopback, LOOPBACK,
 )

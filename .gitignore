@@ -16,7 +16,7 @@ venv/
 
 # Datos de objetivo y salidas de informe (contienen rutas y datos locales del sistema)
 objetivo.json
-/informe_mrrobot.*
+/informe_mrrobotia.*
 /informe*.json
 /informe*.md
 

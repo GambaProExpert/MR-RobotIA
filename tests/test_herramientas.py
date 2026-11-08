@@ -7,10 +7,10 @@ Así se verifica el andamiaje (detección, ejecución, timeout, versión y el pa
 """
 import sys
 
-from mrrobot.herramientas import (
+from mrrobotia.herramientas import (
     Herramienta, detectar, ejecutar, _version_menor, ModuloHerramienta,
 )
-from mrrobot.nucleo import Hallazgo, Severidad
+from mrrobotia.nucleo import Hallazgo, Severidad
 
 
 def test_detectar_con_override_a_python():

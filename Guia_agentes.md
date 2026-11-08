@@ -1,6 +1,6 @@
-# Guía de agentes — MRRobot (rediseño por capas)
+# Guía de agentes — MRRobotIA (rediseño por capas)
 
-Vamos a cambiar el enfoque de la herramienta **MRRobot** a algo que por sí solo pueda hacer algo como lo que llevamos hecho (M1, M2, M3 y M4), pero que estas funcionalidades y las demás que vayamos haciendo se vean apoyadas en otras herramientas ya hechas. O sea, que MRRobot hará uso de las que sea posible utilizar para realizar una auditoría de servidor local de IA; bueno, la auditoría no la va a hacer, pero los datos sí que los sacará. No hay que utilizarlas todas: yo solo utilizaría las necesarias para cubrir:
+Vamos a cambiar el enfoque de la herramienta **MRRobotIA** a algo que por sí solo pueda hacer algo como lo que llevamos hecho (M1, M2, M3 y M4), pero que estas funcionalidades y las demás que vayamos haciendo se vean apoyadas en otras herramientas ya hechas. O sea, que MRRobotIA hará uso de las que sea posible utilizar para realizar una auditoría de servidor local de IA; bueno, la auditoría no la va a hacer, pero los datos sí que los sacará. No hay que utilizarlas todas: yo solo utilizaría las necesarias para cubrir:
 
 - Los *prompt injections* con **promptfoo**.
 - El escáner de inventario y exposición.
@@ -12,7 +12,7 @@ Vamos a cambiar el enfoque de la herramienta **MRRobot** a algo que por sí solo
 
 Mira el contenido dividido por capas e investiga si fuese posible implementarlo:
 
-> **Ojo:** vamos a dividir cada una de estas herramientas de MRRobot en un hito. Un hito puede durar mucho, así que quiero que investigues exhaustivamente y declares bien todo para que la herramienta resulte útil.
+> **Ojo:** vamos a dividir cada una de estas herramientas de MRRobotIA en un hito. Un hito puede durar mucho, así que quiero que investigues exhaustivamente y declares bien todo para que la herramienta resulte útil.
 
 ---
 

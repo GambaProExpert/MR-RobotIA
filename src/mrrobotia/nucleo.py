@@ -1,5 +1,5 @@
 """
-Núcleo de MRRobot: auditor de postura DEFENSIVA para despliegues locales de LLM.
+Núcleo de MRRobotIA: auditor de postura DEFENSIVA para despliegues locales de LLM.
 
 Principios de diseño (citar en la memoria del TFG):
 - Solo se audita infraestructura propia o con autorización escrita. El fichero de
@@ -61,7 +61,7 @@ def cargar_objetivo(ruta):
     if aut.get("tengo_autorizacion") is not True:
         raise ErrorAutorizacion(
             "El objetivo debe declarar autorizacion.tengo_autorizacion = true. "
-            "MRRobot solo audita sistemas propios o con permiso escrito.")
+            "MRRobotIA solo audita sistemas propios o con permiso escrito.")
     for campo in ("autorizado_por", "ambito", "fecha"):
         if not aut.get(campo):
             raise ErrorAutorizacion(f"Falta autorizacion.{campo} en el objetivo.")
@@ -104,7 +104,7 @@ class Informe:
 
     def to_json(self):
         return json.dumps({
-            "herramienta": "MRRobot",
+            "herramienta": "MRRobotIA",
             "generado": self.generado,
             "host_auditor": socket.gethostname(),
             "so": platform.platform(),
@@ -117,7 +117,7 @@ class Informe:
 
     def to_markdown(self):
         aut = self.objetivo["autorizacion"]
-        L = [f"# Informe MRRobot — {self.objetivo.get('nombre', 'objetivo')}", "",
+        L = [f"# Informe MRRobotIA — {self.objetivo.get('nombre', 'objetivo')}", "",
              f"- Generado: {self.generado}",
              f"- Autorizado por: {aut['autorizado_por']}",
              f"- Ámbito: {aut['ambito']}",

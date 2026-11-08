@@ -5,9 +5,9 @@ fabricadas —sin servidor SSH ni `ssh-audit` instalado— y una integración li
 `ejecutar()` en modo pasivo (sshd_config temporal). Verifican además el invariante de
 privacidad: la evidencia nunca contiene claves privadas, host keys ni sus huellas.
 """
-from mrrobot.modulos import h3_ssh as h3
-from mrrobot.modulos.h3_ssh import H3Ssh, _evaluar_sshd, _evaluar_sshaudit
-from mrrobot.nucleo import Severidad
+from mrrobotia.modulos import h3_ssh as h3
+from mrrobotia.modulos.h3_ssh import H3Ssh, _evaluar_sshd, _evaluar_sshaudit
+from mrrobotia.nucleo import Severidad
 
 
 # ----------------------------------------------------- _evaluar_sshd (parte pasiva)
