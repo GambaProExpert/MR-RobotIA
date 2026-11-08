@@ -1,0 +1,75 @@
+# probes/tensorrt-llm.yaml
+# Reference: https://nvidia.github.io/TensorRT-LLM/commands/trtllm-serve.html
+# Source: https://github.com/NVIDIA/TensorRT-LLM/blob/main/tensorrt_llm/serve/openai_server.py
+name: tensorrt-llm
+description: NVIDIA TensorRT-LLM inference server (trtllm-serve)
+category: self-hosted
+port_hint: 8000
+specificity: 80
+api_docs: https://nvidia.github.io/TensorRT-LLM/commands/trtllm-serve.html
+
+requests:
+  # /metrics returns JSON (not Prometheus text) with TensorRT-LLM-specific stats.
+  # Source: openai_server.py get_iteration_stats() → generator.get_stats_async()
+  - type: http
+    path: /metrics
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: content-type
+        value: application/json
+      - type: body.contains
+        value: "inflightBatchingStats"
+      - type: body.contains
+        value: "kvCacheStats"
+      - type: body.contains
+        value: "iterLatencyMS"
+
+  # /health_generate runs a minimal inference as health check — unique to trtllm-serve.
+  # Source: openai_server.py line 623
+  - type: http
+    path: /health_generate
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: body.contains
+        value: "Generation health check OK"
+
+  # /v1/models returns owned_by: "tensorrt_llm" — hardcoded in openai_protocol.py
+  - type: http
+    path: /v1/models
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: content-type
+        value: application/json
+      - type: body.contains
+        value: '"owned_by":"tensorrt_llm"'
+
+  # Same check, tolerates whitespace in JSON serialization
+  - type: http
+    path: /v1/models
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: content-type
+        value: application/json
+      - type: body.contains
+        value: '"owned_by": "tensorrt_llm"'
+
+models:
+  path: /v1/models
+  method: GET
+  extract: ".data[].id"
+
+augustus:
+  generator: openai
+  config_template:
+    endpoint: "$TARGET"
+    model: "$MODEL"
+    api_key: "not-needed"
+    timeout: 180

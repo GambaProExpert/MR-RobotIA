@@ -1,0 +1,11 @@
+Las definiciones de sonda (*.yaml) de esta carpeta son copias sin modificar de las
+distribuidas con Julius v1.6.0, de Praetorian Security, Inc.:
+https://github.com/praetorian-inc/julius (etiqueta v1.6.0, commit
+3e6969c553d1c43e3653b99de295b1e1eda202b2).
+
+Julius se distribuye bajo la Licencia Apache, versión 2.0; se incluye una copia en el
+fichero LICENSE de esta carpeta. Las sondas conservan esa licencia.
+
+MRRobotIA solo incluye las sondas de servidores autoalojados y de orquestación/RAG cuyas
+peticiones son todas GET. Se excluyen la sonda genérica openai-compatible y cualquiera que
+envíe POST.

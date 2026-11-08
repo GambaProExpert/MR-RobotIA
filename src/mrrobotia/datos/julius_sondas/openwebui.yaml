@@ -1,0 +1,58 @@
+# probes/openwebui.yaml
+# Reference: https://docs.openwebui.com/getting-started/api-endpoints/
+name: open-webui
+description: Open WebUI - ChatGPT-style interface for LLMs
+category: rag-orchestration
+port_hint: 3000
+specificity: 80
+require: all
+api_docs: https://docs.openwebui.com/getting-started/api-endpoints/
+
+requests:
+  - type: http
+    path: /api/config
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: content-type
+        value: application/json
+      - type: body.contains
+        value: '"name":"Open WebUI"'
+      - type: body.contains
+        value: '"features":'
+
+  - type: http
+    path: /api/version
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: content-type
+        value: application/json
+      - type: body.contains
+        value: '"version"'
+      - type: body.contains
+        value: '"deployment_id"'
+
+  - type: http
+    path: /
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: body.contains
+        value: "open-webui"
+
+models:
+  path: /api/models
+  method: GET
+  extract: ".data[].id"
+
+augustus:
+  generator: openai
+  config_template:
+    endpoint: "$TARGET/api"
+    model: "$MODEL"
+    api_key: "not-needed"
+    timeout: 180

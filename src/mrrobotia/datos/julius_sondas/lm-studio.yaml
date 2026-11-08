@@ -1,0 +1,50 @@
+# probes/lm-studio.yaml
+# Reference: https://lmstudio.ai/docs/api/server
+name: lm-studio
+description: LM Studio local server
+category: self-hosted
+port_hint: 1234
+specificity: 95
+api_docs: https://lmstudio.ai/docs/api/server
+
+requests:
+  # /lmstudio-greeting is LM Studio's self-identification endpoint.
+  # Returns {"lmstudio": true} — used by the CLI itself to verify the server.
+  # Source: src/createClient.ts
+  - type: http
+    path: /lmstudio-greeting
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: body.contains
+        value: '"lmstudio"'
+      - type: body.contains
+        value: "true"
+
+  # Fallback: /api/v0/models is an LM Studio-specific API path prefix.
+  - type: http
+    path: /api/v0/models
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: content-type
+        value: application/json
+      - type: body.contains
+        value: '"object"'
+      - type: body.contains
+        value: '"data"'
+
+models:
+  path: /v1/models
+  method: GET
+  extract: ".data[].id"
+
+augustus:
+  generator: openai
+  config_template:
+    endpoint: "$TARGET"
+    model: "$MODEL"
+    api_key: "not-needed"
+    timeout: 180

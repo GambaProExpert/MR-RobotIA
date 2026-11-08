@@ -27,7 +27,13 @@ mrrobotia = "mrrobotia.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-mrrobotia = ["datos/*.jsonl"]
+mrrobotia = [
+    "datos/*.jsonl",
+    "datos/*.json",
+    "datos/julius_sondas/*.yaml",
+    "datos/julius_sondas/NOTICE",
+    "datos/julius_sondas/LICENSE",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

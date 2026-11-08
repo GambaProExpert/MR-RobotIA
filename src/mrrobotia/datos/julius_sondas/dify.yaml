@@ -1,0 +1,45 @@
+# probes/dify.yaml
+# Reference: https://docs.dify.ai
+name: dify
+description: Dify - Open-source LLM app development platform with workflow orchestration
+category: rag-orchestration
+port_hint: 80
+specificity: 90
+api_docs: https://docs.dify.ai
+
+requests:
+  # Primary: /apps page with Dify title tag (standard deployments).
+  # <title>Dify</title> is server-side rendered in all standard-path versions.
+  - type: http
+    path: /apps
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: body.contains
+        value: '<title>Dify</title>'
+      - type: body.contains
+        value: 'data-public-edition'
+
+  # Secondary: root / for deployments that serve at root.
+  - type: http
+    path: /
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: body.contains
+        value: '<title>Dify</title>'
+      - type: body.contains
+        value: 'data-public-edition'
+
+  # Tertiary: catch subpath deployments where <title>Dify</title> is absent
+  # but apple-mobile-web-app-title is always present with "Dify".
+  - type: http
+    path: /
+    method: GET
+    match:
+      - type: body.contains
+        value: 'apple-mobile-web-app-title" content="Dify"'
+      - type: body.contains
+        value: 'data-public-edition'

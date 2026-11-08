@@ -36,14 +36,15 @@ class Herramienta:
     - `nombre`: identificador corto usado en los IDs de hallazgo y en los overrides
       del objetivo (p. ej. "garak").
     - `binario`: nombre del ejecutable que se buscará en el PATH (p. ej. "garak").
-    - `version_args`: argumentos para preguntar la versión (p. ej. ("--version",)).
+    - `version_args`: argumentos para preguntar la versión (p. ej. ("--version",)), o
+      None si la herramienta no tiene forma de darla y no hay que consultarla.
     - `instalar_con`: orden sugerida de instalación offline para el hallazgo.
     - `min_version`: versión mínima recomendada ("x.y[.z]") o None.
     - `refs`: marcos asociados (OWASP/ATLAS/NIST) para los hallazgos del módulo.
     """
     nombre: str
     binario: str
-    version_args: tuple = ("--version",)
+    version_args: tuple | None = ("--version",)
     instalar_con: str = ""
     min_version: str | None = None
     refs: dict = field(default_factory=dict)
@@ -87,10 +88,12 @@ def detectar(herramienta, overrides=None):
     ruta = conf.get("ruta") or shutil.which(herramienta.binario)
     if not ruta:
         return Deteccion(False, None, None, "no encontrada en PATH")
+    if herramienta.version_args is None:
+        return Deteccion(True, None, ruta, None)
     try:
         proc = subprocess.run(
             [ruta, *herramienta.version_args],
-            capture_output=True, text=True, timeout=10)
+            capture_output=True, text=True, errors="replace", timeout=10)
         version = _extraer_version((proc.stdout or "") + "\n" + (proc.stderr or ""))
         return Deteccion(True, version, ruta, None)
     except (OSError, subprocess.SubprocessError) as e:
@@ -102,12 +105,13 @@ def ejecutar(args, *, timeout=600, cwd=None, env=None, entrada=None):
     """Ejecuta un proceso externo de forma segura y captura su salida.
 
     `args` es una lista (orden + argumentos); NUNCA se usa `shell=True`. Captura
-    stdout/stderr como texto. Marca `expiro=True` si se agota `timeout`, y nunca
-    propaga la excepción: los errores de arranque (OSError) vuelven en `error`.
+    stdout/stderr como texto UTF-8, sustituyendo lo que no decodifique. Marca
+    `expiro=True` si se agota `timeout`, y nunca propaga la excepción: los errores de
+    arranque (OSError) vuelven en `error`.
     """
     try:
         proc = subprocess.run(
-            list(args), capture_output=True, text=True,
+            list(args), capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=timeout, cwd=cwd, env=env, input=entrada)
         return Resultado(proc.returncode, proc.stdout, proc.stderr, False, None)
     except subprocess.TimeoutExpired as e:

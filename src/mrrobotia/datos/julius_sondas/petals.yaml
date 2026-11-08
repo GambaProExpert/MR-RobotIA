@@ -1,0 +1,37 @@
+# probes/petals.yaml
+# Reference: https://github.com/petals-infra/chat.petals.dev
+name: petals
+description: Petals - decentralized LLM inference, BitTorrent-style distributed serving
+category: self-hosted
+port_hint: 5000
+specificity: 95
+api_docs: https://github.com/bigscience-workshop/petals
+
+requests:
+  # Chat server homepage has hardcoded Petals branding baked into
+  # templates/index.html. All checks are present on every deployment.
+  - type: http
+    path: /
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: body.contains
+        value: "Decentralized platform for running large language models"
+      - type: body.contains
+        value: "petals-infra"
+      - type: body.contains
+        value: "increase Petals capacity"
+
+  # Health monitor homepage has hardcoded "Petals Health Monitor" title.
+  # Source: templates/index.html in health.petals.dev repo.
+  - type: http
+    path: /
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: body.contains
+        value: "Petals Health Monitor"
+      - type: body.contains
+        value: "petals-infra"

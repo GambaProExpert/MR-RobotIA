@@ -1,0 +1,38 @@
+# probes/flowise.yaml
+# Reference: https://docs.flowiseai.com/api-reference/ping
+name: flowise
+description: Flowise - Open source low-code platform for building AI agents and LLM workflows visually
+category: rag-orchestration
+port_hint: 3000
+specificity: 90
+require: all
+api_docs: https://docs.flowiseai.com/
+
+requests:
+  # Homepage contains FlowiseAI branding in meta tags across all versions.
+  - type: http
+    path: /
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: body.contains
+        value: "flowiseai.com"
+      - type: body.contains
+        value: "FlowiseAI"
+
+  # /api/v1/chatflows is a Flowise-specific API path.
+  # Returns 401 {"error":"Unauthorized Access"} when auth is enabled.
+  - type: http
+    path: /api/v1/chatflows
+    method: GET
+    match:
+      - type: status
+        value: 401
+      - type: body.contains
+        value: '"Unauthorized Access"'
+
+models:
+  path: /api/v1/chatflows
+  method: GET
+  extract: ".[].name"

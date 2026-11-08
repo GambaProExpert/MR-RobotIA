@@ -16,6 +16,9 @@ que se habiliten con --permitir-activos (o MRROBOTIA_PERMITIR_ACTIVOS) Y
 permitir_activos=true en el objetivo. H2 (exposición) es HÍBRIDO: la parte pasiva
 (enlace de red, entorno, propietario del proceso) corre siempre; la parte activa
 (sondeo del endpoint llama.cpp de 'endpoint') solo con el sondeo activo habilitado.
+
+Antes de cualquier módulo, H2-ID identifica con qué se está tratando (servidor, versión,
+arranque y SO); corre siempre, y con la misma regla para su parte activa.
 """
 import argparse
 import os
@@ -25,10 +28,15 @@ from pathlib import Path
 from mrrobotia import nucleo
 from mrrobotia.modulos.m2_integridad import M2Integridad
 from mrrobotia.modulos.m3_configuracion import M3Configuracion
+from mrrobotia.modulos.h2_identificacion import H2Identificacion
 from mrrobotia.modulos.h2_exposicion import H2Exposicion
 from mrrobotia.modulos.h3_ssh import H3Ssh
 from mrrobotia.modulos.h3_puertos import H3Puertos
 from mrrobotia.modulos.h3_host import H3Host
+
+# La identificación no es un módulo más: corre siempre y primero, y su Contexto lo reciben
+# los demás, sea cual sea la selección de --escaneo.
+IDENTIFICACION = H2Identificacion()
 
 # Registro de módulos. M2/M3 pasivos; H2, H3-SSH y H3-PUERTOS híbridos (parte activa
 # autogateada); H3-HOST (Trivy) pasivo. El prober propio M1 queda sin cablear: su
@@ -50,7 +58,7 @@ def _resolver_escaneo(valor):
     `forzar_pasivo` fuerza a omitir toda comprobación activa (como si no hubiera
     --permitir-activos). Un valor desconocido aborta con la lista de válidos.
     """
-    etiquetas = {m.etiqueta_escaneo for m in MODULOS if m.etiqueta_escaneo}
+    etiquetas = {m.etiqueta_escaneo for m in [IDENTIFICACION, *MODULOS] if m.etiqueta_escaneo}
     tokens = {t.strip().lower() for t in (valor or "todo").split(",") if t.strip()}
     forzar_pasivo = "pasivo" in tokens
     tokens.discard("pasivo")
@@ -75,9 +83,10 @@ def main():
                     help="Habilita los módulos que interactúan con el servicio (requiere permitir_activos=true)")
     ap.add_argument("--salida", default="informe_mrrobotia", help="Prefijo de los ficheros de informe")
     ap.add_argument("--escaneo", default="todo",
-                    help="Qué escaneos correr, separados por comas: etiquetas (integridad, "
-                         "config, exposicion, ssh, puertos, vulns) o grupos (todo, host, activo, "
-                         "pasivo). 'pasivo' fuerza a omitir toda comprobación activa. Por defecto: todo.")
+                    help="Qué escaneos correr, separados por comas: etiquetas (identificacion, "
+                         "integridad, config, exposicion, ssh, puertos, vulns) o grupos (todo, host, "
+                         "activo, pasivo). 'pasivo' fuerza a omitir toda comprobación activa. La "
+                         "identificación corre siempre, primero. Por defecto: todo.")
     args = ap.parse_args()
 
     ruta_objetivo = args.objetivo or os.environ.get("MRROBOTIA_OBJETIVO")
@@ -96,10 +105,15 @@ def main():
         and objetivo.get("permitir_activos") is True
     if forzar_pasivo:
         activos_ok = False
+    IDENTIFICACION.activos_ok = activos_ok
+    informe.anadir(IDENTIFICACION.ejecutar(objetivo))
+    informe.modulos_ejecutados.append(IDENTIFICACION.nombre)
+    informe.contexto = IDENTIFICACION.contexto
     for m in MODULOS:
         if seleccion is not None and m.etiqueta_escaneo not in seleccion:
             continue
         m.activos_ok = activos_ok   # los módulos híbridos (p. ej. H2, H3) autogatean su parte activa
+        m.contexto = IDENTIFICACION.contexto
         if m.activo and not activos_ok:
             informe.notas.append(
                 f"{m.nombre} ({m.titulo}) omitido: módulo activo; requiere --permitir-activos y permitir_activos=true.")

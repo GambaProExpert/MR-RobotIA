@@ -1,0 +1,54 @@
+# probes/nvidia-nim.yaml
+# Reference: https://docs.nvidia.com/nim/large-language-models/latest/api-reference.html
+name: nvidia-nim
+description: NVIDIA NIM enterprise containers
+category: self-hosted
+port_hint: 8000
+specificity: 75
+require: all
+api_docs: https://docs.nvidia.com/nim/large-language-models/latest/api-reference.html
+
+requests:
+  # NVIDIA NIM-specific: /v1/metadata returns modelInfo and assetInfo.
+  # Neither field name mentions "nvidia" or "nim" but the combination
+  # on this specific path is distinctive.
+  - type: http
+    path: /v1/metadata
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: content-type
+        value: application/json
+      - type: body.contains
+        value: '"modelInfo"'
+      - type: body.contains
+        value: '"assetInfo"'
+
+  # /v1/health/ready returns {"status": "ready"} — generic on its own
+  # but combined with /v1/metadata above, confirms NIM.
+  - type: http
+    path: /v1/health/ready
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: content-type
+        value: application/json
+      - type: body.contains
+        value: '"status"'
+      - type: body.contains
+        value: "ready"
+
+models:
+  path: /v1/models
+  method: GET
+  extract: ".data[].id"
+
+augustus:
+  generator: openai
+  config_template:
+    endpoint: "$TARGET"
+    model: "$MODEL"
+    api_key: "not-needed"
+    timeout: 180

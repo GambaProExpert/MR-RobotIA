@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from enum import IntEnum
 from pathlib import Path
 
+from mrrobotia.contexto import texto_enlace
+
 
 class Severidad(IntEnum):
     INFO = 0
@@ -83,9 +85,23 @@ class Modulo:
     # lo leen para decidir si hacen comprobaciones activas.
     activos_ok = False
     etiqueta_escaneo = ""      # etiqueta para el selector --escaneo del CLI (la fija cada módulo)
+    # Qué se ha identificado antes de auditar (contexto.Contexto); lo fija el CLI.
+    contexto = None
 
     def ejecutar(self, objetivo) -> list[Hallazgo]:
         raise NotImplementedError
+
+
+def _celda(valor):
+    """Texto apto para una celda de Markdown: una línea y sin separadores de columna."""
+    return " ".join(str(valor).split()).replace("|", "\\|")
+
+
+def _valores(mapa):
+    """`clave=valor` de opciones o variables. True (un secreto o una bandera) se muestra como
+    presente, y False como no."""
+    return ", ".join(f"{k}={'presente' if v is True else 'no' if v is False else _celda(v)}"
+                     for k, v in mapa.items())
 
 
 class Informe:
@@ -95,12 +111,38 @@ class Informe:
         self.hallazgos: list[Hallazgo] = []
         self.modulos_ejecutados: list[str] = []
         self.notas: list[str] = []
+        self.contexto = None       # contexto.Contexto de la identificación, si la hubo
 
     def anadir(self, hallazgos):
         self.hallazgos.extend(hallazgos)
 
     def _ordenados(self):
         return sorted(self.hallazgos, key=lambda h: -h.severidad)
+
+    def _seccion_contexto(self):
+        """Líneas de Markdown de «Qué se ha identificado»."""
+        ctx = self.contexto
+        if ctx is None:
+            return []
+        L = ["", "## Qué se ha identificado", "",
+             f"- Sistema operativo: {ctx.so}{' (WSL)' if ctx.wsl else ''}"]
+        if not ctx.servidores:
+            return L + ["- Servidores: no se ha identificado ninguno"]
+        L += ["", "| Servidor | Versión | Dirección | Enlace | Autenticación | Confianza | Fuentes | Modelos |",
+              "|---|---|---|---|---|---|---|---|"]
+        arranques = []
+        for s in ctx.servidores:
+            puerto = s.puerto if s.puerto is not None else "?"
+            direccion = f"{s.esquema}://{s.host}:{puerto}{s.prefijo}"
+            L.append(f"| {_celda(s.tipo)} | {_celda(s.version or 'desconocida')} | {_celda(direccion)} | "
+                     f"{_celda(texto_enlace(s.enlace))} | {_celda(s.autenticacion or 'sin comprobar')} | "
+                     f"{_celda(s.confianza)} | {_celda(', '.join(s.fuentes))} | {_celda(', '.join(s.modelos) or '—')} |")
+            detalle = "; ".join(t for t in (_valores(s.opciones), _valores(s.entorno)) if t)
+            if detalle:
+                arranques.append(f"- {_celda(s.tipo)} en {_celda(direccion)}: {detalle}")
+        if arranques:
+            L += ["", "Cómo se arrancó:", ""] + arranques
+        return L
 
     def to_json(self):
         return json.dumps({
@@ -112,6 +154,7 @@ class Informe:
             "autorizado_por": self.objetivo["autorizacion"]["autorizado_por"],
             "modulos": self.modulos_ejecutados,
             "notas": self.notas,
+            "contexto": self.contexto.dict() if self.contexto is not None else None,
             "hallazgos": [h.dict() for h in self._ordenados()],
         }, ensure_ascii=False, indent=2)
 
@@ -127,6 +170,7 @@ class Informe:
         L.append(f"**Resumen:** {resumen or 'sin hallazgos'}")
         if self.notas:
             L += ["", "**Notas:**"] + [f"- {n}" for n in self.notas]
+        L += self._seccion_contexto()
         L += ["", "| Severidad | Módulo | Hallazgo | Evidencia | Marcos |", "|---|---|---|---|---|"]
         for h in self._ordenados():
             refs = " · ".join(f"{k}:{v}" for k, v in h.refs.items())

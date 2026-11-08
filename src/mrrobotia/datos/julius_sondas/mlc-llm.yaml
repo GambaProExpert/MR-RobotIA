@@ -1,0 +1,49 @@
+# probes/mlc-llm.yaml
+# Reference: https://llm.mlc.ai/docs/deploy/rest.html
+name: mlc-llm
+description: MLC LLM universal deployment engine with ML compilation
+category: self-hosted
+port_hint: 8000
+specificity: 90
+api_docs: https://llm.mlc.ai/docs/deploy/rest.html
+
+requests:
+  # /v1/models returns owned_by: "MLC-LLM" — hardcoded in
+  # mlc_llm/protocol/openai_api_protocol.py ModelResponse class.
+  - type: http
+    path: /v1/models
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: content-type
+        value: application/json
+      - type: body.contains
+        value: '"MLC-LLM"'
+
+  # /openapi.json contains MLC-specific microserving endpoints
+  # (/microserving/prep_recv) that are always mounted. No other LLM server
+  # exposes this path.
+  - type: http
+    path: /openapi.json
+    method: GET
+    match:
+      - type: status
+        value: 200
+      - type: content-type
+        value: application/json
+      - type: body.contains
+        value: "/microserving/prep_recv"
+
+models:
+  path: /v1/models
+  method: GET
+  extract: ".data[].id"
+
+augustus:
+  generator: openai
+  config_template:
+    endpoint: "$TARGET"
+    model: "$MODEL"
+    api_key: "not-needed"
+    timeout: 180
