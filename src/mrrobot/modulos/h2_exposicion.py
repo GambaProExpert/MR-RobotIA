@@ -434,6 +434,7 @@ class H2Exposicion(Modulo):
     nombre = "H2"
     titulo = "Inventario y exposición del servidor LLM (llama.cpp)"
     activo = False      # HÍBRIDO: se ejecuta siempre y autogatea las partes activas con self.activos_ok
+    etiqueta_escaneo = "exposicion"
 
     # Constantes accesibles también como atributos del objeto (los métodos usan self.X).
     TIMEOUT = TIMEOUT

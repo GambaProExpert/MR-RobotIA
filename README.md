@@ -45,6 +45,11 @@ Además de `autorizacion`, `host` y `permitir_activos`, cada módulo lee sus pro
 - **H2 (exposición):** `endpoint` — URL base del servidor LLM (p. ej. `http://127.0.0.1:8080`);
   `exposicion` *(opcional)* con `puerto`, `bind_esperado`, `proxy_autenticador`, `api_key_esperada`
   y `builds_vulnerables`. La parte activa (sondeo del endpoint) solo corre con `--permitir-activos`.
+- **H3 (seguridad del host):** `servidor` (`"vllm"` o `"llama.cpp"`); `ssh` *(opcional)* con `puerto`
+  y `sshd_config`; `puertos` *(opcional)* con `esperados`/`extra_peligrosos`; `host_trivy` *(opcional)*
+  con `ruta` (directorio a escanear con Trivy), `escaneres` y `severidad`. SSH (`ssh-audit`) y el
+  barrido de puertos solo corren con `--permitir-activos`; Trivy es pasivo. Elige el escaneo con
+  `--escaneo` (p. ej. `--escaneo host`, `--escaneo ssh,puertos`, o `--escaneo pasivo`).
 - **Núcleo orquestador (H0+):** `herramientas` *(opcional)* — overrides por herramienta, p. ej.
   `{"garak": {"ruta": "/ruta/a/garak", "timeout": 1200}}`. Sin esto, cada herramienta se busca
   en el `PATH` y se usa un timeout por defecto.
@@ -91,19 +96,26 @@ MRRobot/
 │       ├── cli.py          # punto de entrada del comando `mrrobot`
 │       ├── nucleo.py       # hallazgos, autorización e informe
 │       ├── herramientas.py # núcleo orquestador (H0): ejecuta herramientas externas
+│       ├── red.py          # utilidades de red/SO compartidas (puertos, enlace)
 │       ├── datos/          # recursos (p. ej. probes_base.jsonl)
 │       └── modulos/
 │           ├── __init__.py
 │           ├── m2_integridad.py
 │           ├── m3_configuracion.py
 │           ├── h2_exposicion.py     # H2: inventario y exposición del servidor LLM
+│           ├── h3_ssh.py            # H3: endurecimiento de SSH (ssh-audit + sshd_config)
+│           ├── h3_puertos.py        # H3: puertos inseguros/innecesarios del host
+│           ├── h3_host.py           # H3: vulnerabilidades/secretos/config (Trivy)
 │           └── m1_robustez.py       # prober propio previo (sin cablear); a sustituir por garak en H4
 └── tests/
     ├── test_nucleo.py
     ├── test_m2.py
     ├── test_m3.py
     ├── test_herramientas.py
-    └── test_h2.py
+    ├── test_h2.py
+    ├── test_h3_ssh.py
+    ├── test_h3_puertos.py
+    └── test_h3_host.py
 ```
 
 ## Hitos (resumen)
@@ -116,7 +128,7 @@ en [HITOS.md](HITOS.md). MRRobot **orquesta y normaliza**, no reimplementa.
 | H1 Integridad de artefactos (SHA-256) | 1 | propio (M2) | A4, A3 | **Hecho** |
 | M3 Configuración (se integra en H2) | 1 | propio | A3, A5 | **Hecho** |
 | H2 Inventario y exposición (bind, puertos, usuario, claves) | 1 | propio | A5, A3 | **Hecho** |
-| H3 Vulnerabilidades del host | 1 | Trivy | A4, A3 | Pendiente |
+| H3 Seguridad del host (SSH, puertos, Trivy) | 1 | propio + Trivy | A5, A4, A3 | **Hecho** |
 | H4 Barrido del endpoint | 2 | garak | A1 | Pendiente |
 | H5 Prompt injection / evals | 2 | promptfoo | A1 | Pendiente |
 | H6 Prompts/salidas no salen de la red | 2 | DeepEval | A1, A5 | Pendiente |

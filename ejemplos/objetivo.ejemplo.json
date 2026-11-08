@@ -15,6 +15,9 @@
     "proxy_autenticador": false,
     "api_key_esperada": true
   },
+  "servidor": "llama.cpp",
+  "ssh": {"puerto": 22},
+  "host_trivy": {"ruta": "../Caso1/v2"},
   "manifiesto": "../Caso1/v2/adapters/qwen3-14b/manifiesto.json",
   "manifiesto_firmado": false,
   "artefactos": [

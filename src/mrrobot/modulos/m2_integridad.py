@@ -28,6 +28,7 @@ class M2Integridad(Modulo):
     nombre = "M2"
     titulo = "Integridad de artefactos (.gguf, ChromaDB)"
     activo = False
+    etiqueta_escaneo = "integridad"
 
     def ejecutar(self, objetivo):
         hallazgos = []

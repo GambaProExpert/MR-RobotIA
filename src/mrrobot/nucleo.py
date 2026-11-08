@@ -82,6 +82,7 @@ class Modulo:
     # --permitir-activos + permitir_activos en el objetivo). Los módulos híbridos
     # lo leen para decidir si hacen comprobaciones activas.
     activos_ok = False
+    etiqueta_escaneo = ""      # etiqueta para el selector --escaneo del CLI (la fija cada módulo)
 
     def ejecutar(self, objetivo) -> list[Hallazgo]:
         raise NotImplementedError

@@ -137,6 +137,7 @@ class M3Configuracion(Modulo):
     nombre = "M3"
     titulo = "Auditoría de configuración (credenciales, auditoría, TLS/red)"
     activo = False
+    etiqueta_escaneo = "config"
 
     def ejecutar(self, objetivo):
         tiene_usuarios = bool(objetivo.get("usuarios"))

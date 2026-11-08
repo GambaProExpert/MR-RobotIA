@@ -3,6 +3,26 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.5.0] - 2026-11-08
+
+### Añadido
+- **Hito H3 — Seguridad del host** (Capa 1), con tres módulos y un selector de escaneo:
+  - **H3-SSH** (`modulos/h3_ssh.py`): endurecimiento de SSH. PASIVO: lee `sshd_config` (perfil CIS:
+    PermitRootLogin, contraseñas vacías, autenticación por contraseña, cifrados/MAC/KEX débiles,
+    MaxAuthTries…). ACTIVO (gated): `ssh-audit` contra el servicio. Ignora las huellas de host keys.
+  - **H3-PUERTOS** (`modulos/h3_puertos.py`): puertos abiertos innecesarios/inseguros frente a una
+    línea base por servidor (vLLM `:8000`/`:8265`, llama.cpp `:8080`); marca bases de datos, RDP/SMB,
+    Redis, Ray, etc. PASIVO (`netstat`/`ss`) + barrido de conexión ACTIVO (gated). Evidencia: solo
+    puerto/bind/pid, nunca banners.
+  - **H3-HOST** (`modulos/h3_host.py`): **Trivy** (`trivy fs`, offline) para CVEs, malas
+    configuraciones y secretos; PASIVO. Nunca vuelca el valor del secreto (solo regla@fichero:línea).
+  - `mrrobot/red.py`: utilidades de red/SO compartidas (tabla de puertos, enlace, sondeo, propietario).
+  - Atacantes A5/A4/A3; marcos OWASP LLM10/LLM03/LLM02, MITRE ATLAS, NIST AI 600-1.
+- **Selector `--escaneo`**: elige qué correr por etiqueta (`integridad, config, exposicion, ssh,
+  puertos, vulns`) o grupo (`todo, host, activo, pasivo`); `pasivo` fuerza a omitir todo sondeo
+  activo. Cada módulo declara su `etiqueta_escaneo`.
+- Claves de objetivo `servidor`, `ssh`, `puertos`, `host_trivy`.
+
 ## [0.4.0] - 2026-11-06
 
 ### Añadido

@@ -23,10 +23,10 @@ ya consolidadas** contra un servidor LLM local y **normaliza sus datos** a un in
 
 | Hito | Capa | Base / herramienta | Qué extrae | Estado |
 |---|---|---|---|---|
-| **H0 · Núcleo orquestador** | — | código propio | `HerramientaExterna`: detectar (`which`/versión), ejecutar con *timeout*, parsear salida a `Hallazgo`, mapear marcos; config de rutas de herramientas | por hacer |
+| **H0 · Núcleo orquestador** | — | código propio | `HerramientaExterna`: detectar (`which`/versión), ejecutar con *timeout*, parsear salida a `Hallazgo`, mapear marcos; config de rutas de herramientas | **hecho** |
 | **H1 · Integridad SHA-256** | 1 | código propio (M2) | hashes de modelos/adaptadores/índices frente a manifiesto o `sha256` en línea | **hecho** |
 | **H2 · Inventario y exposición** | 1 | código propio | puerto por defecto de **llama.cpp (`:8080`)**; *bind* a loopback vs `0.0.0.0`; sin API key; `/slots` (fuga de prompts), `/props` (ruta del modelo + build), `/v1/models`, `/metrics`, CORS; HTTP sin TLS; usuario del proceso; claves de proveedor en el entorno | **hecho** |
-| **H3 · Vulnerabilidades del host** | 1 | **Trivy** | escaneo de *filesystem*/config/secretos del repo del despliegue (imagen opcional): CVEs, secretos filtrados, malas configuraciones | por hacer |
+| **H3 · Seguridad del host** | 1 | código propio + **Trivy** | SSH (`sshd_config` CIS + `ssh-audit`), puertos abiertos innecesarios/inseguros (línea base vLLM/llama.cpp), y vulnerabilidades/secretos/config con Trivy. Selector `--escaneo`. | **hecho** |
 | **H4 · Barrido del endpoint** | 2 | **garak** (NVIDIA) | barrido amplio del endpoint REST/llama.cpp (sondas de inyección y más) → informe JSONL normalizado | por hacer (reconvierte el M1 propio) |
 | **H5 · Prompt injection / evals** | 2 | **promptfoo** | red team + evals en YAML como *gate* de CI: inyección directa e indirecta, fuga entre sesiones, agencia excesiva, BOLA/BFLA | por hacer |
 | **H6 · Datos no salen de la red** | 2 | **DeepEval / DeepTeam** | **MUY IMPORTANTE**: comprobar que prompts y salidas no salen de la red; juez local (`deepeval set-ollama`), red teaming offline | por hacer |
