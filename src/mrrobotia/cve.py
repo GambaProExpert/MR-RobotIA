@@ -26,6 +26,11 @@ _OPERADORES = {"<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": oper
                "=": operator.eq, "==": operator.eq}
 _COTAS_SUPERIORES = {"<", "<="}
 _RE_BUILD = re.compile(r"b(\d+)(?:-[0-9a-f]+)?")
+_RE_PEP440 = re.compile(r"v?(\d+(?:\.\d+)*)(?:(a|b|rc)(\d+))?(?:\.post(\d+))?(?:\.dev(\d+))?"
+                        r"(?:\+[a-z0-9]+(?:[._-][a-z0-9]+)*)?", re.IGNORECASE)
+_ORDEN_PREVIA = {"a": 0, "b": 1, "rc": 2}
+_SIN_PREVIA = 3             # una versión final va detrás de sus candidatas
+_SOLO_DEV = -1              # y `1.0.dev1`, por delante de `1.0a1`
 _RE_COMPARADOR = re.compile(r"(<=|>=|==|<|>|=)?\s*(\S+)")
 _RE_COMPONENTE = re.compile(r"\[([\w-]+)\]")
 
@@ -47,6 +52,28 @@ def clave_build(version):
     m = _RE_BUILD.fullmatch(version) if isinstance(version, str) else None
     numero = int(m.group(1)) if m else 0
     return numero or None
+
+
+def clave_pep440(version):
+    """Subconjunto de PEP 440 que usan vLLM y sus avisos: `0.33.0`, `0.33.0rc3`, `0.5.0.post1`,
+    `0.33.0.dev1` y `0.33.0+cpu`. Devuelve algo comparable o None; `dev` a secas no lo es.
+
+    El orden es el de PEP 440: `1.0.dev1 < 1.0a1 < 1.0rc1.dev2 < 1.0rc1 < 1.0 < 1.0.post1`. La parte
+    local (`+cpu`) no cuenta: una compilación para CPU es la misma versión a efectos de los avisos.
+    """
+    m = _RE_PEP440.fullmatch(version.strip()) if isinstance(version, str) else None
+    if m is None:
+        return None
+    partes = [int(p) for p in m.group(1).split(".")]
+    while partes and partes[-1] == 0:   # 0.33 y 0.33.0 son la misma versión
+        partes.pop()
+    previa, post, dev = m.group(2), m.group(4), m.group(5)
+    if previa:
+        fase = (_ORDEN_PREVIA[previa.lower()], int(m.group(3)))
+    else:
+        fase = (_SOLO_DEV if dev is not None and post is None else _SIN_PREVIA, 0)
+    return (tuple(partes), fase, -1 if post is None else int(post),
+            float("inf") if dev is None else int(dev))
 
 
 def _comparadores(expresion, clave_version):

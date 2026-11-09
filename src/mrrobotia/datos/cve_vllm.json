@@ -1,0 +1,1262 @@
+[
+  {
+    "id": "CVE-2025-32444",
+    "resumen": "Remote Code Execution via Mooncake Integration",
+    "afecta": ">=0.6.5,<0.8.5",
+    "corregido_en": "0.8.5",
+    "cvss": 10.0,
+    "severidad": "critica",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-hj4w-hm2g-p6w5"
+  },
+  {
+    "id": "CVE-2025-47277",
+    "resumen": "Remote Code Execution via PyNcclPipe Communication Service",
+    "afecta": ">=0.6.5,<0.8.5",
+    "corregido_en": "0.8.5",
+    "cvss": 9.8,
+    "severidad": "critica",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-hjq4-87xh-g4fv"
+  },
+  {
+    "id": "CVE-2026-22778",
+    "resumen": "vLLM RCE In Video Processing",
+    "afecta": ">=0.8.3,<0.14.1",
+    "corregido_en": "0.14.1",
+    "cvss": 9.8,
+    "severidad": "critica",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-4r2x-xpjr-7cvv"
+  },
+  {
+    "id": "CVE-2026-48746",
+    "resumen": "OpenAI API Auth Bypass",
+    "afecta": ">=0.3.0,<0.22.0",
+    "corregido_en": "0.22.0",
+    "cvss": 9.1,
+    "severidad": "critica",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-94f4-hr76-p5j6"
+  },
+  {
+    "id": "CVE-2025-29783",
+    "resumen": "Remote Code Execution via Mooncake Integration",
+    "afecta": ">=0.6.5,<0.8.0",
+    "corregido_en": "0.8.0",
+    "cvss": 9.0,
+    "severidad": "critica",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-x3m8-f7g5-qhm7"
+  },
+  {
+    "id": "CVE-2024-11041",
+    "resumen": "vLLM Deserialization of Untrusted Data vulnerability",
+    "afecta": "<=0.6.2",
+    "corregido_en": null,
+    "cvss": 9.8,
+    "severidad": "critica",
+    "fuente": "https://osv.dev/vulnerability/GHSA-5vqr-wprc-cpp7"
+  },
+  {
+    "id": "CVE-2024-9052",
+    "resumen": "vLLM deserialization vulnerability in vllm.distributed.GroupCoordinator.recv_object",
+    "afecta": "<=0.8.1",
+    "corregido_en": null,
+    "cvss": 9.8,
+    "severidad": "critica",
+    "fuente": "https://osv.dev/vulnerability/GHSA-pgr7-mhp5-fgjp"
+  },
+  {
+    "id": "CVE-2024-9053",
+    "resumen": "vLLM allows Remote Code Execution by Pickle Deserialization via AsyncEngineRPCServer() RPC server entrypoints",
+    "afecta": "<=0.6.0",
+    "corregido_en": null,
+    "cvss": 9.8,
+    "severidad": "critica",
+    "fuente": "https://osv.dev/vulnerability/GHSA-cj47-qj6g-x7r4"
+  },
+  {
+    "id": "CVE-2025-62164",
+    "resumen": "prompt_embeds deserialization allows DoS and potential RCE",
+    "afecta": ">=0.10.2,<0.11.1",
+    "corregido_en": "0.11.1",
+    "cvss": 8.8,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-mrw7-hf4f-83pf"
+  },
+  {
+    "id": "CVE-2025-9141",
+    "resumen": "Remote code execution in the vllm tool call parser for Qwen3-Coder",
+    "afecta": ">=0.10.0,<0.10.1.1",
+    "corregido_en": "0.10.1.1",
+    "cvss": 8.8,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-79j6-g2m3-jgfw"
+  },
+  {
+    "id": "CVE-2026-22807",
+    "resumen": "RCE via auto_map dynamic module loading during model initialization",
+    "afecta": ">=0.10.1,<0.14.0",
+    "corregido_en": "0.14.0",
+    "cvss": 8.8,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-2pc9-4j83-qjmr"
+  },
+  {
+    "id": "CVE-2026-27893",
+    "resumen": "Hardcoded trust_remote_code=True in NemotronVL and KimiK25 bypasses user security opt-out",
+    "afecta": ">=0.10.1,<0.18.0",
+    "corregido_en": "0.18.0",
+    "cvss": 8.8,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-7972-pg2x-xr59"
+  },
+  {
+    "id": "CVE-2026-54232",
+    "resumen": "Dependency Confusion Vulnerability in vLLM Dockerfile",
+    "afecta": "<0.22.1",
+    "corregido_en": "0.22.1",
+    "cvss": 8.8,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-jrf6-vqxq-pjv2"
+  },
+  {
+    "id": "CVE-2026-56340",
+    "resumen": "Missing validation of multimodal embeddings leading to DoS and potential RCE",
+    "afecta": ">=0.10.2,<0.13.0",
+    "corregido_en": "0.13.0",
+    "cvss": 8.8,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-mcmc-2m55-j8jj"
+  },
+  {
+    "id": "CVE-2026-114053",
+    "resumen": "Request-controlled mm_processor_kwargs.code_revision allows remote code execution",
+    "afecta": ">=0.7.3,<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 8.1,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-h3rc-6mm3-gc2m"
+  },
+  {
+    "id": "CVE-2026-115915",
+    "resumen": "Untrusted EPS inputs can trigger denial of service or Ghostscript RCE in vLLM",
+    "afecta": "<0.32.0",
+    "corregido_en": "0.32.0",
+    "cvss": 8.1,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-h3rc-j82p-2c3h"
+  },
+  {
+    "id": "CVE-2025-30165",
+    "resumen": "Remote Code Execution Vulnerability in vLLM Multi-Node Cluster Configuration",
+    "afecta": ">=0.5.2,<0.10.0",
+    "corregido_en": "0.10.0",
+    "cvss": 8.0,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-9pcc-gvx5-r5wm"
+  },
+  {
+    "id": "CVE-2026-90553",
+    "resumen": "LlavaOnevision2 processor loader executes attacker model code with `trust_remote_code=False` (inert `trust_remote_code` kwarg to `transformers.get_class_from_dynamic_module`) — RCE from a malicious model",
+    "afecta": "<0.28.0",
+    "corregido_en": "0.28.0",
+    "cvss": 7.8,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-3c86-2m5g-59q7"
+  },
+  {
+    "id": "GHSA-rhcx-5729-88vg",
+    "resumen": "Cross-tenant DoS via uninitialized LogprobsTensors with prompt_logprobs",
+    "afecta": ">=0.8.5,<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 7.7,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-rhcx-5729-88vg"
+  },
+  {
+    "id": "CVE-2025-24357",
+    "resumen": "Malicious model to RCE by torch.load in hf_model_weights_iterator",
+    "afecta": "<0.7.0",
+    "corregido_en": "0.7.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-rh4j-5rhw-hr54"
+  },
+  {
+    "id": "CVE-2025-30202",
+    "resumen": "Denial of Service via ZeroMQ on Multi-node vLLM Deployment",
+    "afecta": ">=0.5.2,<0.8.5",
+    "corregido_en": "0.8.5",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-9f8f-2vmf-885j"
+  },
+  {
+    "id": "CVE-2025-32434",
+    "resumen": "CVE-2025-24357 Malicious model remote code execution fix bypass with PyTorch < 2.6.0",
+    "afecta": "<0.8.0",
+    "corregido_en": "0.8.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-ggpf-24jw-3fcw"
+  },
+  {
+    "id": "CVE-2025-48956",
+    "resumen": "HTTP header size limits not enforced, allowing DoS from unauthenticated requests",
+    "afecta": ">=0.1.0,<0.10.1.1",
+    "corregido_en": "0.10.1.1",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-rxc4-3w6r-4v47"
+  },
+  {
+    "id": "CVE-2025-59425",
+    "resumen": "API key authentication vulnerable to timing attack",
+    "afecta": "<0.11.0",
+    "corregido_en": "0.11.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-wr9h-g72x-mwhm"
+  },
+  {
+    "id": "CVE-2026-114052",
+    "resumen": "MOSS-Audio request-controlled processor cache permits remote memory exhaustion",
+    "afecta": ">=0.24.0,<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-823j-m4cj-hmjf"
+  },
+  {
+    "id": "CVE-2026-114055",
+    "resumen": "DoS via unvalidated mm_processor_kwargs in multimodal image processors (Isaac, InternVL, H2OVL, etc.)",
+    "afecta": ">=0.7.3,<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-gx7p-2j49-hfq4"
+  },
+  {
+    "id": "CVE-2026-115912",
+    "resumen": "Public multimodal SHM handle forgery reaches worker-side `pickle.loads()` with insecure serialization disabled",
+    "afecta": "<0.32.0",
+    "corregido_en": "0.32.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-6757-hggm-hp2w"
+  },
+  {
+    "id": "CVE-2026-41523",
+    "resumen": "Security Check Bypass via assert Statement in Activation Function Loading Allows Arbitrary Code Execution",
+    "afecta": "<0.22.0",
+    "corregido_en": "0.22.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-q8gq-377p-jq3r"
+  },
+  {
+    "id": "CVE-2026-54234",
+    "resumen": "Remote DoS in vLLM via Invalid Recovered Token Reinjection",
+    "afecta": ">=0.17.1,<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-8wr5-jm2h-8r4f"
+  },
+  {
+    "id": "CVE-2026-93592",
+    "resumen": "Denial of service: a negative token id in `/v1/embeddings` or `/pooling` input kills the vLLM engine via a CUDA device-side assertion",
+    "afecta": "<0.28.0",
+    "corregido_en": "0.28.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-25q3-v2hm-8vpf"
+  },
+  {
+    "id": "GHSA-5r3c-5x4v-8gjh",
+    "resumen": "Missing request-wide media budget allows single-request frontend resource exhaustion",
+    "afecta": ">=0.6.0,<0.33.0",
+    "corregido_en": "0.33.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-5r3c-5x4v-8gjh"
+  },
+  {
+    "id": "GHSA-8c65-hq7q-r7jm",
+    "resumen": "Remote DoS in vLLM via allowed_token_ids Speculative-Decoding Metadata Mismatch",
+    "afecta": ">=0.11.1,<0.18.0",
+    "corregido_en": "0.18.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-8c65-hq7q-r7jm"
+  },
+  {
+    "id": "GHSA-q9v9-qpjp-fc24",
+    "resumen": "Unauthenticated EngineCore crash via out-of-range prompt token id under skip_tokenizer_init (incomplete fix of GHSA-25q3-v2hm-8vpf)",
+    "afecta": ">=0.28.0,<0.33.0",
+    "corregido_en": "0.33.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-q9v9-qpjp-fc24"
+  },
+  {
+    "id": "CVE-2025-6242",
+    "resumen": "Server-Side Request Forgery (SSRF) in `MediaConnector`",
+    "afecta": ">=0.5.0,<0.11.0",
+    "corregido_en": "0.11.0",
+    "cvss": 7.1,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-3f6c-7fw2-ppm4"
+  },
+  {
+    "id": "CVE-2025-66448",
+    "resumen": "Remote code execution via transformers_utils/get_config",
+    "afecta": "<0.11.1",
+    "corregido_en": "0.11.1",
+    "cvss": 7.1,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-8fr4-5q9j-m8gm"
+  },
+  {
+    "id": "CVE-2026-24779",
+    "resumen": "Server-Side Request Forgery (SSRF) in `MediaConnector`",
+    "afecta": "<0.14.1",
+    "corregido_en": "0.14.1",
+    "cvss": 7.1,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-qh4c-xf7m-gxfc"
+  },
+  {
+    "id": "CVE-2024-8768",
+    "resumen": "vLLM denial of service vulnerability",
+    "afecta": "<0.5.5",
+    "corregido_en": "0.5.5",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://osv.dev/vulnerability/GHSA-w2r7-9579-27hf"
+  },
+  {
+    "id": "CVE-2026-116176",
+    "resumen": "SSRF via X-Request-Id header drives P2pNcclConnector outbound ZMQ+NCCL pair, leaking KV-cache tensors",
+    "afecta": ">=0.9.2,<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": null,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-vfp2-c8pq-v6h6"
+  },
+  {
+    "id": "CVE-2026-116177",
+    "resumen": "Nemotron-VL processors disable Pillow decompression-bomb guard globally, enabling unauthenticated DoS",
+    "afecta": ">=0.10.2,<0.25.0",
+    "corregido_en": "0.25.0",
+    "cvss": null,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-mm38-5g96-7j6x"
+  },
+  {
+    "id": "CVE-2026-5497",
+    "resumen": "vLLM is vulnerable to an Out-of-Memory (OOM) Denial of Service (DoS) attack due to unbounded frame count processing in the `VideoMediaIO.load_base64()` method",
+    "afecta": ">=0.8.0,<0.19.0",
+    "corregido_en": "0.19.0",
+    "cvss": 7.5,
+    "severidad": "alta",
+    "fuente": "https://osv.dev/vulnerability/GHSA-wcwg-c5fc-9vrc"
+  },
+  {
+    "id": "GHSA-4m6g-h9mv-wqjc",
+    "resumen": "Frame-count cap bypass in VideoMediaIO.load_base64 for video/jpeg via media_io_kwargs.video.num_frames",
+    "afecta": ">=0.18.0,<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": null,
+    "severidad": "alta",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-4m6g-h9mv-wqjc"
+  },
+  {
+    "id": "CVE-2025-29770",
+    "resumen": "Denial of Service by abusing outlines unbounded cache on disk",
+    "afecta": "<0.8.0",
+    "corregido_en": "0.8.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-mgrm-fgjv-mhv8"
+  },
+  {
+    "id": "CVE-2025-32381",
+    "resumen": "Denial of Service by abusing xgrammar cache",
+    "afecta": ">=0.6.5,<0.8.4",
+    "corregido_en": "0.8.4",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-hf3c-wxg2-49q9"
+  },
+  {
+    "id": "CVE-2025-46560",
+    "resumen": "phi4mm: Quadratic Time Complexity in Input Token Processing leads to denial of service",
+    "afecta": ">=0.8.0,<0.8.5",
+    "corregido_en": "0.8.5",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-vc6m-hm49-g9qg"
+  },
+  {
+    "id": "CVE-2025-48887",
+    "resumen": "Regular Expression Denial of Service (ReDoS, Exponential Complexity) Vulnerability in `pythonic_tool_parser.py`",
+    "afecta": ">=0.6.4,<0.9.0",
+    "corregido_en": "0.9.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-w6q7-j642-7c25"
+  },
+  {
+    "id": "CVE-2025-48942",
+    "resumen": "DOS: Remotely kill vllm over http with invalid JSON schema",
+    "afecta": ">=0.8.0,<0.9.0",
+    "corregido_en": "0.9.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-6qc9-v4r8-22xg"
+  },
+  {
+    "id": "CVE-2025-48943",
+    "resumen": "clients can crash the openai server with invalid regex",
+    "afecta": ">=0.8.0,<0.9.0",
+    "corregido_en": "0.9.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-9hcf-v7m4-6m2j"
+  },
+  {
+    "id": "CVE-2025-48944",
+    "resumen": "DoS via Malformed pattern and type Fields in vLLM Tool Schema",
+    "afecta": ">=0.8.0,<0.9.0",
+    "corregido_en": "0.9.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-vrq3-r879-7m65"
+  },
+  {
+    "id": "CVE-2025-61620",
+    "resumen": "Resource-Exhaustion (DoS) through chat_template / chat_template_kwargs in OpenAI-Compatible Server",
+    "afecta": ">=0.5.1,<0.11.0",
+    "corregido_en": "0.11.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-6fvq-23cw-5628"
+  },
+  {
+    "id": "CVE-2025-62372",
+    "resumen": "DoS with incorrect shape of multimodal embedding inputs",
+    "afecta": ">=0.5.5,<0.11.1",
+    "corregido_en": "0.11.1",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-pmqf-x6x8-p7qw"
+  },
+  {
+    "id": "CVE-2025-62426",
+    "resumen": "DoS via large Chat Completion or Tokenization requests with specially crafted `chat_template_kwargs`",
+    "afecta": ">=0.5.5,<0.11.1",
+    "corregido_en": "0.11.1",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-69j4-grxj-j64p"
+  },
+  {
+    "id": "CVE-2026-100650",
+    "resumen": "Remote media is fetched and fully materialized before the documented media size / item limits are enforced — remote pre-inference memory and bandwidth exhaustion (4 sites)",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-p6g9-7v3x-m8mv"
+  },
+  {
+    "id": "CVE-2026-100653",
+    "resumen": "Incomplete artifact pin propagation in FunAudioChat and Tarsier2",
+    "afecta": ">=0.22.1,<0.28.0",
+    "corregido_en": "0.28.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-hhv2-872h-628q"
+  },
+  {
+    "id": "CVE-2026-105753",
+    "resumen": "Mirrored multimodal IPC caches desync after a rejected request — a later request reusing the same media hash trips a receiver assertion in the engine core",
+    "afecta": "<0.28.0",
+    "corregido_en": "0.28.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-ph3r-5jfg-f84f"
+  },
+  {
+    "id": "CVE-2026-105754",
+    "resumen": "Scale-out disaggregated multimodal transport trusts caller-supplied features — shared EngineCore denial of service, encoder-cache poisoning, and transport integrity loss (5 sites)",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-ph72-cqr5-qpp7"
+  },
+  {
+    "id": "CVE-2026-105756",
+    "resumen": "Loose `cache_salt` validation lets a single request kill EngineCore on LMCache-MP deployments — uncaught downstream `ValueError` denial of service",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-2823-qmq8-rwvj"
+  },
+  {
+    "id": "CVE-2026-105757",
+    "resumen": "Structured-output request errors escape the request boundary and terminate the shared EngineCore — engine-fatal denial of service (3 sites)",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-85xf-c7hm-whqw"
+  },
+  {
+    "id": "CVE-2026-114050",
+    "resumen": "Forged multimodal UUID + P0/P1 processor-cache eviction drift: unauthenticated remote crash of the whole vLLM engine",
+    "afecta": "<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-p92p-rxj5-7p2x"
+  },
+  {
+    "id": "CVE-2026-114054",
+    "resumen": "Caller-controllable values become or collide with shared cache keys, enabling cross-request cache aliasing (2 sites: multimodal EXIF hash and prefix-cache extra keys)",
+    "afecta": "<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-rh6f-3x46-j33q"
+  },
+  {
+    "id": "CVE-2026-115911",
+    "resumen": "DoS via unbounded chat_template Jinja2 rendering exhausts the renderer thread pool",
+    "afecta": ">=0.19.0,<0.32.0",
+    "corregido_en": "0.32.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-542m-9234-8gvf"
+  },
+  {
+    "id": "CVE-2026-115913",
+    "resumen": "Phi-4 multimodal audio encoder materializes and retains full attention matrices: a single max-length audio OOM-crashes the vLLM engine",
+    "afecta": "<0.32.0",
+    "corregido_en": "0.32.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-8397-8qf6-f2gm"
+  },
+  {
+    "id": "CVE-2026-115914",
+    "resumen": "DeepSeek-OCR family: an image whose normalized pixels sum to exactly 0 makes embed_multimodal return None, tripping the encoder-output sanity assert — one unauthenticated request kills the whole vLLM engine (default config)",
+    "afecta": ">=0.11.1,<0.32.0",
+    "corregido_en": "0.32.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-gq5q-89c7-vhvx"
+  },
+  {
+    "id": "CVE-2026-115916",
+    "resumen": "Out-of-vocabulary prompt token id passes input validation and triggers a CUDA device-side assert (engine crash / DoS)",
+    "afecta": "<0.32.0",
+    "corregido_en": "0.32.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-q97c-p368-75c4"
+  },
+  {
+    "id": "CVE-2026-115918",
+    "resumen": "Responses API bypasses trust_request_chat_template for chat_template_kwargs",
+    "afecta": ">=0.16.0,<0.32.0",
+    "corregido_en": "0.32.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-x567-49g5-p4cf"
+  },
+  {
+    "id": "CVE-2026-22773",
+    "resumen": "DoS in Idefics3 vision models via image payload with ambiguous dimensions",
+    "afecta": ">=0.6.4,<0.12.0",
+    "corregido_en": "0.12.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-grg2-63fw-f2qr"
+  },
+  {
+    "id": "CVE-2026-34755",
+    "resumen": "Denial of Service via Unbounded Frame Count in video/jpeg Base64 Processing",
+    "afecta": ">=0.7.0,<0.19.0",
+    "corregido_en": "0.19.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-pq5c-rjhq-qp7p"
+  },
+  {
+    "id": "CVE-2026-34756",
+    "resumen": "OOM Denial of Service via Unbounded `n` Parameter in OpenAI API Server",
+    "afecta": ">=0.1.0,<0.19.0",
+    "corregido_en": "0.19.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-3mwp-wvh9-7528"
+  },
+  {
+    "id": "CVE-2026-44222",
+    "resumen": "Remote DoS via Special-Token Placeholders",
+    "afecta": ">=0.6.1,<0.20.0",
+    "corregido_en": "0.20.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-hpv8-x276-m59f"
+  },
+  {
+    "id": "CVE-2026-44223",
+    "resumen": "extract_hidden_states speculative decoding crashes server on any request with penalty parameters",
+    "afecta": ">=0.18.0,<0.20.0",
+    "corregido_en": "0.20.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-83vm-p52w-f9pw"
+  },
+  {
+    "id": "CVE-2026-47155",
+    "resumen": "Artifact Pin Decay in vLLM allows pinned deployments to load unpinned code, weights, and processors",
+    "afecta": "<0.22.0",
+    "corregido_en": "0.22.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-3ww4-5jv9-j5gm"
+  },
+  {
+    "id": "CVE-2026-54233",
+    "resumen": "OOM Denial of Service via Audio Decompression Bomb",
+    "afecta": "<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-6pr9-rp53-2pmc"
+  },
+  {
+    "id": "CVE-2026-55646",
+    "resumen": "Speech-to-text upload size limit is enforced after full UploadFile read",
+    "afecta": ">=0.22.0,<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-v82g-2437-67m2"
+  },
+  {
+    "id": "CVE-2026-57173",
+    "resumen": "Unauthenticated audio decompression-bomb DoS in /v1/chat/completions: VLLM_MAX_AUDIO_DECODE_DURATION_S guard not wired into the chat audio path (sibling of CVE-2026-5497)",
+    "afecta": "<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-hcwq-8wjf-3gcr"
+  },
+  {
+    "id": "CVE-2026-69147",
+    "resumen": "Request-selected PyNvVideoCodec GPU decode bypasses static VRAM reservation",
+    "afecta": "<0.28.0",
+    "corregido_en": "0.28.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-8pw2-6jv3-mj5j"
+  },
+  {
+    "id": "CVE-2026-73559",
+    "resumen": "Completion prompt lists fan out into unbounded engine requests",
+    "afecta": ">=0.19.0,<0.26.0",
+    "corregido_en": "0.26.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-87x5-vmc3-756j"
+  },
+  {
+    "id": "CVE-2026-73560",
+    "resumen": "SSRF + arbitrary local file read in MiMoV2OmniMultiModalProcessor `_fetch_image` and audio loader bypass MediaConnector protections",
+    "afecta": "<0.26.0",
+    "corregido_en": "0.26.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-4hhp-h66f-j5j7"
+  },
+  {
+    "id": "CVE-2026-90555",
+    "resumen": "Speech-to-text audio decode duration limit bypass via forged header sample rate",
+    "afecta": "<0.28.0",
+    "corregido_en": "0.28.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-99f2-hwrc-gvq8"
+  },
+  {
+    "id": "CVE-2026-94624",
+    "resumen": "vllm p2p never connected zmq_exhaustion",
+    "afecta": "<0.32.0",
+    "corregido_en": "0.32.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-frvg-qw88-hww9"
+  },
+  {
+    "id": "GHSA-3mqx-f33v-vgp9",
+    "resumen": "Disaggregated generate skips decoder prompt-length validation for some multimodal processors",
+    "afecta": "<0.29.0",
+    "corregido_en": "0.29.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-3mqx-f33v-vgp9"
+  },
+  {
+    "id": "GHSA-4xqp-c3mv-qff7",
+    "resumen": "An oversized min_tokens in one request hangs the vLLM engine while /health stays green",
+    "afecta": "<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-4xqp-c3mv-qff7"
+  },
+  {
+    "id": "GHSA-m52c-39rh-f3gp",
+    "resumen": "Crafted IAMF audio upload reaches a PyAV/FFmpeg native heap overflow through the speech transcription path — denial of service",
+    "afecta": "<0.29.0",
+    "corregido_en": "0.29.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-m52c-39rh-f3gp"
+  },
+  {
+    "id": "GHSA-r45p-7qwx-qwjw",
+    "resumen": "Multimodal chat audio decoding bypasses the decompression-bomb duration limit",
+    "afecta": ">=0.19.0,<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-r45p-7qwx-qwjw"
+  },
+  {
+    "id": "GHSA-v5gm-qgmv-gc6c",
+    "resumen": "Out-of-range `stop_token_ids` with `min_tokens` can kill vLLM EngineCore",
+    "afecta": "<0.29.0",
+    "corregido_en": "0.29.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-v5gm-qgmv-gc6c"
+  },
+  {
+    "id": "GHSA-vxqj-p4gw-9h4c",
+    "resumen": "Incomplete CVE-2026-34755 remediation can be bypassed by request-level num_frames",
+    "afecta": ">=0.19.0,<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-vxqj-p4gw-9h4c"
+  },
+  {
+    "id": "GHSA-w9r6-29q4-pvpr",
+    "resumen": "Unvalidated stop_token_ids causes engine crash (DoS) and out-of-bounds GPU write",
+    "afecta": ">=0.20.1,<0.29.0",
+    "corregido_en": "0.29.0",
+    "cvss": 6.5,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-w9r6-29q4-pvpr"
+  },
+  {
+    "id": "CVE-2026-90554",
+    "resumen": "Denial of Service NanoNemoTronVL Video Audio Extraction Bomb",
+    "afecta": ">=0.10.2,<0.28.0",
+    "corregido_en": "0.28.0",
+    "cvss": 6.2,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-936p-m5pv-vvjf"
+  },
+  {
+    "id": "CVE-2026-100652",
+    "resumen": "Rust HTTP/gRPC stop_token_ids bypass Python vocab-bound fix and can terminate EngineCore",
+    "afecta": ">=0.22.0,<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": 5.9,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-qff2-492f-9fm4"
+  },
+  {
+    "id": "CVE-2026-105759",
+    "resumen": "Unbounded Prometheus label cardinality from attacker-controlled HTTP method tokens in the vLLM Rust frontend metrics middleware (unauthenticated denial of service)",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 5.9,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-5fj9-pfhr-6j48"
+  },
+  {
+    "id": "CVE-2026-116173",
+    "resumen": "Rust gRPC output_candidates.token_ids bypasses logprob_token_ids limits and can terminate EngineCore",
+    "afecta": ">=0.22.0,<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": 5.9,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-6pgw-f3pv-4h8q"
+  },
+  {
+    "id": "CVE-2026-116178",
+    "resumen": "Remote DoS in disaggregated multimodal /inference/v1/generate via malicious kwargs_data / mm_placeholders",
+    "afecta": ">=0.20.0,<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 5.9,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-34qw-q2h2-jp3m"
+  },
+  {
+    "id": "CVE-2026-34760",
+    "resumen": "Downmix Implementation Differences as Attack Vectors Against Audio AI Models",
+    "afecta": ">=0.5.5,<0.18.0",
+    "corregido_en": "0.18.0",
+    "cvss": 5.9,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-6c4r-fmh3-7rh8"
+  },
+  {
+    "id": "GHSA-5q78-j82c-2vr2",
+    "resumen": "vLLM denial of service via prompt embeds on XD-RoPE models (incomplete fix of CVE-2026-55514)",
+    "afecta": ">=0.28.0,<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 5.9,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-5q78-j82c-2vr2"
+  },
+  {
+    "id": "GHSA-rwfw-xvg3-3937",
+    "resumen": "Rust gRPC CandidateTokens.top_n bypasses max_logprobs and can terminate EngineCore",
+    "afecta": ">=0.22.0,<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": 5.9,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-rwfw-xvg3-3937"
+  },
+  {
+    "id": "GHSA-w2v2-5662-8v5q",
+    "resumen": "Rust gRPC Generate accepts out-of-vocabulary prompt token IDs and can terminate EngineCore",
+    "afecta": ">=0.22.0,<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": 5.9,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-w2v2-5662-8v5q"
+  },
+  {
+    "id": "CVE-2026-25960",
+    "resumen": "SSRF Protection Bypass in vLLM",
+    "afecta": ">=0.15.1,<0.17.0",
+    "corregido_en": "0.17.0",
+    "cvss": 5.4,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-v359-jj2v-j536"
+  },
+  {
+    "id": "CVE-2026-34753",
+    "resumen": "Server-Side Request Forgery (SSRF) in `download_bytes_from_url `",
+    "afecta": ">=0.16.0,<0.19.0",
+    "corregido_en": "0.19.0",
+    "cvss": 5.4,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-pf3h-qjgv-vcpr"
+  },
+  {
+    "id": "GHSA-qrj2-j723-m6w8",
+    "resumen": "vLLM Speculators Config verifier.name_or_path Element Directory Traversal Information Disclosure Vulnerability",
+    "afecta": "<0.33.0",
+    "corregido_en": "0.33.0",
+    "cvss": 5.4,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-qrj2-j723-m6w8"
+  },
+  {
+    "id": "CVE-2026-100647",
+    "resumen": "vLLM DoS via unbounded `cache_salt` length: multi-hundred-MB salt stalls the single EngineCore scheduler thread (CPU exhaustion)",
+    "afecta": "<0.29.0",
+    "corregido_en": "0.29.0",
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-wpww-v874-ph2p"
+  },
+  {
+    "id": "CVE-2026-105758",
+    "resumen": "Qwen2-VL / Qwen3-VL video samplers bound on request-controlled max_frames, which the num_frames ceiling does not reach",
+    "afecta": ">=0.24.0,<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-x6mc-67gf-chw4"
+  },
+  {
+    "id": "CVE-2026-105760",
+    "resumen": "GLMGA video sampling permits request-driven CPU and memory exhaustion",
+    "afecta": ">=0.23.0rc2,<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-58v5-2m8f-94pr"
+  },
+  {
+    "id": "CVE-2026-53923",
+    "resumen": "GGUF dequantize kernel int truncation exposes uninitialized GPU memory in multi-tenant serving",
+    "afecta": ">=0.5.5,<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-5jv2-g5wq-cmr4"
+  },
+  {
+    "id": "CVE-2026-73556",
+    "resumen": "ReDoS via structured_outputs.regex in the lm-format-enforcer backend (no compile timeout) — missed sibling of GHSA-rwxx-mrjm-wc2m",
+    "afecta": "<0.26.0",
+    "corregido_en": "0.26.0",
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-48jh-3gj7-fg8v"
+  },
+  {
+    "id": "CVE-2026-73558",
+    "resumen": "Cross-User Data Leak Vulnerability",
+    "afecta": "<0.27.0",
+    "corregido_en": "0.27.0",
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-7m6h-x95x-82q5"
+  },
+  {
+    "id": "CVE-2026-78684",
+    "resumen": "vLLM Unauthenticated Requests Exploit DeepStream Backend Confusion for DoS",
+    "afecta": "<0.27.0",
+    "corregido_en": "0.27.0",
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-cqm8-jxg6-fqfq"
+  },
+  {
+    "id": "GHSA-894j-wg8m-63h8",
+    "resumen": "vLLM OpenCVDynamicOpenPanguVideoBackend: request-level num_frames without a ceiling — unauthenticated memory/CPU exhaustion (OOM-kill) on any video-capable deployment",
+    "afecta": ">=0.30.0,<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-894j-wg8m-63h8"
+  },
+  {
+    "id": "GHSA-m9fg-w9qh-67pc",
+    "resumen": "sanitize_message() address regex is lowercase-only and does not match PIL's uppercase __repr__, leaking live heap addresses to unauthenticated clients",
+    "afecta": ">=0.14.0rc1,<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-m9fg-w9qh-67pc"
+  },
+  {
+    "id": "GHSA-mwgq-9582-w2vf",
+    "resumen": "Response amplification in OpenAI validation error handler",
+    "afecta": ">=0.3.0,<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-mwgq-9582-w2vf"
+  },
+  {
+    "id": "GHSA-w4cg-mhc7-mgw3",
+    "resumen": "MiniMax M3 video preprocessing permits request-driven CPU resource exhaustion through min_pixels",
+    "afecta": ">=0.24.0,<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-w4cg-mhc7-mgw3"
+  },
+  {
+    "id": "CVE-2026-12491",
+    "resumen": "vLLM image EXIF Rotation & PNG tRNS Transparency Not Normalized, Causing Mismatch Between Model Input and Expectations",
+    "afecta": ">=0.11.0,<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": 4.8,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-8jr5-v98p-w75m"
+  },
+  {
+    "id": "CVE-2025-71379",
+    "resumen": "A series of simple Redos in vllm.",
+    "afecta": ">=0.6.3,<0.9.0",
+    "corregido_en": "0.9.0",
+    "cvss": 4.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-j828-28rj-hfhp"
+  },
+  {
+    "id": "CVE-2026-100648",
+    "resumen": "Uncontrolled resource consumption: multimodal chat audio decoding ignores `VLLM_MAX_AUDIO_CLIP_FILESIZE_MB`",
+    "afecta": "<0.29.0",
+    "corregido_en": "0.29.0",
+    "cvss": 4.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-jcq2-4gch-5qhf"
+  },
+  {
+    "id": "CVE-2026-71486",
+    "resumen": "Derender endpoints decode caller-supplied GenerateResponse token IDs without output bounds",
+    "afecta": "<0.26.0",
+    "corregido_en": "0.26.0",
+    "cvss": 4.3,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-8737-qx52-hjff"
+  },
+  {
+    "id": "CVE-2025-46722",
+    "resumen": "Weakness in MultiModalHasher Image/video Hashing Implementation in vLLM",
+    "afecta": "<0.9.0",
+    "corregido_en": "0.9.0",
+    "cvss": 4.2,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-c65p-x677-fgj6"
+  },
+  {
+    "id": "CVE-2026-105755",
+    "resumen": "Flash late-interaction scoring caches query embeddings under a caller-controlled request id — cross-request integrity break and induced errors on `/score` and `/rerank`",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 4.2,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-2phq-3phc-84px"
+  },
+  {
+    "id": "CVE-2024-8939",
+    "resumen": "vLLM Denial of Service via the best_of parameter",
+    "afecta": "<=0.5.0.post1",
+    "corregido_en": null,
+    "cvss": 6.2,
+    "severidad": "media",
+    "fuente": "https://osv.dev/vulnerability/GHSA-wc36-9694-f9rf"
+  },
+  {
+    "id": "CVE-2026-54235",
+    "resumen": "temperature=NaN and temperature=Infinity bypass validation and propagate to GPU kernels",
+    "afecta": ">=0.8.5,<0.24.0 || <=0.23.0",
+    "corregido_en": "0.24.0",
+    "cvss": null,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-7h4p-rffg-7823"
+  },
+  {
+    "id": "CVE-2026-54236",
+    "resumen": "vLLM: incomplete CVE-2026-22778 fix leaks PIL repr addresses via Anthropic router (CWE-532)",
+    "afecta": "<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": null,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-hgg8-fqqc-vfmw"
+  },
+  {
+    "id": "CVE-2026-55514",
+    "resumen": "DoS caused by sending `/v1/completions` with prompt embeds payload with models that use M-RoPE",
+    "afecta": ">=0.12.0,<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": null,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-33cg-gxv8-3p8g"
+  },
+  {
+    "id": "CVE-2026-55574",
+    "resumen": "ReDoS via structured_outputs.regex compiled without timeout in xgrammar and outlines backends",
+    "afecta": "<0.24.0",
+    "corregido_en": "0.24.0",
+    "cvss": null,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-rwxx-mrjm-wc2m"
+  },
+  {
+    "id": "CVE-2026-73557",
+    "resumen": "Incomplete CVE-2025-62164 remediation can be bypassed by concurrent prompt parts",
+    "afecta": ">=0.21.0,<0.26.0",
+    "corregido_en": "0.26.0",
+    "cvss": null,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-pr7f-p5mw-fc87"
+  },
+  {
+    "id": "CVE-2026-9540",
+    "resumen": "vllm has Improper Resource Shutdown or Release",
+    "afecta": "<=0.19.0",
+    "corregido_en": null,
+    "cvss": 5.3,
+    "severidad": "media",
+    "fuente": "https://osv.dev/vulnerability/GHSA-98f3-hwg4-4rf7"
+  },
+  {
+    "id": "GHSA-9g3c-x747-c6wr",
+    "resumen": "Quadratic Cohere2 Vision preprocessing DoS via request-controlled max_patches",
+    "afecta": ">=0.10.1,<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": null,
+    "severidad": "media",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-9g3c-x747-c6wr"
+  },
+  {
+    "id": "CVE-2026-100649",
+    "resumen": "Sampler Subclass Counter Shadowing Bypasses PyNvVideoCodec Decoder Limits and GPU Memory Accounting",
+    "afecta": "<0.29.0",
+    "corregido_en": "0.29.0",
+    "cvss": 3.7,
+    "severidad": "baja",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-j682-9xp5-rrf3"
+  },
+  {
+    "id": "GHSA-6cxc-2vcg-w5qc",
+    "resumen": "V1 InputBatch.condense leaves a stale allowed_token_ids mask on recycled batch rows",
+    "afecta": "<0.31.0",
+    "corregido_en": "0.31.0",
+    "cvss": 3.7,
+    "severidad": "baja",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-6cxc-2vcg-w5qc"
+  },
+  {
+    "id": "CVE-2026-115917",
+    "resumen": "Permissive default CORS origins allow cross-origin requests to the vLLM HTTP server",
+    "afecta": "<0.32.0",
+    "corregido_en": "0.32.0",
+    "cvss": 3.4,
+    "severidad": "baja",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-vvpg-rrww-wpmh"
+  },
+  {
+    "id": "CVE-2026-105752",
+    "resumen": "Harmony tool continuations drop `cache_salt` — restoring a cross-tenant prefix-cache membership oracle",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 3.1,
+    "severidad": "baja",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-935w-9g4m-p28p"
+  },
+  {
+    "id": "CVE-2025-25183",
+    "resumen": "vLLM using built-in hash() from Python 3.12 leads to predictable hash collisions in vLLM prefix cache",
+    "afecta": "<0.7.2",
+    "corregido_en": "0.7.2",
+    "cvss": 2.6,
+    "severidad": "baja",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-rm76-4mrf-v9r8"
+  },
+  {
+    "id": "CVE-2025-46570",
+    "resumen": "Potential Timing Side-Channel Vulnerability in vLLM’s Chunk-Based Prefix Caching",
+    "afecta": "<0.9.0",
+    "corregido_en": "0.9.0",
+    "cvss": 2.6,
+    "severidad": "baja",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-4qjh-9fv9-r85r"
+  },
+  {
+    "id": "CVE-2026-7141",
+    "resumen": "vLLM makes Use of Uninitialized Resource",
+    "afecta": "<0.19.1",
+    "corregido_en": "0.19.1",
+    "cvss": 5.6,
+    "severidad": "baja",
+    "fuente": "https://osv.dev/vulnerability/GHSA-x368-4g9h-fvv4"
+  },
+  {
+    "id": "CVE-2026-73555",
+    "resumen": "Unauthenticated Internal Path and Username Disclosure via Validation Error Messages",
+    "afecta": "<0.26.0",
+    "corregido_en": "0.26.0",
+    "cvss": null,
+    "severidad": "baja",
+    "fuente": "https://github.com/vllm-project/vllm/security/advisories/GHSA-hwrm-c4cx-rf4j"
+  },
+  {
+    "id": "CVE-2026-103241",
+    "resumen": "A flaw has been found in vllm-project vLLM up to 0.26.0. This vulnerability affects unknown code of the file rust/src/parser/src/unified/gemma4.rs of the component Gemma4UnifiedParser. Executing a man",
+    "afecta": "<0.27.0",
+    "corregido_en": "0.27.0",
+    "cvss": 7.5,
+    "severidad": null,
+    "fuente": "https://osv.dev/vulnerability/PYSEC-2026-4186"
+  },
+  {
+    "id": "CVE-2026-105922",
+    "resumen": "A security flaw has been discovered in vllm-project vLLM up to 0.31.0. This impacts the function get_token_bin_counts_and_mask of the file vllm/model_executor/layers/utils.py of the component Penalty",
+    "afecta": "<0.32.0",
+    "corregido_en": "0.32.0",
+    "cvss": null,
+    "severidad": null,
+    "fuente": "https://osv.dev/vulnerability/PYSEC-2026-4319"
+  },
+  {
+    "id": "CVE-2026-93436",
+    "resumen": "vLLM through 0.29.0 fails to properly clean up decode-side metadata for rejected inference requests in prefill/decode disaggregated deployments. Remote attackers can submit requests with max_tokens=0",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": null,
+    "severidad": null,
+    "fuente": "https://osv.dev/vulnerability/PYSEC-2026-3996"
+  },
+  {
+    "id": "CVE-2026-93840",
+    "resumen": "vLLM before 0.29.0 validates allowed_token_ids against tokenizer length instead of model output logits width in SamplingParams._validate_allowed_token_ids(). Attackers can supply token IDs above the o",
+    "afecta": "<0.29.0",
+    "corregido_en": "0.29.0",
+    "cvss": 5.3,
+    "severidad": null,
+    "fuente": "https://osv.dev/vulnerability/PYSEC-2026-3998"
+  },
+  {
+    "id": "CVE-2026-93841",
+    "resumen": "vLLM through 0.29.0 contains a memory corruption vulnerability in the Triton _bincount_kernel where prompt token IDs index the penalty prompt-presence bitset without bounds checking against vocabulary",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 5.3,
+    "severidad": null,
+    "fuente": "https://osv.dev/vulnerability/PYSEC-2026-3999"
+  },
+  {
+    "id": "CVE-2026-93989",
+    "resumen": "vLLM through 0.29.0 fails to properly validate bad_words token indices against the model's generation output width in SamplingParams.update_from_tokenizer(). Attackers can supply out-of-bounds token i",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": 4.3,
+    "severidad": null,
+    "fuente": "https://osv.dev/vulnerability/PYSEC-2026-4000"
+  },
+  {
+    "id": "CVE-2026-94622",
+    "resumen": "vLLM versions through 0.29.0 contain a denial of service vulnerability in the NIXL connector's metadata handling for prefill/decode disaggregated deployments. Attackers can send requests with incomple",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": null,
+    "severidad": null,
+    "fuente": "https://osv.dev/vulnerability/PYSEC-2026-4004"
+  },
+  {
+    "id": "CVE-2026-94623",
+    "resumen": "vLLM through 0.29.0 contains a denial of service vulnerability in the NIXL connector's prefix caching implementation that fails to properly validate block counts across multi-prompt completion request",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": null,
+    "severidad": null,
+    "fuente": "https://osv.dev/vulnerability/PYSEC-2026-4005"
+  },
+  {
+    "id": "CVE-2026-94625",
+    "resumen": "vLLM through 0.29.0 contains a resource exhaustion vulnerability in MooncakeConnector where rejected prefill requests create ownerless transfer placeholders that are never reclaimed. Attackers can sen",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": null,
+    "severidad": null,
+    "fuente": "https://osv.dev/vulnerability/PYSEC-2026-4007"
+  },
+  {
+    "id": "CVE-2026-94626",
+    "resumen": "vLLM through 0.29.0 fails to validate the tp_size parameter in kv_transfer_params on OpenAI-compatible completion endpoints, allowing attackers to allocate unbounded memory. Attackers can supply arbit",
+    "afecta": "<0.30.0",
+    "corregido_en": "0.30.0",
+    "cvss": null,
+    "severidad": null,
+    "fuente": "https://osv.dev/vulnerability/PYSEC-2026-4008"
+  }
+]

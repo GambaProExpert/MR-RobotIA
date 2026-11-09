@@ -9,7 +9,8 @@ para auditar los algoritmos negociados por el servidor SSH en vivo.
 Autogating (igual que H2): NO se marca `activo=True` —así el CLI ejecuta siempre la
 parte pasiva—, sino que se lee `self.activos_ok` (que el CLI pone a True con
 --permitir-activos + permitir_activos) para decidir si corre la parte activa. Para
-hosts no locales exige, además, autorizacion.confirmo_no_local, como el núcleo.
+hosts no locales exige, además, autorizacion.confirmo_no_local, como el núcleo. Si el
+host no es este equipo, tampoco se lee ningún `sshd_config`: sería el del auditor.
 
 INVARIANTE DE PRIVACIDAD (crítico): la evidencia de los hallazgos son SOLO nombres de
 directiva + sus valores de política (yes/no, listas de algoritmos, números) y, en la
@@ -36,12 +37,11 @@ import json
 import os
 import re
 
-from mrrobotia import herramientas
+from mrrobotia import herramientas, red
 from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
 
 # --------------------------------------------------------------------- constantes
 REFS = {"owasp": "LLM10", "atlas": "AML.T0049", "nist": "2.9"}
-LOOPBACK = {"127.0.0.1", "::1", "localhost"}
 
 # Rutas por defecto del sshd_config según el SO, si el objetivo no declara una.
 _RUTA_SSHD_NT = r"C:\ProgramData\ssh\sshd_config"
@@ -409,7 +409,6 @@ class H3Ssh(Modulo):
 
     # Constantes accesibles también como atributos del objeto.
     REFS = REFS
-    LOOPBACK = LOOPBACK
     MAX_ACTIVOS = MAX_ACTIVOS
 
     # ------------------------------------------------------------ pasivo (disco/SO)
@@ -532,27 +531,23 @@ class H3Ssh(Modulo):
 
     # --------------------------------------------------------------- orquestación
     def ejecutar(self, objetivo):
-        hallazgos = list(self._pasivo(objetivo))
-
         host = self._host(objetivo)
         puerto_ssh = (objetivo.get("ssh") or {}).get("puerto", 22)
+        local = red.es_host_local(host)
+        # El sshd_config de este equipo no dice nada de otro host.
+        hallazgos = list(self._pasivo(objetivo)) if local else [Hallazgo(
+            "H3-SSH", "H3-SSH-NO-LOCAL", "No se ha revisado el sshd_config del host",
+            Severidad.INFO, "informativo", "el host auditado no es este equipo: su sshd_config no está aquí",
+            "Ejecuta MRRobotIA en ese host para revisar su configuración de SSH.", REFS)]
 
         # ---- GATING ACTIVO -----------------------------------------------------
-        activos = getattr(self, "activos_ok", False)
-        if host not in LOOPBACK and objetivo.get("autorizacion", {}).get("confirmo_no_local") is not True:
+        omision = self.motivo_omision_activa(objetivo, local)
+        if omision:
             hallazgos.append(Hallazgo(
                 "H3-SSH", "H3-SSH-ACTIVO-OMITIDO", "Análisis activo de SSH omitido",
-                Severidad.INFO, "informativo", "host no local sin confirmo_no_local",
-                "Marca autorizacion.confirmo_no_local=true solo con permiso escrito para auditar un host no local.",
-                REFS))
-            return [h for h in hallazgos if h is not None]
-        if not activos:
-            hallazgos.append(Hallazgo(
-                "H3-SSH", "H3-SSH-ACTIVO-OMITIDO", "Análisis activo de SSH omitido",
-                Severidad.INFO, "informativo",
-                "requiere --permitir-activos y permitir_activos=true",
-                "Habilita --permitir-activos y permitir_activos=true en el objetivo para el análisis con ssh-audit.",
-                REFS))
+                Severidad.INFO, "informativo", omision,
+                "El análisis con ssh-audit exige --permitir-activos y permitir_activos=true y, en un host no local, "
+                "autorizacion.confirmo_no_local=true con permiso escrito.", REFS))
             return [h for h in hallazgos if h is not None]
 
         # ---- ACTIVO (solo si autorizado y host permitido) ----------------------

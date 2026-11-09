@@ -6,7 +6,7 @@ import pytest
 
 from mrrobotia.contexto import ServidorDetectado
 from mrrobotia.perfiles import GENERICO, PERFILES, perfil_de, por_id
-from mrrobotia.perfiles.base import nombre_fichero, nombre_modelo, normalizar_prefijo, version_segura
+from mrrobotia.perfiles.base import Perfil, nombre_fichero, nombre_modelo, normalizar_prefijo, version_segura
 from mrrobotia.red import ClienteHTTP
 from servidor_falso import (
     BUILD_LLAMACPP, RUTA_MODELO_FALSA, ServidorFalso, desde_rutas, generico_openai, http_simple,
@@ -384,7 +384,7 @@ def test_registro_de_perfiles():
     assert perfil_de(ServidorDetectado("otro:ollama", "h", 1)) is GENERICO
 
 
-def test_partes_de_otros_hitos_devuelven_lista():
-    servidor = ServidorDetectado(VLLM.id, "h", 1)
-    assert VLLM.evaluar_arranque(servidor, False) == []
-    assert VLLM.sondear(None, servidor, False, False) == []
+def test_un_perfil_sin_comprobaciones_devuelve_listas():
+    servidor = ServidorDetectado("generico", "h", 1)
+    assert Perfil().evaluar_arranque(servidor, False) == []
+    assert Perfil().sondear(None, servidor, False, False) == []

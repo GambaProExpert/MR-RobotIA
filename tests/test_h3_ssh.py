@@ -187,3 +187,23 @@ def test_ejecutar_host_no_local_sin_confirmacion_omite_activo():
     hallazgos = m.ejecutar(objetivo)
     omitidos = [h for h in hallazgos if h.id == "H3-SSH-ACTIVO-OMITIDO"]
     assert omitidos and "no local" in omitidos[0].evidencia
+
+
+def test_host_no_local_no_lee_el_sshd_config_del_auditor(tmp_path):
+    cfg = tmp_path / "sshd_config"
+    cfg.write_text("PermitRootLogin yes\n", encoding="utf-8")
+    m = H3Ssh()
+    objetivo = {"host": "192.0.2.1", "autorizacion": {"confirmo_no_local": True}, "ssh": {"sshd_config": str(cfg)}}
+    hallazgos = m.ejecutar(objetivo)
+    assert {h.id for h in hallazgos} == {"H3-SSH-NO-LOCAL", "H3-SSH-ACTIVO-OMITIDO"}
+    assert all(h.severidad == Severidad.INFO for h in hallazgos) and str(cfg) not in repr(hallazgos)
+
+
+def test_host_no_local_confirmado_solo_hace_la_parte_activa(monkeypatch, tmp_path):
+    objetivo_visto = []
+    monkeypatch.setattr(H3Ssh, "_activo", lambda self, o, host, puerto: objetivo_visto.append((host, puerto)) or [])
+    monkeypatch.setattr(H3Ssh, "_pasivo", lambda self, o: (_ for _ in ()).throw(AssertionError("sshd_config del auditor")))
+    m = H3Ssh()
+    m.activos_ok = True
+    hallazgos = m.ejecutar({"host": "192.0.2.1", "autorizacion": {"confirmo_no_local": True}, "ssh": {"puerto": 2222}})
+    assert objetivo_visto == [("192.0.2.1", 2222)] and [h.id for h in hallazgos] == ["H3-SSH-NO-LOCAL"]

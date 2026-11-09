@@ -94,30 +94,44 @@ def ids_modelos(datos):
 
 
 # ------------------------------------------------------- hallazgos compartidos
-def hallazgo_autenticacion(autenticacion, detalle, expuesto, proxy, consejo):
-    """H2-AUTH según lo observado. `detalle` dice qué se ha pedido y qué ha respondido."""
+def graduar(expuesto, en_loopback, en_red):
+    """Severidad según esté el servidor fuera de loopback o no."""
+    return en_red if expuesto else en_loopback
+
+
+def hallazgo_exposicion(id_, titulo, severidad, evidencia, recomendacion, refs=REFS_EXPO, estado="confirmado"):
+    return Hallazgo(MODULO_EXPOSICION, id_, titulo, severidad, estado, evidencia, recomendacion, refs)
+
+
+def hallazgo_arranque(fila, titulo, severidad, evidencia, recomendacion, refs=REFS_EXPO, estado="confirmado"):
+    return Hallazgo(MODULO_ARRANQUE, f"H2-ARRANQUE-{fila}", titulo, severidad, estado, evidencia, recomendacion, refs)
+
+
+def hallazgo_autenticacion(autenticacion, detalle, consejo):
+    """H2-AUTH según lo observado. `detalle` dice qué se ha pedido y qué ha respondido. No depende de
+    la exposición: de la combinación de exposición y falta de clave se encarga H2-EXPOSICION."""
     if autenticacion == "abierta":
-        severidad = Severidad.CRITICA if expuesto and not proxy else Severidad.MEDIA
         return Hallazgo(
-            MODULO_EXPOSICION, "H2-AUTH", "El servidor responde sin exigir API key", severidad, "confirmado",
+            MODULO_EXPOSICION, "H2-AUTH", "El servidor responde sin exigir API key", Severidad.MEDIA, "confirmado",
             detalle, f"{consejo}; sin clave, cualquiera que alcance el puerto puede usar el modelo (A5).", REFS_EXPO)
     if autenticacion == "activa":
         return Hallazgo(MODULO_EXPOSICION, "H2-AUTH", "El servidor exige API key", Severidad.INFO, "informativo",
                         detalle, "", REFS_EXPO)
     return Hallazgo(
         MODULO_EXPOSICION, "H2-AUTH", "No se pudo determinar si el servidor exige API key", Severidad.INFO,
-        "informativo", detalle, "Comprueba a mano si la API exige autenticación: esto no demuestra que esté protegida.",
+        "sin_concluir", detalle, "Comprueba a mano si la API exige autenticación: esto no demuestra que esté protegida.",
         REFS_EXPO)
 
 
-def hallazgo_modelos(ids):
-    """H2-MODELS a partir de los identificadores: rutas de disco (MEDIA) o alias (BAJA)."""
+def hallazgo_modelos(ids, rutas=()):
+    """H2-MODELS a partir de los identificadores: rutas de disco (MEDIA) o alias (BAJA). `rutas`
+    son otros campos de la respuesta que puedan llevar una ruta; no llegan a la evidencia."""
     if not ids:
         return None
-    if any(es_ruta_absoluta(i) for i in ids):
+    if any(es_ruta_absoluta(i) for i in [*ids, *rutas]):
         return Hallazgo(
             MODULO_EXPOSICION, "H2-MODELS", "El endpoint /v1/models revela rutas de disco de los modelos",
-            Severidad.MEDIA, "confirmado", f"{len(ids)} modelo(s); algún id es una ruta absoluta",
+            Severidad.MEDIA, "confirmado", f"{len(ids)} modelo(s); algún campo es una ruta absoluta",
             "Expón alias en lugar de rutas en /v1/models: la ruta en disco informa al atacante de la "
             "estructura del despliegue (LLM02).", REFS_MODELS)
     return Hallazgo(
@@ -149,6 +163,7 @@ class Perfil:
     id = ""
     nombre = ""
     puertos_defecto = ()      # los que se prueban si no hay otra pista
+    puertos_internos: dict[int, str] = {}    # canales sin autenticación que puede abrir: puerto -> qué es
     enlace_defecto = None     # enlace si el proceso no indica --host
     opciones: dict[str, Op] = {}
     variables: dict[str, bool] = {}   # nombre -> ¿secreto?

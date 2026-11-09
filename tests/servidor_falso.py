@@ -32,6 +32,15 @@ _NO_DISPONIBLE = {"error": {"code": 501, "type": "not_supported_error", "message
 _PUBLICAS_LLAMACPP = {"/health", "/v1/health", "/", "/index.html", "/sw.js", "/manifest.webmanifest",
                       "/_app/version.json", "/build.json", "/favicon.ico"}
 _PROTEGIDAS_VLLM = ("/v1", "/v2", "/inference", "/cohere")
+# Rutas de vLLM que solo admiten POST: un GET responde 405 sin llegar al manejador.
+_SOLO_POST_VLLM = {"/invocations", "/tokenize", "/detokenize", "/generative_scoring", "/scale_elastic_ep", "/is_scaling_elastic_ep"}
+_SOLO_POST_POOLING = {"/pooling", "/classify", "/score", "/rerank"}
+SOLO_POST_DESARROLLO = {
+    "/collective_rpc", "/abort_requests", "/pause", "/resume", "/sleep", "/wake_up", "/release_kv_cache_memory",
+    "/reset_prefix_cache", "/reset_mm_cache", "/reset_encoder_cache", "/init_weight_transfer_engine",
+    "/shutdown_weight_transfer_engine", "/start_weight_update", "/start_draft_weight_update", "/update_weights",
+    "/finish_weight_update", "/update_weight_version", "/weight_checker",
+}
 
 
 @dataclass
@@ -220,30 +229,52 @@ def llamacpp(clave=None, webui=True, prefijo="", build=BUILD_LLAMACPP, modelo=RU
 
 
 def vllm(clave=None, version="0.33.0", modelo="org/modelo-falso", docs=True, metricas=True, rust=False,
-         server="uvicorn"):
-    """vLLM 0.33.0 según su código: `--api-key` solo protege cuatro prefijos."""
+         server="uvicorn", desarrollo=False, pooling=False, tokens_only=False, perfilador=False, tolerancia=False,
+         tokenizador=None, eventos_kv=None, comodin=False, raiz=None, cors=None):
+    """vLLM 0.33.0 según su código: `--api-key` solo protege cuatro prefijos y OPTIONS queda exento."""
     base = {"Server": server} if server else {}
+    solo_post = set(_SOLO_POST_VLLM)
+    solo_post |= _SOLO_POST_POOLING if pooling else set()
+    solo_post |= SOLO_POST_DESARROLLO if desarrollo else set()
+    solo_post |= {"/abort_requests"} if tokens_only else set()
+    solo_post |= {"/start_profile", "/stop_profile"} if perfilador else set()
+    solo_post |= {"/fault_tolerance/apply"} if tolerancia else set()
 
     def responder(p):
         ruta = p.ruta.partition("?")[0]
+        if p.metodo == "OPTIONS":
+            if cors is None:            # sin orígenes permitidos, la comprobación previa se rechaza
+                return 400, base, b"Disallowed CORS origin"
+            return 200, {**base, "Access-Control-Allow-Origin": cors}, b""
         if clave and ruta.startswith(_PROTEGIDAS_VLLM) and p.cabeceras.get("authorization") != f"Bearer {clave}":
             return _respuesta_json(401, {"error": "Unauthorized"}, base)
+        if ruta in solo_post:
+            return _respuesta_json(405, {"detail": "Method Not Allowed"}, {**base, "Allow": "POST"})
+        if ruta == "/load":
+            return _respuesta_json(200, {"server_load": 3}, base)
+        if ruta == "/kv_event_sources":
+            return _respuesta_json(200, eventos_kv or {}, base)
+        if ruta == "/tokenizer_info" and tokenizador is not None:
+            return _respuesta_json(200, {"chat_template": tokenizador}, base)
         if ruta == "/version":
             datos = {"version": version}
             if rust:
                 datos["rust_frontend_version"] = "0.1.0"
             return _respuesta_json(200, datos, base)
         if ruta == "/metrics" and metricas:
-            texto = b"# HELP vllm:num_requests_running x\nvllm:num_requests_running{model_name=\"m\"} 0.0\n"
+            texto = (b"# HELP vllm:num_requests_running x\nvllm:num_requests_running{model_name=\"m\"} 0.0\n"
+                     b"vllm:num_requests_waiting{model_name=\"m\"} 0.0\n")
             return 200, {**base, "Content-Type": "text/plain"}, texto
         if ruta == "/v1/models":
-            fila = {"id": modelo, "object": "model", "created": 1, "owned_by": "vllm", "root": modelo, "parent": None, "permission": []}
+            fila = {"id": modelo, "object": "model", "created": 1, "owned_by": "vllm", "root": raiz or modelo, "parent": None, "permission": []}
             return _respuesta_json(200, {"object": "list", "data": [fila]}, base)
         if ruta == "/openapi.json" and docs:
             rutas = {"/tokenize": {}, "/detokenize": {}, "/version": {}}
             return _respuesta_json(200, {"openapi": "3.1.0", "info": {"title": "FastAPI", "version": "0.1.0"}, "paths": rutas}, base)
         if ruta == "/health":
             return 200, base, b""
+        if comodin:
+            return _respuesta_json(200, {"ok": True}, base)
         return _respuesta_json(404, {"detail": "Not Found"}, base)
 
     return responder

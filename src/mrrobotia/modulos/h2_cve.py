@@ -21,10 +21,11 @@ from mrrobotia.perfiles.base import REFS_SUPPLY
 
 MODULO = "H2-CVE"
 _GRUPOS = (Severidad.CRITICA, Severidad.ALTA, Severidad.MEDIA, Severidad.BAJA)
+MAX_IDENTIFICADORES = 20    # una versión antigua de vLLM puede coincidir con más de cien avisos
 
 
-def _info(id_, titulo, evidencia, recomendacion=""):
-    return Hallazgo(MODULO, id_, titulo, Severidad.INFO, "informativo", evidencia, recomendacion, REFS_SUPPLY)
+def _info(id_, titulo, evidencia, recomendacion="", estado="informativo"):
+    return Hallazgo(MODULO, id_, titulo, Severidad.INFO, estado, evidencia, recomendacion, REFS_SUPPLY)
 
 
 def _etiqueta(aviso):
@@ -34,7 +35,11 @@ def _etiqueta(aviso):
 
 
 def _lista(avisos):
-    return ", ".join(_etiqueta(a) for a in sorted(avisos, key=lambda a: str(a["id"])))
+    """Identificadores de los avisos: los MAX_IDENTIFICADORES primeros y cuántos más hay."""
+    ordenados = sorted(avisos, key=lambda a: str(a["id"]))
+    texto = ", ".join(_etiqueta(a) for a in ordenados[:MAX_IDENTIFICADORES])
+    resto = len(ordenados) - MAX_IDENTIFICADORES
+    return f"{texto} y {resto} más" if resto > 0 else texto
 
 
 def _hallazgo_grupo(severidad, avisos, version, sin_confirmar, clave_version):
@@ -82,11 +87,11 @@ class H2Cve(Modulo):
         if not servidor.version:
             return [_info("H2-CVE-SIN-VERSION", "No se conoce la versión del servidor",
                           "sin versión no se pueden cruzar los avisos",
-                          "Con --permitir-activos, MRRobotIA intenta leerla del propio servidor.")]
+                          "Con --permitir-activos, MRRobotIA intenta leerla del propio servidor.", "sin_concluir")]
         if perfil.clave_version(servidor.version) is None:
             return [_info("H2-CVE-SIN-VERSION", "La versión del servidor no se puede comparar",
                           f"versión {servidor.version}",
-                          "Una compilación sin datos de versión no se puede cruzar con los avisos.")]
+                          "Una compilación sin datos de versión no se puede cruzar con los avisos.", "sin_concluir")]
 
         def en_uso(aviso):
             return perfil.componente_en_uso(aviso, servidor)

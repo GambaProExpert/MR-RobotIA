@@ -5,7 +5,7 @@ import pytest
 from mrrobotia.contexto import Contexto, ServidorDetectado
 from mrrobotia.modulos import h2_arranque as h2a
 from mrrobotia.modulos.h2_arranque import H2Arranque
-from mrrobotia.nucleo import Severidad
+from mrrobotia.nucleo import Hallazgo, Severidad
 from mrrobotia.perfiles import GENERICO, PERFILES
 
 LLAMA = PERFILES[0]
@@ -117,7 +117,8 @@ def test_carencia_de_tls():
 # ---------------------------------------------------------------- enlace y CORS
 def test_host_fuera_de_loopback():
     assert uno(evaluar({"host": "0.0.0.0"}), "HOST").severidad == Severidad.ALTA
-    assert uno(evaluar({"host": "0.0.0.0"}, autenticacion="abierta"), "HOST").severidad == Severidad.CRITICA
+    # La combinación con la falta de clave ya la da SIN-CLAVE.
+    assert uno(evaluar({"host": "0.0.0.0"}, autenticacion="abierta"), "HOST").severidad == Severidad.ALTA
     assert uno(evaluar({"host": "127.0.0.1,10.0.0.2"}), "HOST")
     assert uno(evaluar(entorno={"LLAMA_ARG_HOST": "0.0.0.0"}), "HOST")
 
@@ -135,7 +136,7 @@ def test_cors_por_defecto_es_cualquier_origen():
 
 def test_cors_explicito():
     h = uno(evaluar({"cors_origins": "*"}), "CORS")
-    assert h.estado == "confirmado"
+    assert h.estado == "confirmado" and "cors_origins=*" in h.evidencia
     assert uno(evaluar({"cors_origins": "*", "cors_credentials": False}), "CORS").severidad == Severidad.BAJA
 
 
@@ -222,6 +223,19 @@ def test_evalua_con_el_enlace_real():
     assert uno(h, "METRICS").severidad == Severidad.MEDIA and uno(h, "METRICS").evidencia.startswith("llama.cpp en 127.0.0.1:1:")
     h = ejecutar(servidor({"metrics": True}, enlace="loopback"))
     assert uno(h, "METRICS").severidad == Severidad.BAJA
+
+
+# ------------------------------------------------------- lo observado manda
+@pytest.mark.parametrize("fila,observado", list(h2a.FILA_A_OBSERVADO.items()))
+def test_fila_ya_observada_se_descarta(monkeypatch, fila, observado):
+    monkeypatch.setattr(LLAMA, "evaluar_arranque", lambda s, e: [Hallazgo(h2a.MODULO, fila, "t", Severidad.ALTA, "potencial", "e")])
+    assert fila in ids(ejecutar(servidor({"port": "1"})))
+    assert fila not in ids(ejecutar(servidor({"port": "1"}, observado=[observado])))
+
+
+def test_fila_de_otro_asunto_no_se_descarta():
+    h = ejecutar(servidor({"metrics": True}, observado=["H2-TLS"]))
+    assert uno(h, "METRICS") and "H2-ARRANQUE-TLS" not in ids(h)
 
 
 def test_un_fallo_del_perfil_no_llega_al_llamador(monkeypatch):

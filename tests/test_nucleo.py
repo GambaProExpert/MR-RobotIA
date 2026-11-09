@@ -109,6 +109,12 @@ def test_informe_genera_markdown_y_json():
     assert datos["hallazgos"][0]["modulo"] == "M2"
 
 
+def test_informe_marca_lo_sin_concluir():
+    inf = Informe({"nombre": "x", "autorizacion": {"autorizado_por": "a", "ambito": "b"}})
+    inf.anadir([Hallazgo("M", "X", "Sin dato", Severidad.INFO, "sin_concluir", "e")])
+    assert "Sin dato *(sin concluir)*" in inf.to_markdown()
+
+
 def test_informe_marca_lo_potencial():
     obj = {"nombre": "x", "autorizacion": {"autorizado_por": "x", "ambito": "x"}}
     informe = Informe(obj)

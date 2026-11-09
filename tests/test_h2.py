@@ -230,22 +230,26 @@ def test_evaluar_tls():
 def test_severidad_compuesta():
     critico = h2._severidad_compuesta("todas", "abierta", False, True)
     assert critico.id == "H2-EXPOSICION" and critico.severidad == Severidad.CRITICA
-    assert h2._severidad_compuesta("todas", "activa", False, True).severidad == Severidad.ALTA
-    assert h2._severidad_compuesta("todas", "abierta", True, True).severidad == Severidad.ALTA
-    assert h2._severidad_compuesta("loopback", "abierta", False, False).severidad == Severidad.BAJA
-    assert h2._severidad_compuesta("loopback", "activa", False, False).severidad == Severidad.INFO
+
+
+@pytest.mark.parametrize("enlace,autenticacion,proxy,expuesto", [
+    ("todas", "activa", False, True), ("todas", "abierta", True, True), ("todas", "indeterminada", False, True),
+    ("loopback", "abierta", False, False), ("loopback", "activa", False, False), (None, "abierta", False, False),
+    (None, "activa", False, False),
+])
+def test_severidad_compuesta_solo_tiene_severidad_si_aporta_algo(enlace, autenticacion, proxy, expuesto):
+    assert h2._severidad_compuesta(enlace, autenticacion, proxy, expuesto).severidad == Severidad.INFO
 
 
 def test_severidad_compuesta_no_da_por_buena_la_duda():
     expuesto = h2._severidad_compuesta("todas", "indeterminada", False, True)
-    assert expuesto.severidad == Severidad.ALTA and "sin determinar" in expuesto.evidencia
-    assert "exige API key" not in h2._severidad_compuesta("loopback", "indeterminada", False, False).evidencia
+    assert expuesto.estado == "sin_concluir" and "sin determinar" in expuesto.evidencia
+    assert "con API key" not in h2._severidad_compuesta("loopback", "indeterminada", False, False).evidencia
 
 
 def test_severidad_compuesta_enlace_desconocido():
     h = h2._severidad_compuesta(None, "abierta", False, False)
-    assert h.severidad == Severidad.MEDIA and "desconocido" in h.titulo
-    assert h2._severidad_compuesta(None, "activa", False, False).severidad == Severidad.INFO
+    assert h.estado == "sin_concluir" and "desconocido" in h.evidencia
     # Lo observado manda: si desde la red responde, está expuesto aunque no se conozca el enlace.
     assert h2._severidad_compuesta(None, "abierta", False, True).severidad == Severidad.CRITICA
 
@@ -459,9 +463,9 @@ def test_generico_con_clave():
     assert uno(h, "H2-AUTH").severidad == Severidad.INFO and s.autenticacion == "activa" and "H2-MODELS" not in ids(h)
 
 
-def test_generico_expuesto_sin_clave_es_critico():
+def test_generico_sin_clave_no_depende_de_la_exposicion():
     assert uno(sondear(generico_openai(), servidor(tipo="generico"), expuesto=True, perfil=GENERICO)[0],
-               "H2-AUTH").severidad == Severidad.CRITICA
+               "H2-AUTH").severidad == Severidad.MEDIA
 
 
 def test_generico_sin_api_es_indeterminado():
@@ -554,7 +558,7 @@ def test_auditoria_completa_por_defecto(aislado):
     assert "H2-LAN" not in presentes
     assert uno(h, "H2-CORS").severidad == Severidad.ALTA        # refleja el Origin y no hay clave
     assert uno(h, "H2-HOST").severidad == Severidad.MEDIA
-    assert uno(h, "H2-EXPOSICION").severidad == Severidad.BAJA
+    assert uno(h, "H2-EXPOSICION").severidad == Severidad.INFO
     assert uno(h, "H2-TLS").severidad == Severidad.BAJA
 
 
@@ -605,14 +609,34 @@ def test_expuesto_en_lan_sube_la_severidad(aislado, monkeypatch):
         monkeypatch.setattr(h2.red, "sondear", lambda host, puerto, timeout=2: host == "192.0.2.10" or reales(host, puerto, timeout))
         h = auditar(objetivo(endpoint=s.url), servidor(s.puerto))
     assert uno(h, "H2-LAN").severidad == Severidad.ALTA
-    assert uno(h, "H2-EXPOSICION").severidad == Severidad.CRITICA and uno(h, "H2-AUTH").severidad == Severidad.CRITICA
+    assert uno(h, "H2-EXPOSICION").severidad == Severidad.CRITICA and uno(h, "H2-AUTH").severidad == Severidad.MEDIA
 
 
 def test_host_remoto_alcanzado_cuenta_como_expuesto(monkeypatch):
-    monkeypatch.setattr(h2.red, "ip_rutable", lambda: pytest.fail("la IP propia no pinta nada"))
+    monkeypatch.setattr(h2.red, "ip_rutable", lambda: "10.9.9.9")
+    monkeypatch.setattr(h2.red, "sondear", lambda *a, **k: pytest.fail("la IP propia no pinta nada"))
     hallazgos = []
     assert H2Exposicion._expuesto_en_red(servidor(9, host="203.0.113.9", enlace=None), hallazgos) is True
-    assert uno(hallazgos, "H2-LAN")
+    lan = uno(hallazgos, "H2-LAN")
+    assert "203.0.113.9:9" in lan.evidencia and "equipo auditor" in lan.evidencia
+
+
+def test_lan_no_repite_lo_que_ya_dijo_el_enlace(monkeypatch):
+    monkeypatch.setattr(h2.red, "sondear", lambda *a, **k: pytest.fail("el enlace ya lo dice"))
+    for enlace in ("todas", ("otra", "10.0.0.5")):
+        hallazgos = []
+        assert H2Exposicion._expuesto_en_red(servidor(9, enlace=enlace), hallazgos) is True and hallazgos == []
+
+
+def test_lan_desde_el_propio_equipo_no_afirma_acceso_externo(monkeypatch):
+    monkeypatch.setattr(h2.red, "ip_rutable", lambda: "192.0.2.10")
+    monkeypatch.setattr(h2.red, "sondear", lambda *a, **k: True)
+    for enlace in ("loopback", None):
+        hallazgos = []
+        assert H2Exposicion._expuesto_en_red(servidor(9, enlace=enlace), hallazgos) is True
+        lan = uno(hallazgos, "H2-LAN")
+        assert "LAN" not in lan.titulo and "LAN" not in lan.evidencia
+        assert "propio equipo" in lan.evidencia and "cortafuegos" in lan.evidencia
 
 
 def test_enlace_por_tabla_expuesto(aislado):
@@ -634,10 +658,10 @@ def test_proxy_y_clave_esperada_solo_para_el_declarado(aislado):
         h = auditar(objetivo(endpoint=declarado.url, exposicion=cfg),
                     servidor(declarado.puerto, enlace="todas"), servidor(otro.puerto, enlace="todas"))
     aut = [x for x in h if x.id == "H2-AUTH"]
-    assert aut[0].severidad == Severidad.ALTA and "api_key_esperada" in aut[0].evidencia    # tras proxy, MEDIA + 1
-    assert aut[1].severidad == Severidad.CRITICA and "api_key_esperada" not in aut[1].evidencia
+    assert aut[0].severidad == Severidad.ALTA and "api_key_esperada" in aut[0].evidencia    # MEDIA + 1
+    assert aut[1].severidad == Severidad.MEDIA and "api_key_esperada" not in aut[1].evidencia
     expo = [x.severidad for x in h if x.id == "H2-EXPOSICION"]
-    assert expo == [Severidad.ALTA, Severidad.CRITICA]
+    assert expo == [Severidad.INFO, Severidad.CRITICA]         # tras proxy solo es un resumen
 
 
 def test_clave_esperada_sube_la_severidad_en_loopback(aislado):
@@ -768,14 +792,71 @@ def test_cli_registra_los_modulos():
 
 
 # ------------------------------------------------------------ piezas compartidas
-@pytest.mark.parametrize("autenticacion,expuesto,proxy,severidad", [
-    ("abierta", True, False, Severidad.CRITICA), ("abierta", False, False, Severidad.MEDIA),
-    ("abierta", True, True, Severidad.MEDIA), ("activa", True, False, Severidad.INFO),
-    ("indeterminada", True, False, Severidad.INFO), (None, False, False, Severidad.INFO),
+@pytest.mark.parametrize("autenticacion,severidad,estado", [
+    ("abierta", Severidad.MEDIA, "confirmado"), ("activa", Severidad.INFO, "informativo"),
+    ("indeterminada", Severidad.INFO, "sin_concluir"), (None, Severidad.INFO, "sin_concluir"),
 ])
-def test_severidad_de_la_autenticacion(autenticacion, expuesto, proxy, severidad):
-    h = hallazgo_autenticacion(autenticacion, "detalle", expuesto, proxy, "consejo")
-    assert h.id == "H2-AUTH" and h.severidad == severidad and h.evidencia == "detalle"
+def test_severidad_de_la_autenticacion(autenticacion, severidad, estado):
+    h = hallazgo_autenticacion(autenticacion, "detalle", "consejo")
+    assert h.id == "H2-AUTH" and (h.severidad, h.estado) == (severidad, estado) and h.evidencia == "detalle"
+
+
+# ------------------------------------------------------------ una causa, un hallazgo
+def test_lo_que_no_concluye_se_marca_sin_concluir():
+    for h in (h2._evaluar_bind(None, "127.0.0.1", False), h2._evaluar_owner(None, 7),
+              h2._evaluar_cors(respuesta(None), cors(), "abierta", False),
+              h2._evaluar_cors(respuesta(404), cors(), "abierta", False),
+              h2._evaluar_host(respuesta(None), respuesta(200), "abierta", False),
+              h2._evaluar_host(respuesta(200), respuesta(500), "abierta", False),
+              h2._severidad_compuesta(None, "activa", False, False)):
+        assert h.estado == "sin_concluir", h.titulo
+
+
+def test_slots_sin_respuesta_queda_sin_concluir():
+    def responder(p):
+        if p.ruta == "/slots":
+            raise ConnectionAbortedError("sin respuesta")
+        return llamacpp()(p)
+
+    assert uno(sondear(responder)[0], "H2-SLOTS").estado == "sin_concluir"
+
+
+def test_observado_recoge_lo_concluido(aislado):
+    with ServidorFalso(llamacpp()) as falso:
+        s = servidor(falso.puerto)
+        auditar(objetivo(endpoint=falso.url), s)
+    assert {"H2-BIND", "H2-AUTH", "H2-CORS", "H2-TLS", "H2-WEBUI", "H2-SLOTS"} <= set(s.observado)
+
+
+def test_observado_no_incluye_lo_que_no_concluye(aislado):
+    with ServidorFalso(llamacpp(cargando=True)) as falso:
+        s = servidor(falso.puerto)
+        auditar(objetivo(endpoint=falso.url), s)
+    assert "H2-AUTH" not in s.observado and "H2-BIND" in s.observado
+
+
+def _proceso(puerto, *extra):
+    return Proceso(100, "llama-server", ["llama-server", "--host", "127.0.0.1", "--port", str(puerto), *extra])
+
+
+def test_una_causa_un_hallazgo_de_punta_a_punta(entorno, monkeypatch, tmp_path):
+    with ServidorFalso(llamacpp()) as s:
+        entorno.procesos = [_proceso(s.puerto, "--cors-origins", "*")]
+        entorno.abiertos = {s.puerto}
+        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, permitir_activos=True), *ACTIVO)
+    assert "H2-WEBUI" in informe and "H2-CORS" in informe
+    for fila in ("SIN-CLAVE", "TLS", "CORS", "WEBUI", "SLOTS"):
+        assert f"H2-ARRANQUE-{fila}" not in informe
+
+
+def test_arranque_suelto_conserva_todas_las_filas(entorno, monkeypatch, tmp_path):
+    with ServidorFalso(llamacpp()) as s:
+        entorno.procesos = [_proceso(s.puerto, "--cors-origins", "*")]
+        entorno.abiertos = {s.puerto}
+        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, permitir_activos=True),
+                                "--escaneo", "arranque", "--permitir-activos")
+    for fila in ("SIN-CLAVE", "TLS", "CORS", "WEBUI", "SLOTS"):
+        assert f"H2-ARRANQUE-{fila}" in informe
 
 
 @pytest.mark.parametrize("valor,esperado", [
@@ -802,4 +883,4 @@ def test_rotulo_y_url_de_un_servidor():
 def test_objetivo_malformado_no_llega_al_llamador():
     m = H2Exposicion()
     m.contexto = Contexto("linux", servidores=[servidor()])
-    assert ids(m.ejecutar({"exposicion": ["no es un objeto"]})) == ["H2-ERROR"]
+    assert "H2-ERROR" in ids(m.ejecutar({"exposicion": ["no es un objeto"]}))

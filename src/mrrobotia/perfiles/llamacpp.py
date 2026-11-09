@@ -14,12 +14,15 @@ from __future__ import annotations
 import secrets
 
 from mrrobotia import cve
-from mrrobotia.nucleo import Hallazgo, Severidad
+from mrrobotia.nucleo import Severidad
 from mrrobotia.perfiles.base import (
-    MAX_MODELOS, MODULO_ARRANQUE, MODULO_EXPOSICION, REFS_EXPO, REFS_FUGA, REFS_MODELS, REFS_SECRETOS,
-    REFS_SUPPLY, Identificacion, Op, Perfil, es_ruta_absoluta, hallazgo_autenticacion, hallazgo_modelos,
-    ids_modelos, limpiar, nombre_fichero, nombre_modelo, normalizar_prefijo, version_segura,
+    MAX_MODELOS, REFS_FUGA, REFS_MODELS, REFS_SECRETOS, REFS_SUPPLY, Identificacion, Op, Perfil,
+    es_ruta_absoluta, hallazgo_autenticacion, hallazgo_modelos, ids_modelos, limpiar, nombre_fichero,
+    nombre_modelo, normalizar_prefijo, version_segura,
 )
+from mrrobotia.perfiles.base import graduar as _graduar
+from mrrobotia.perfiles.base import hallazgo_arranque as _a
+from mrrobotia.perfiles.base import hallazgo_exposicion as _h
 from mrrobotia.red import a_puerto, clasificar_direccion, es_no_loopback
 
 # POST sin cuerpo que distingue si hay --slot-save-path (400) o no (501) y no guarda nada.
@@ -175,14 +178,6 @@ def _error_de_clave(respuesta):
 
 
 # ----------------------------------------------- sondeo de red: una función por hallazgo
-def _h(id_, titulo, severidad, evidencia, recomendacion, refs=REFS_EXPO, estado="confirmado"):
-    return Hallazgo(MODULO_EXPOSICION, id_, titulo, severidad, estado, evidencia, recomendacion, refs)
-
-
-def _graduar(expuesto, en_loopback, en_red):
-    return en_red if expuesto else en_loopback
-
-
 def _hallazgo_props(datos, expuesto):
     """`/props` abierto. La ruta del modelo y la plantilla nunca pasan a la evidencia: de la
     primera, el nombre del fichero; de la segunda, su longitud."""
@@ -232,7 +227,7 @@ def _hallazgo_slots(cliente, datos, dormido, expuesto):
     if respuesta.estado is None:
         return _h("H2-SLOTS", "No se pudo comprobar /slots", Severidad.INFO,
                   f"sin respuesta ({respuesta.error}); esto no demuestra que esté protegido",
-                  "Comprueba /slots a mano.", REFS_FUGA, "informativo")
+                  "Comprueba /slots a mano.", REFS_FUGA, "sin_concluir")
     if respuesta.estado != 200:
         return None
     n_slots, hay_prompt, hay_lora = _analizar_slots(respuesta.json())
@@ -403,10 +398,6 @@ _OPCION_DE_COMPONENTE = {"rpc": "rpc", "slot-restore": "slot_save_path"}
 _VARIABLE_DE_OPCION = {"rpc": "LLAMA_ARG_RPC", "slot_save_path": "LLAMA_ARG_SLOT_SAVE_PATH"}
 
 
-def _a(id_, titulo, severidad, evidencia, recomendacion, refs=REFS_EXPO, estado="confirmado"):
-    return Hallazgo(MODULO_ARRANQUE, f"H2-ARRANQUE-{id_}", titulo, severidad, estado, evidencia, recomendacion, refs)
-
-
 def _valor(servidor, clave, variable=None):
     """Valor de una opción o, si no consta, de su variable de entorno. None si no consta."""
     if clave in servidor.opciones:
@@ -426,14 +417,14 @@ def _consta(servidor, clave, variable=None):
     return _valor(servidor, clave, variable) is not None
 
 
-def _arranque_enlace(s, con_clave):
+def _arranque_enlace(s):
+    """Siempre ALTA: la combinación con la falta de clave ya la da `SIN-CLAVE`."""
     host = _valor(s, "host", "LLAMA_ARG_HOST")
     if not isinstance(host, str) or host.endswith(".sock"):
         return None
     if not any(es_no_loopback(clasificar_direccion(p)) for p in host.split(",")):
         return None
-    return _a("HOST", "Arrancado para escuchar fuera de loopback", Severidad.ALTA if con_clave else Severidad.CRITICA,
-              f"--host {limpiar(host)}" + ("" if con_clave else "; no consta clave de API"),
+    return _a("HOST", "Arrancado para escuchar fuera de loopback", Severidad.ALTA, f"--host {limpiar(host)}",
               "Usa --host 127.0.0.1 y pon delante un proxy con autenticación si necesitas acceso remoto (A5).")
 
 
@@ -473,7 +464,8 @@ def _arranque_cors(s, con_clave):
                              or _consta(s, "mcp_servers_config", "LLAMA_ARG_MCP_SERVERS_CONFIG")
                              or _consta(s, "mcp_servers_json", "LLAMA_ARG_MCP_SERVERS_JSON")):
         return None
-    texto = limpiar(origenes) if origenes is not None else "*"
+    # `limpiar` sustituye el asterisco, y aquí es justo el dato que importa.
+    texto = "*" if origenes in (None, "*") else limpiar(origenes)
     if "," in str(origenes):
         return _a("CORS", "--cors-origins contiene una lista que los navegadores no aceptan", Severidad.BAJA,
                   f"--cors-origins {texto}",
@@ -626,6 +618,8 @@ class LlamaCpp(Perfil):
     nombre = "llama.cpp"
     # 9931 es el puerto por defecto de las builds recientes; 8080, el de las anteriores.
     puertos_defecto = (9931, 8080)
+    # Puerto por defecto de `ggml-rpc-server`, comprobado con su --help (build b11583).
+    puertos_internos = {50052: "backend RPC de llama.cpp"}
     enlace_defecto = "loopback"
     opciones = OPCIONES
     variables = VARIABLES
@@ -721,7 +715,7 @@ class LlamaCpp(Perfil):
         datos = props.json() if props.estado == 200 else None
         datos = datos if isinstance(datos, dict) else {}
         hallazgos = [
-            hallazgo_autenticacion(autenticacion, detalle, expuesto, proxy,
+            hallazgo_autenticacion(autenticacion, detalle,
                                    "Arranca llama-server con --api-key-file, o ponlo tras un proxy que autentique"),
             self._hallazgo_build(cliente, servidor, datos),
         ]
@@ -767,7 +761,7 @@ class LlamaCpp(Perfil):
         queda como `potencial` salvo que la red lo confirme: la opción puede venir del entorno,
         que en Windows no es legible. Solo presencia o valores saneados."""
         con_clave = servidor.autenticacion == "activa"
-        filas = [_arranque_enlace(servidor, con_clave), *_arranque_clave(servidor, expuesto, con_clave),
+        filas = [_arranque_enlace(servidor), *_arranque_clave(servidor, expuesto, con_clave),
                  _arranque_tls(servidor, expuesto), _arranque_cors(servidor, con_clave),
                  *_arranque_web(servidor, expuesto, con_clave), *_arranque_rutas(servidor, expuesto, con_clave),
                  *_arranque_registros(servidor), *_arranque_modelos(servidor, expuesto),

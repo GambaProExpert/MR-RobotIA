@@ -51,6 +51,7 @@ class ServidorDetectado:
     autenticacion: str | None = None  # "activa" | "abierta" | "indeterminada"
     modelos: list[str] = field(default_factory=list)  # nombre de fichero o alias, nunca ruta absoluta
     senales: list[str] = field(default_factory=list)  # evidencia corta y sin secretos
+    observado: list[str] = field(default_factory=list)  # identificadores de lo que H2 ha podido concluir
 
     @property
     def url(self):

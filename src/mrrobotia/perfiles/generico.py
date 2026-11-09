@@ -42,7 +42,7 @@ class Generico(Perfil):
         if autenticacion != "indeterminada":
             servidor.autenticacion = autenticacion
         estado = respuesta.estado if respuesta.estado is not None else "sin respuesta"
-        hallazgos = [hallazgo_autenticacion(autenticacion, f"GET /v1/models sin credenciales: {estado}", expuesto, proxy,
+        hallazgos = [hallazgo_autenticacion(autenticacion, f"GET /v1/models sin credenciales: {estado}",
                                             "Exige una clave de API o ponlo tras un proxy que autentique")]
         if autenticacion == "abierta":
             modelos = hallazgo_modelos(ids_modelos(datos))

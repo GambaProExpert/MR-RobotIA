@@ -45,7 +45,7 @@ class Hallazgo:
     id: str
     titulo: str
     severidad: Severidad
-    estado: str                 # "confirmado" | "potencial" | "informativo"
+    estado: str                 # "confirmado" | "potencial" | "sin_concluir" | "informativo"
     evidencia: str
     recomendacion: str = ""
     refs: dict = field(default_factory=dict)   # {"owasp": "...", "atlas": "...", "nist": "..."}
@@ -106,6 +106,10 @@ class Modulo:
             self.nombre, f"{self.nombre}-SIN-CONTEXTO", "Sin identificación previa del servidor",
             Severidad.INFO, "informativo", "el módulo no ha recibido el contexto de H2-ID",
             "Ejecuta MRRobotIA desde su línea de órdenes: identifica el servidor antes que nada.")
+
+
+# Estados que el informe en Markdown señala junto al título.
+_MARCA_ESTADO = {"potencial": " *(potencial)*", "sin_concluir": " *(sin concluir)*"}
 
 
 def _celda(valor):
@@ -190,7 +194,7 @@ class Informe:
         L += ["", "| Severidad | Módulo | Hallazgo | Evidencia | Marcos |", "|---|---|---|---|---|"]
         for h in self._ordenados():
             refs = " · ".join(f"{k}:{v}" for k, v in h.refs.items())
-            titulo = h.titulo + (" *(potencial)*" if h.estado == "potencial" else "")
+            titulo = h.titulo + _MARCA_ESTADO.get(h.estado, "")
             L.append(f"| {h.severidad.name} | {h.modulo} | {titulo} | {h.evidencia} | {refs} |")
         recs = [h for h in self._ordenados() if h.recomendacion]
         if recs:

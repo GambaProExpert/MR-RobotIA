@@ -4,7 +4,8 @@ H3 — Vulnerabilidades, secretos y malas configuraciones del host (Trivy).
 Módulo PASIVO: Trivy (`trivy fs`) solo LEE el disco local del despliegue, no
 interactúa con el servicio, así que no está condicionado a `--permitir-activos`.
 MRRobotIA no reimplementa el escaneo de CVEs: orquesta Trivy de forma LOCAL y
-OFFLINE y normaliza su salida JSON a los `Hallazgo` del informe único.
+OFFLINE y normaliza su salida JSON a los `Hallazgo` del informe único. Si el host
+auditado no es este equipo, solo se analiza una ruta local declarada, y se aclara.
 
 Tres categorías de hallazgo, con su encaje en los marcos del TFG:
 - Vulnerabilidades (CVE) de paquetes del sistema y lenguajes → cadena de
@@ -25,8 +26,9 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from mrrobotia import herramientas
+from mrrobotia import herramientas, red
 from mrrobotia.herramientas import Herramienta, ModuloHerramienta
+from mrrobotia.modulos.h2_identificacion import destino_declarado
 from mrrobotia.nucleo import Hallazgo, Severidad
 
 # Vulnerabilidades y malas configuraciones: cadena de suministro / integridad.
@@ -163,6 +165,15 @@ class H3Host(ModuloHerramienta):
     def _auditar(self, objetivo, det) -> list[Hallazgo]:
         cfg = objetivo.get("host_trivy", {}) or {}
         ruta = cfg.get("ruta")
+        local = red.es_host_local(destino_declarado(objetivo).host)
+        if not ruta and not local:
+            return [Hallazgo(
+                "H3-HOST", "H3-HOST-NO-LOCAL",
+                "No se ha analizado el disco del host con Trivy",
+                Severidad.INFO, "informativo",
+                "el host auditado no es este equipo y Trivy solo lee el disco local",
+                "Ejecuta MRRobotIA en ese host, o declara en host_trivy.ruta una copia local de su despliegue.",
+                REFS_SUPPLY)]
         if not ruta or not Path(ruta).exists():
             return [Hallazgo(
                 "H3-HOST", "H3-HOST-SIN-RUTA",
@@ -225,4 +236,11 @@ class H3Host(ModuloHerramienta):
             "Refresca la base de vulnerabilidades periódicamente "
             "(p. ej. 'trivy image --download-db-only') para no perder CVEs recientes.",
             REFS_SUPPLY))
+        if not local:
+            hallazgos.insert(0, Hallazgo(
+                "H3-HOST", "H3-HOST-RUTA-LOCAL",
+                "Trivy analiza una ruta de este equipo, no el host auditado",
+                Severidad.INFO, "informativo",
+                "el host auditado no es este equipo: se analiza la ruta local declarada en host_trivy.ruta",
+                "Los hallazgos de Trivy hablan de esa ruta: compruébalos en el host si es una copia.", REFS_SUPPLY))
         return hallazgos

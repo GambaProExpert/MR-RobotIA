@@ -224,7 +224,7 @@ def test_ningun_aviso_coincide(monkeypatch):
 
 def test_sin_version():
     h = ejecutar(servidor(version=None))
-    assert [x.id for x in h] == ["H2-CVE-SIN-VERSION"] and h[0].severidad == Severidad.INFO
+    assert [x.id for x in h] == ["H2-CVE-SIN-VERSION"] and (h[0].severidad, h[0].estado) == (Severidad.INFO, "sin_concluir")
 
 
 def test_version_no_comparable():
@@ -237,10 +237,89 @@ def test_perfil_generico_sin_base():
     assert GENERICO.fichero_cve is None
 
 
-def test_perfil_sin_comparador():
-    """vLLM tiene base de avisos, pero aún no su comparación: no se presenta como vulnerable."""
+def test_perfil_sin_comparador(monkeypatch):
+    """Con base de avisos pero sin saber comparar versiones, no se presenta como vulnerable."""
+    monkeypatch.setattr(VLLM, "clave_version", None)
     assert [x.id for x in ejecutar(servidor(tipo="vllm", version="0.33.0"))] == ["H2-CVE-SIN-BASE"]
-    assert VLLM.clave_version is None
+
+
+def test_lista_de_avisos_recortada(monkeypatch):
+    monkeypatch.setattr(cve, "cargar", lambda f: [aviso("<b5000", "b5000", id_=f"CVE-{i:04d}") for i in range(25)])
+    h = por_id(ejecutar(servidor(version="b100")))["H2-CVE-ALTA"]
+    assert "25 aviso(s)" in h.evidencia and "CVE-0019" in h.evidencia and "CVE-0020" not in h.evidencia
+    assert h.evidencia.endswith("y 5 más")
+
+
+def test_lista_de_avisos_sin_recortar(monkeypatch):
+    monkeypatch.setattr(cve, "cargar", lambda f: [aviso("<b5000", "b5000", id_=f"CVE-{i:04d}") for i in range(20)])
+    assert " más" not in por_id(ejecutar(servidor(version="b100")))["H2-CVE-ALTA"].evidencia
+
+
+# ------------------------------------------------------------------ vLLM (PEP 440)
+@pytest.mark.parametrize("menor,mayor", [
+    ("0.33.0.dev1", "0.33.0rc3"), ("0.33.0rc3", "0.33.0"), ("0.33.0.dev1", "0.33.0"), ("0.33.0rc3.dev2", "0.33.0rc3"),
+    ("0.33.0a1", "0.33.0b1"), ("0.33.0b1", "0.33.0rc1"), ("0.33.0rc2", "0.33.0rc10"), ("0.33.0", "0.33.0.post1"),
+    ("0.5.0.post1", "0.5.1"), ("0.10.1", "0.10.1.1"), ("0.9.0", "0.10.0"), ("0.33.0.dev1", "0.33.1"),
+    ("0.33.0.post1.dev2", "0.33.0.post1"),
+])
+def test_clave_pep440_ordena(menor, mayor):
+    assert cve.clave_pep440(menor) < cve.clave_pep440(mayor)
+
+
+@pytest.mark.parametrize("a,b", [("0.33", "0.33.0"), ("0.33.0+cpu", "0.33.0"), ("v0.33.0", "0.33.0"), ("0.33.0RC1", "0.33.0rc1")])
+def test_clave_pep440_iguales(a, b):
+    assert cve.clave_pep440(a) == cve.clave_pep440(b)
+
+
+@pytest.mark.parametrize("version", ["dev", "b11583", "", None, 5, "0.33.0-rc1", "1.0.dev", "0.33.0+"])
+def test_clave_pep440_no_comparable(version):
+    assert cve.clave_pep440(version) is None
+
+
+def test_clave_pep440_admite_local_con_git():
+    assert cve.clave_pep440("0.33.0rc1.dev4+g1a2b3c.d20260101") == cve.clave_pep440("0.33.0rc1.dev4")
+
+
+AVISOS_VLLM = cve.cargar("cve_vllm.json")
+
+
+def test_base_de_avisos_de_vllm():
+    assert len(AVISOS_VLLM) == 140
+    for a in AVISOS_VLLM:
+        assert cve.severidad_de(a) in Severidad and VLLM.clave_version(a["afecta"].split(",")[0].lstrip("<>=")) is not None, a["id"]
+        assert cve.estado_aviso("0.33.0", a, VLLM.clave_version) in (cve.AFECTADA, cve.NO_AFECTADA, cve.INDETERMINADA)
+
+
+def test_base_de_vllm_sin_rutas_locales():
+    texto = (Path(cve.DIR_DATOS) / "cve_vllm.json").read_text(encoding="utf-8")
+    assert "F:\\" not in texto and "TFG_IA" not in texto
+
+
+def test_resultado_documentado_para_vllm():
+    r = cve.clasificar("0.33.0", AVISOS_VLLM, VLLM.clave_version)
+    assert r.afectados == [] and len(r.indeterminados) == 5
+    corregidos_en_033 = {"GHSA-5r3c-5x4v-8gjh", "GHSA-q9v9-qpjp-fc24", "GHSA-qrj2-j723-m6w8"}
+    assert corregidos_en_033 <= {a["id"] for a in cve.clasificar("0.32.0", AVISOS_VLLM, VLLM.clave_version).afectados}
+
+
+def test_vllm_todos_sus_avisos_aplican():
+    assert VLLM.componente_en_uso({"id": "X", "resumen": "algo"}, servidor(tipo="vllm")) is True
+
+
+def test_vllm_candidata_previa_a_la_correccion_esta_afectada():
+    r = cve.clasificar("0.33.0rc3", [{"id": "X", "afecta": "<0.33.0", "corregido_en": "0.33.0"}], VLLM.clave_version)
+    assert [a["id"] for a in r.afectados] == ["X"]
+
+
+def test_vllm_hallazgos_por_severidad_y_recortados():
+    h = por_id(ejecutar(servidor(tipo="vllm", version="0.10.0", opciones={"model": "m"})))
+    assert h["H2-CVE-CRITICA"].estado == "potencial" and "CVE-2025-59425" in h["H2-CVE-ALTA"].evidencia
+    assert " más" in h["H2-CVE-MEDIA"].evidencia and "Actualiza a" in h["H2-CVE-MEDIA"].recomendacion
+
+
+def test_vllm_dev_a_secas_no_se_puede_comparar():
+    h = ejecutar(servidor(tipo="vllm", version="dev"))
+    assert [x.id for x in h] == ["H2-CVE-SIN-VERSION"] and "no se puede comparar" in h[0].titulo
 
 
 def test_varios_servidores_rotulados():

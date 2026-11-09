@@ -52,6 +52,11 @@ def _info(id_, titulo, evidencia, recomendacion=""):
     return _h(id_, titulo, Severidad.INFO, evidencia, recomendacion, "informativo")
 
 
+def _sin_concluir(id_, titulo, evidencia, recomendacion=""):
+    """Una comprobación que no ha podido llegar a una conclusión: no dice ni que haya fallo ni que no."""
+    return _h(id_, titulo, Severidad.INFO, evidencia, recomendacion, "sin_concluir")
+
+
 @dataclass
 class _Esperado:
     """Lo que el objetivo dice de un servidor. Fuera del declarado, valores por defecto."""
@@ -79,9 +84,9 @@ def _evaluar_bind(enlace, bind_esperado, proxy):
     """Enlace real frente al esperado. Fuera de loopback: ALTA, o MEDIA si es lo declarado;
     en loopback cuando se esperaba otra cosa: MEDIA; desconocido: no se afirma nada."""
     if enlace is None:
-        return _info("H2-BIND-DESCONOCIDO", "No se pudo determinar el enlace de red del servidor",
-                     "sin fila en escucha en la tabla de puertos ni opción de arranque que lo indique",
-                     "Comprueba a mano con 'netstat -ano' (Windows) o 'ss -ltnp' (Linux) a qué interfaz enlaza.")
+        return _sin_concluir("H2-BIND-DESCONOCIDO", "No se pudo determinar el enlace de red del servidor",
+                             "sin fila en escucha en la tabla de puertos ni opción de arranque que lo indique",
+                             "Comprueba a mano con 'netstat -ano' (Windows) o 'ss -ltnp' (Linux) a qué interfaz enlaza.")
     esperado = red.clasificar_direccion(bind_esperado)
     if enlace == "loopback":
         if esperado == "loopback":
@@ -109,9 +114,9 @@ def _evaluar_owner(info, pid):
     """`info` es lo que da `red.owner_proceso`. No se vuelca el nombre de usuario."""
     referencia = f"pid {pid}" if pid is not None else "pid desconocido"
     if info is None:
-        return _info("H2-OWNER", "No se pudo verificar el usuario del proceso del servidor",
-                     f"propietario del proceso no verificable ({referencia})",
-                     "Comprueba a mano que el servidor no se ejecuta como root/SYSTEM; usa una cuenta sin privilegios (A3).")
+        return _sin_concluir("H2-OWNER", "No se pudo verificar el usuario del proceso del servidor",
+                             f"propietario del proceso no verificable ({referencia})",
+                             "Comprueba a mano que el servidor no se ejecuta como root/SYSTEM; usa una cuenta sin privilegios (A3).")
     if info[0]:
         return _h("H2-OWNER", "El servidor LLM se ejecuta con una cuenta privilegiada", Severidad.ALTA,
                   f"proceso ({referencia}) con cuenta privilegiada",
@@ -125,8 +130,8 @@ def _evaluar_cors(externo, local, autenticacion, proxy):
     leer las respuestas, la gravedad depende de que la API exija clave. `Access-Control-Allow-Credentials`
     solo llega en `OPTIONS`."""
     if externo.estado is None:
-        return _info("H2-CORS", "No se pudo comprobar CORS", f"OPTIONS sin respuesta ({externo.error})",
-                     "Comprueba a mano qué orígenes admite: esto no demuestra que esté restringido.")
+        return _sin_concluir("H2-CORS", "No se pudo comprobar CORS", f"OPTIONS sin respuesta ({externo.error})",
+                             "Comprueba a mano qué orígenes admite: esto no demuestra que esté restringido.")
     permitido = str(externo.cabeceras.get("access-control-allow-origin", "")).strip()
     credenciales = str(externo.cabeceras.get("access-control-allow-credentials", "")).strip().lower() == "true"
     protegido = autenticacion == "activa" or proxy
@@ -142,7 +147,7 @@ def _evaluar_cors(externo, local, autenticacion, proxy):
         return _h("H2-CORS", "CORS permite que cualquier web use el servidor", severidad,
                   f"{detalle} con credenciales={'sí' if credenciales else 'no'}; "
                   f"autenticación: {autenticacion or 'sin comprobar'}",
-                  "Fija una lista de orígenes (--cors-origins en llama.cpp): una web maliciosa podría leer las "
+                  "Fija una lista de orígenes (--cors-origins en llama.cpp, --allowed-origins en vLLM): una web maliciosa podría leer las "
                   "respuestas desde el navegador de la víctima (A5).")
     if "," in permitido:
         return _h("H2-CORS", "CORS devuelve una lista de orígenes que los navegadores no aceptan", Severidad.BAJA,
@@ -151,8 +156,8 @@ def _evaluar_cors(externo, local, autenticacion, proxy):
     if permitido:
         return _info("H2-CORS", "CORS limitado a un origen fijo", f"Access-Control-Allow-Origin: {limpiar(permitido, 60)}")
     if not 200 <= externo.estado < 300:
-        return _info("H2-CORS", "CORS sin concluir", f"OPTIONS respondió {externo.estado}",
-                     "Comprueba a mano qué orígenes admite: esto no demuestra que esté restringido.")
+        return _sin_concluir("H2-CORS", "CORS sin concluir", f"OPTIONS respondió {externo.estado}",
+                             "Comprueba a mano qué orígenes admite: esto no demuestra que esté restringido.")
     if str(local.cabeceras.get("access-control-allow-origin", "")).strip() == ORIGEN_LOCAL:
         return _info("H2-CORS", "CORS solo admite orígenes locales",
                      "se acepta un origen localhost y se rechaza uno externo")
@@ -163,12 +168,12 @@ def _evaluar_host(normal, falso, autenticacion, proxy):
     """¿Acepta un `Host` que no es el suyo? Es el otro requisito del DNS rebinding, distinto
     de reflejar `Origin`: con él, una web apunta su dominio a loopback y lee la API."""
     if normal.estado is None or falso.estado is None:
-        return _info("H2-HOST", "No se pudo comprobar la cabecera Host", "sin respuesta a la comprobación")
+        return _sin_concluir("H2-HOST", "No se pudo comprobar la cabecera Host", "sin respuesta a la comprobación")
     comparacion = f"Host falso: {falso.estado}; Host real: {normal.estado}"
     if falso.estado in ESTADOS_DE_RECHAZO and normal.estado != falso.estado:
         return _info("H2-HOST", "El servidor rechaza un Host desconocido", comparacion)
     if falso.estado != normal.estado:
-        return _info("H2-HOST", "Comprobación de Host sin concluir", comparacion)
+        return _sin_concluir("H2-HOST", "Comprobación de Host sin concluir", comparacion)
     evidencia = f"responde igual con un Host falso ({falso.estado})"
     if autenticacion == "activa" or proxy:
         return _info("H2-HOST", "El servidor no valida la cabecera Host, pero exige autenticación",
@@ -192,38 +197,25 @@ def _evaluar_tls(esquema, expuesto):
 
 
 def _severidad_compuesta(enlace, autenticacion, proxy, expuesto):
-    """Resumen de exposición. Un enlace desconocido no se trata como loopback, y una
-    autenticación sin determinar no se da por buena."""
+    """Resumen de exposición. Solo tiene severidad cuando dice algo que ningún otro hallazgo dice por
+    sí solo: fuera de loopback, sin clave y sin proxy. Los demás casos ya los cubren H2-BIND y H2-AUTH
+    y aquí son INFO. Un enlace desconocido no se trata como loopback, ni una autenticación sin
+    determinar se da por buena."""
     abierta = autenticacion == "abierta"
-    if expuesto:
-        if abierta and not proxy:
-            return _h("H2-EXPOSICION", "Servidor LLM expuesto en red y sin autenticación", Severidad.CRITICA,
-                      "accesible desde la red + responde sin API key + sin proxy autenticador",
-                      "Enlaza a 127.0.0.1 y exige API key o pon un proxy con autenticación. Tal cual, cualquiera en "
-                      "la red puede usar el modelo sin credenciales (A5).")
-        matices = []
-        if autenticacion == "activa":
-            matices.append("con API key")
-        elif not abierta:
-            matices.append("autenticación sin determinar")
-        if proxy:
-            matices.append("tras proxy")
-        detalle = "accesible desde la red" + (" (" + ", ".join(matices) + ")" if matices else "")
-        return _h("H2-EXPOSICION", "Servidor LLM accesible desde la red", Severidad.ALTA, detalle,
-                  "Confirma que la exposición es deliberada y que la autenticación es robusta; prefiere 127.0.0.1 si "
-                  "no necesitas acceso remoto (A5).")
-    if enlace is None:
-        if abierta:
-            return _h("H2-EXPOSICION", "Servidor LLM sin API key y con enlace de red desconocido", Severidad.MEDIA,
-                      "responde sin API key; no se sabe a qué interfaz está enlazado",
-                      "Comprueba el enlace y exige API key: si sale de loopback, cualquiera en la red podría usarlo (A5).")
-        return _info("H2-EXPOSICION", "Exposición sin determinar", "enlace de red desconocido")
-    if abierta:
-        return _h("H2-EXPOSICION", "Servidor LLM en loopback sin API key", Severidad.BAJA,
-                  "enlace a loopback; responde sin API key (accesible solo localmente)",
-                  "Aun en loopback, considera exigir API key para limitar el acceso de otros procesos locales (A3).")
-    estado = "exige API key" if autenticacion == "activa" else "autenticación sin determinar"
-    return _info("H2-EXPOSICION", "Servidor LLM en loopback", f"enlace a loopback; {estado}")
+    if expuesto and abierta and not proxy:
+        return _h("H2-EXPOSICION", "Servidor LLM expuesto en red y sin autenticación", Severidad.CRITICA,
+                  "escucha fuera de loopback, responde sin API key y no hay proxy autenticador",
+                  "Enlaza a 127.0.0.1 y exige API key o pon un proxy con autenticación. Tal cual, cualquiera que "
+                  "alcance el puerto puede usar el modelo sin credenciales (A5).")
+    if enlace is None and not expuesto:
+        return _sin_concluir("H2-EXPOSICION", "Exposición sin determinar",
+                             "enlace de red desconocido" + ("; responde sin API key" if abierta else ""))
+    autenticado = {"abierta": "sin API key", "activa": "con API key"}.get(autenticacion, "autenticación sin determinar")
+    detalle = ("fuera de loopback" if expuesto else "en loopback") + f"; {autenticado}" + ("; tras proxy" if proxy else "")
+    titulo = "Servidor LLM fuera de loopback" if expuesto else "Servidor LLM en loopback"
+    if autenticacion in ("abierta", "activa"):
+        return _info("H2-EXPOSICION", titulo, detalle)
+    return _sin_concluir("H2-EXPOSICION", titulo, detalle)
 
 
 def _subir_auth_si_se_esperaba_clave(hallazgos, servidor, esperada):
@@ -235,6 +227,21 @@ def _subir_auth_si_se_esperaba_clave(hallazgos, servidor, esperada):
         if h.id == "H2-AUTH" and h.severidad < Severidad.CRITICA:
             h.severidad = Severidad(h.severidad + 1)
             h.evidencia += "; el objetivo declara api_key_esperada"
+
+
+def _hallazgo_lan(direccion, puerto):
+    """Responde en una dirección de red. Desde el propio equipo no se puede afirmar que llegue
+    nadie de fuera: el cortafuegos no filtra el tráfico que el equipo se envía a sí mismo."""
+    objetivo = f"{limpiar(direccion)}:{puerto}"
+    if red.es_host_local(direccion):
+        titulo = "El servidor responde en la IP de red de este equipo"
+        evidencia = (f"responde en {objetivo} al conectar desde el propio equipo; un cortafuegos podría "
+                     "bloquear el acceso externo")
+    else:
+        titulo = "El servidor responde por red al equipo auditor"
+        evidencia = f"responde en {objetivo} (no es loopback), alcanzado desde el equipo auditor"
+    return _h("H2-LAN", titulo, Severidad.ALTA, evidencia,
+              "Enlaza a 127.0.0.1 o protege el acceso desde la red (cortafuegos, proxy con autenticación) (A5).")
 
 
 # ------------------------------------------------------------------------- módulo
@@ -272,6 +279,7 @@ class H2Exposicion(Modulo):
             except Exception as e:          # invariante: un fallo nunca llega al llamador
                 parciales.append(_info("H2-ERROR", "Error durante el sondeo de exposición", type(e).__name__,
                                        "Revisa el estado del servidor."))
+            servidor.observado = [h.id for h in parciales if h.estado != "sin_concluir"]
             hallazgos.extend(rotular(parciales, servidor))
         return hallazgos
 
@@ -301,8 +309,11 @@ class H2Exposicion(Modulo):
 
     @staticmethod
     def _expuesto_en_red(s, h):
-        """¿Se puede llegar a él desde fuera de loopback? Si el host auditado no es loopback,
-        ya se ha llegado por una dirección de red; si lo es, se prueba la IP de red del equipo."""
+        """¿Escucha fuera de loopback? Si el enlace ya lo dice, H2-BIND ha informado y no se repite.
+        Si no, se comprueba: el host auditado, si no es loopback, ya se ha alcanzado por una dirección
+        de red; y si lo es, se prueba la IP de red del equipo."""
+        if red.es_no_loopback(s.enlace):
+            return True
         direccion = None
         if isinstance(red.clasificar_direccion(s.host), tuple):
             direccion = s.host
@@ -310,11 +321,10 @@ class H2Exposicion(Modulo):
             ip = red.ip_rutable()
             if ip and red.clasificar_direccion(ip) != "loopback" and red.sondear(ip, s.puerto):
                 direccion = ip
-        if direccion is not None:
-            h.append(_h("H2-LAN", "El servidor responde en una IP de red (accesible desde la LAN)", Severidad.ALTA,
-                        f"responde en {limpiar(direccion)}:{s.puerto} (no es loopback)",
-                        "Enlaza a 127.0.0.1 o protege el acceso desde la red (cortafuegos, proxy con autenticación) (A5)."))
-        return red.es_no_loopback(s.enlace) or direccion is not None
+        if direccion is None:
+            return False
+        h.append(_hallazgo_lan(direccion, s.puerto))
+        return True
 
     @staticmethod
     def _sondeo_http(s, expuesto, esperado, h):

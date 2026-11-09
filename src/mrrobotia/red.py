@@ -9,6 +9,7 @@ lanza al llamador: ante un fallo devuelven un valor neutro (None/""/False).
 """
 from __future__ import annotations
 
+import ctypes
 import http.client
 import ipaddress
 import json
@@ -16,6 +17,7 @@ import os
 import re
 import socket
 import ssl
+import struct
 import subprocess
 import time
 import urllib.parse
@@ -32,6 +34,8 @@ TIMEOUT_PROCESO = 10        # s de espera a netstat/ss/tasklist
 PIDS_DESCONOCIDOS = {0, 4}
 # Dirección remota de un socket TCP en escucha, diga lo que diga su columna de estado.
 REMOTAS_DE_ESCUCHA = {"0.0.0.0:0", "[::]:0", "*:*"}
+_TCP_TABLA_ESCUCHA = 3      # TCP_TABLE_OWNER_PID_LISTENER de GetExtendedTcpTable
+_HOLGURA_TABLA = 4096       # por si la tabla crece entre preguntar su tamaño y leerla
 
 MAX_CUERPO = 1_000_000          # tope de lectura del cuerpo HTTP (defensa de memoria)
 MAX_DESCOMPRIMIDO = 4_000_000   # tope tras descomprimir gzip (defensa frente a bombas)
@@ -201,11 +205,55 @@ def puertos_de_pid(salida, pid):
     return puertos
 
 
+def filas_tabla_tcp(datos, familia):
+    """Filas con el formato de `netstat -ano` a partir de lo que devuelve `GetExtendedTcpTable`
+    (MIB_TCPTABLE_OWNER_PID o su versión IPv6: número de filas y, detrás, las filas). La función
+    es pura: el resto del módulo interpreta estas filas como las de cualquier tabla."""
+    ipv4 = familia == socket.AF_INET
+    tam_fila, inicio_puerto, inicio_pid = (24, 8, 20) if ipv4 else (56, 20, 52)
+    filas = []
+    for i in range(struct.unpack_from("<I", datos, 0)[0]):
+        fila = 4 + i * tam_fila
+        puerto = socket.ntohs(struct.unpack_from("<I", datos, fila + inicio_puerto)[0] & 0xFFFF)
+        pid = struct.unpack_from("<I", datos, fila + inicio_pid)[0]
+        if ipv4:
+            local, remota = f"{socket.inet_ntoa(datos[fila + 4:fila + 8])}:{puerto}", "0.0.0.0:0"
+        else:
+            local, remota = f"[{socket.inet_ntop(socket.AF_INET6, datos[fila:fila + 16])}]:{puerto}", "[::]:0"
+        filas.append(f"  TCP    {local}    {remota}    LISTENING    {pid}")
+    return filas
+
+
+def _tabla_escucha_windows():
+    """Sockets TCP en escucha según la propia API de Windows, o '' si no responde."""
+    filas = []
+    try:
+        consulta = ctypes.WinDLL("iphlpapi").GetExtendedTcpTable
+        for familia in (socket.AF_INET, socket.AF_INET6):
+            tamano = ctypes.c_ulong(0)
+            consulta(None, ctypes.byref(tamano), False, familia, _TCP_TABLA_ESCUCHA, 0)
+            memoria = ctypes.create_string_buffer(tamano.value + _HOLGURA_TABLA)
+            tamano = ctypes.c_ulong(len(memoria))
+            if consulta(memoria, ctypes.byref(tamano), False, familia, _TCP_TABLA_ESCUCHA, 0) != 0:
+                return ""
+            filas += filas_tabla_tcp(memoria.raw, familia)
+    except (AttributeError, OSError, ValueError, struct.error):
+        return ""
+    return "\n".join(filas)
+
+
 # ----------------------------------------------------- recogida (red/SO)
 def tabla_puertos():
-    """Tabla de puertos en escucha (`netstat -ano` en Windows; `ss`/`netstat` en Linux).
-    Nunca lanza ni usa shell: si todo falla, devuelve ''."""
+    """Tabla de puertos en escucha. Nunca lanza ni usa shell: si todo falla, devuelve ''.
+
+    En Windows se pide a la API la tabla de sockets en escucha y `netstat -ano` queda de respaldo.
+    Con los estados incoherentes de algunos equipos, cada `netstat -ano` muestra solo una parte de
+    ellos (observado: entre 15 y 20 de 47, distintos en cada lectura) y las filas sin conexión se
+    confunden con sockets enlazados que no escuchan; esa tabla, en cambio, sale completa."""
     if os.name == "nt":
+        tabla = _tabla_escucha_windows()
+        if tabla:
+            return tabla
         ordenes = [["netstat", "-ano"]]
     else:
         ordenes = [["ss", "-ltnp"], ["netstat", "-ltnp"], ["ss", "-ltn"], ["netstat", "-ltn"]]
@@ -323,10 +371,11 @@ class Respuesta:
 
 
 def _ruta_vetada(ruta):
-    """Rutas que ninguna comprobación debe poder pedir: un flujo que no termina y el reenvío
-    a una URL arbitraria. `/cors-proxy` sin `url` sigue permitido (sirve para detectarlo)."""
+    """Rutas que ninguna comprobación debe poder pedir: un flujo que no termina, el reenvío a una
+    URL arbitraria y el volcado de configuración del modo desarrollo de vLLM, que además tiene
+    efectos. `/cors-proxy` sin `url` sigue permitido (sirve para detectarlo)."""
     camino, _, consulta = ruta.partition("?")
-    return camino == "/models/sse" or (camino == "/cors-proxy" and "url=" in consulta)
+    return camino in ("/models/sse", "/server_info") or (camino == "/cors-proxy" and "url=" in consulta)
 
 
 class ClienteHTTP:

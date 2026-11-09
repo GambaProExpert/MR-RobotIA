@@ -95,7 +95,8 @@ def _prefijo_de_ruta(ruta):
 
 def destino_declarado(objetivo):
     """Interpreta `endpoint`, `host` y `exposicion.puerto` del objetivo."""
-    cfg = objetivo.get("exposicion") or {}
+    cfg = objetivo.get("exposicion")
+    cfg = cfg if isinstance(cfg, dict) else {}
     host = objetivo.get("host") or cfg.get("host") or "127.0.0.1"
     puerto = red.a_puerto(cfg.get("puerto"))
     esquema, prefijo = "http", ""

@@ -1,6 +1,8 @@
 """Pruebas de `red.py`: tabla de puertos con filas reales de Windows y `ss`, y `ClienteHTTP`
 contra un servidor local falso. Ninguna necesita herramientas externas."""
 import gzip
+import socket
+import struct
 import subprocess
 import time
 import types
@@ -115,7 +117,60 @@ def test_decodificar_nunca_lanza():
     assert "Direcci" in red.decodificar("Dirección".encode("cp850"))
 
 
-def test_tabla_puertos_lee_bytes_que_no_son_utf8(monkeypatch):
+def fila_tcp4(ip, puerto, pid, estado=2):
+    """Una fila de MIB_TCPROW_OWNER_PID como la deja GetExtendedTcpTable en memoria."""
+    return (struct.pack("<I", estado) + socket.inet_aton(ip) + struct.pack("<I", socket.htons(puerto))
+            + bytes(8) + struct.pack("<I", pid))
+
+
+def fila_tcp6(ip, puerto, pid, estado=2):
+    """Una fila de MIB_TCP6ROW_OWNER_PID."""
+    return (socket.inet_pton(socket.AF_INET6, ip) + bytes(4) + struct.pack("<I", socket.htons(puerto)) + bytes(24)
+            + struct.pack("<II", estado, pid))
+
+
+def test_filas_de_la_tabla_de_windows_se_interpretan_como_netstat():
+    # El estado que dé el sistema da igual: esta tabla solo contiene sockets en escucha.
+    filas4 = red.filas_tabla_tcp(struct.pack("<I", 2) + fila_tcp4("0.0.0.0", 135, 2040, 0) + fila_tcp4("127.0.0.1", 18080, 900, 6),
+                                 socket.AF_INET)
+    filas6 = red.filas_tabla_tcp(struct.pack("<I", 2) + fila_tcp6("::", 135, 2040, 1) + fila_tcp6("::1", 8080, 5, 2), socket.AF_INET6)
+    tabla = "\n".join(filas4 + filas6)
+    assert red.puertos_en_escucha(tabla) == {135, 18080, 8080}
+    assert red.bind_desde_tabla(tabla, 135) == "todas" and red.pid_desde_tabla(tabla, 135) == 2040
+    assert red.bind_desde_tabla(tabla, 18080) == "loopback" and red.pid_desde_tabla(tabla, 18080) == 900
+    assert red.bind_desde_tabla(tabla, 8080) == "loopback" and red.pid_desde_tabla(tabla, 8080) == 5
+
+
+def test_tabla_de_windows_sin_filas():
+    assert red.filas_tabla_tcp(struct.pack("<I", 0), socket.AF_INET) == []
+
+
+def test_tabla_de_windows_nunca_lanza(monkeypatch):
+    monkeypatch.setattr(red.ctypes, "WinDLL", lambda n: (_ for _ in ()).throw(OSError("sin biblioteca")), raising=False)
+    assert red._tabla_escucha_windows() == ""
+
+
+def test_tabla_puertos_prefiere_la_api_de_windows(monkeypatch):
+    monkeypatch.setattr(red.os, "name", "nt")
+    monkeypatch.setattr(red, "_tabla_escucha_windows", lambda: "  TCP    0.0.0.0:80    0.0.0.0:0    LISTENING    5")
+    monkeypatch.setattr(red.subprocess, "run", lambda *a, **k: pytest.fail("no hace falta netstat"))
+    assert red.puertos_en_escucha(red.tabla_puertos()) == {80}
+
+
+def test_tabla_puertos_recurre_a_netstat_si_falla_la_api(monkeypatch):
+    monkeypatch.setattr(red.os, "name", "nt")
+    monkeypatch.setattr(red, "_tabla_escucha_windows", lambda: "")
+    monkeypatch.setattr(red.subprocess, "run", lambda orden, **k: types.SimpleNamespace(
+        returncode=0, stdout=b"  TCP 0.0.0.0:81 0.0.0.0:0 LISTENING 5\n", stderr=b""))
+    assert red.puertos_en_escucha(red.tabla_puertos()) == {81}
+
+
+@pytest.fixture
+def sin_api_de_windows(monkeypatch):
+    monkeypatch.setattr(red, "_tabla_escucha_windows", lambda: "")
+
+
+def test_tabla_puertos_lee_bytes_que_no_son_utf8(monkeypatch, sin_api_de_windows):
     def falso_run(orden, **kwargs):
         assert "text" not in kwargs             # debe leer bytes, no depender de la codificación
         return types.SimpleNamespace(
@@ -125,7 +180,7 @@ def test_tabla_puertos_lee_bytes_que_no_son_utf8(monkeypatch):
     assert 80 in red.puertos_en_escucha(red.tabla_puertos())
 
 
-def test_tabla_puertos_sin_ordenes_devuelve_vacio(monkeypatch):
+def test_tabla_puertos_sin_ordenes_devuelve_vacio(monkeypatch, sin_api_de_windows):
     def falla(*a, **k):
         raise OSError("no existe")
 
@@ -306,7 +361,7 @@ def test_cors_proxy_sin_url_sigue_permitido():
     assert s.rutas() == [("GET", "/cors-proxy")]
 
 
-def test_subprocess_no_usa_shell(monkeypatch):
+def test_subprocess_no_usa_shell(monkeypatch, sin_api_de_windows):
     llamadas = []
 
     def falso_run(orden, **kwargs):
