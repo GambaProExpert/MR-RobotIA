@@ -274,3 +274,47 @@ def test_host_local_por_su_ip_de_red_lee_la_tabla(monkeypatch):
     monkeypatch.setattr(h3, "es_host_local", lambda host: host == "10.1.2.3")
     h = ejecutar(monkeypatch, fila("0.0.0.0:6379"), objetivo={"host": "10.1.2.3", "autorizacion": CONFIRMADO})
     assert "H3-PUERTOS-6379" in ids(h) and "H3-PUERTOS-NO-LOCAL" not in ids(h)
+
+
+# ------------------------------------------------- rango dinámico de Windows (una causa, un hallazgo)
+def test_dinamicos_se_agrupan_en_un_hallazgo():
+    dinamicos = [(p, "todas", 4) for p in (49664, 49665, 49666, 50100, 65535)]
+    hallazgos = _evaluar_puertos([*dinamicos, (9999, "loopback", 5)], {8080}, PELIGROSOS, agrupar_dinamicos=True)
+    por_id = {h.id: h for h in hallazgos}
+    assert set(por_id) == {"H3-PUERTOS-DINAMICOS", "H3-PUERTOS-INESPERADO-9999"}
+    h = por_id["H3-PUERTOS-DINAMICOS"]
+    assert h.severidad == Severidad.BAJA and h.estado == "confirmado"
+    assert "5 puertos" in h.titulo and "49152-65535" in h.titulo
+    assert "49664, 49665, 49666, 50100, 65535" in h.evidencia
+
+
+def test_dinamicos_solo_en_loopback_son_info():
+    h, = _evaluar_puertos([(50000, "loopback", 1), (50001, "loopback", 1)], set(), PELIGROSOS, agrupar_dinamicos=True)
+    assert h.id == "H3-PUERTOS-DINAMICOS" and h.severidad == Severidad.INFO
+
+
+def test_dinamicos_sin_agrupar_dan_un_hallazgo_por_puerto():
+    hallazgos = _evaluar_puertos([(50000, "todas", 1), (50001, "todas", 1)], set(), PELIGROSOS)
+    assert [h.id for h in hallazgos] == ["H3-PUERTOS-INESPERADO-50000", "H3-PUERTOS-INESPERADO-50001"]
+
+
+def test_dinamicos_no_incluyen_esperados_peligrosos_ni_internos():
+    peligrosos = {**PELIGROSOS, 50002: ("Servicio", Severidad.ALTA)}
+    hallazgos = _evaluar_puertos(
+        [(50000, "todas", 1), (50001, "todas", 1), (50002, "todas", 1), (50003, "todas", 1)],
+        {50000}, peligrosos, internos={50001: "canal interno"}, agrupar_dinamicos=True)
+    por_id = {h.id: h for h in hallazgos}
+    assert set(por_id) == {"H3-PUERTOS-INTERNO-50001", "H3-PUERTOS-50002", "H3-PUERTOS-DINAMICOS"}
+    assert "50003" in por_id["H3-PUERTOS-DINAMICOS"].evidencia
+    assert "50000" not in por_id["H3-PUERTOS-DINAMICOS"].evidencia
+
+
+def test_ejecutar_agrupa_dinamicos_solo_en_windows(monkeypatch):
+    enumerados = [(p, "todas", 4) for p in (49664, 49665)]
+    monkeypatch.setattr(H3Puertos, "_enumerar", lambda self, h: enumerados)
+    objetivo = {"host": "127.0.0.1"}
+    for agrupa in (True, False):
+        monkeypatch.setattr(h3, "_es_windows", lambda: agrupa)
+        ids = [h.id for h in H3Puertos().ejecutar(objetivo)]
+        assert ("H3-PUERTOS-DINAMICOS" in ids) is agrupa
+        assert ("H3-PUERTOS-INESPERADO-49664" in ids) is (not agrupa)

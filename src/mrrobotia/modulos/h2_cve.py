@@ -64,6 +64,8 @@ class H2Cve(Modulo):
     titulo = "Versión del servidor LLM frente a avisos de seguridad"
     activo = False
     etiqueta_escaneo = "cve"
+    descripcion = "Versión del servidor frente a los avisos de seguridad incluidos (llama.cpp y vLLM)"
+    tipo = "pasivo"
 
     def ejecutar(self, objetivo):
         if self.contexto is None:

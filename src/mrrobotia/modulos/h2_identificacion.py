@@ -257,9 +257,10 @@ def _desde_procesos(tabla):
 
 
 # ------------------------------------------------------- candidatos y combinación
-def _candidatos(destino, servidores):
+def _candidatos(destino, servidores, solo_declarado=False):
     """El endpoint declarado, los puertos de los procesos y los puertos por defecto de cada
-    perfil, sin repetir puerto. Un proceso del puerto declarado aporta su prefijo y esquema."""
+    perfil, sin repetir puerto. Un proceso del puerto declarado aporta su prefijo y esquema.
+    Con `solo_declarado`, únicamente el declarado."""
     lista, puertos = [], set()
 
     def anadir(esquema, host, puerto, prefijo, por_defecto=False):
@@ -270,6 +271,8 @@ def _candidatos(destino, servidores):
     propio = next((s for s in servidores if s.puerto == destino.puerto), None)
     anadir(propio.esquema if propio else destino.esquema, destino.host, destino.puerto,
            destino.prefijo or (propio.prefijo if propio else ""))
+    if solo_declarado:
+        return lista
     for s in servidores:
         anadir(s.esquema, s.host, s.puerto, s.prefijo)
     for perfil in PERFILES:
@@ -358,8 +361,13 @@ class H2Identificacion(Modulo):
     titulo = "Identificación del servidor LLM y del sistema"
     activo = False               # HÍBRIDO: se ejecuta siempre y autogatea con self.activos_ok
     etiqueta_escaneo = "identificacion"
+    descripcion = "Qué servidor LLM hay (llama.cpp, vLLM...), su versión, cómo se arrancó y en qué sistema (corre siempre, primero)"
+    tipo = "hibrido"
+    externa = JULIUS
     # Tipo impuesto por el usuario (--servidor): gana a lo detectado, avisando si difiere.
     servidor_forzado = None
+    # --solo-declarado: solo se identifica y se audita el servidor del endpoint o puerto declarado.
+    solo_declarado = False
 
     def ejecutar(self, objetivo):
         so, wsl = _detectar_so()
@@ -380,6 +388,8 @@ class H2Identificacion(Modulo):
         local = red.es_host_local(destino.host)
         tabla = red.tabla_puertos() if local else ""
         servidores, enumerados = _desde_procesos(tabla) if local else ([], False)
+        if self.solo_declarado:
+            servidores = [s for s in servidores if s.puerto == destino.puerto]
         cerrados = []
         omision = self.motivo_omision_activa(objetivo, local)
         if omision:
@@ -402,7 +412,7 @@ class H2Identificacion(Modulo):
 
     # ----------------------------------------------------------------- sondeo
     def _sondear_candidatos(self, objetivo, destino, local, servidores, tabla, cerrados, h):
-        for c in _candidatos(destino, servidores):
+        for c in _candidatos(destino, servidores, self.solo_declarado):
             espera = TIMEOUT_CONEXION_LOCAL if local and c.por_defecto else red.TIMEOUT_SONDEO
             if not red.sondear(c.host, c.puerto, timeout=espera):
                 cerrados.append(c.puerto)

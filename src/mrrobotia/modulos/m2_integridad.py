@@ -9,11 +9,13 @@ Atacante del modelo de amenazas: A4 (cadena de suministro) y A3 (acceso a disco)
 """
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
 
 REFS = {"owasp": "LLM03", "atlas": "AML.T0010", "nist": "2.12"}
+_RE_SHA256 = re.compile(r"[0-9a-fA-F]{64}")
 
 
 def sha256_fichero(ruta, bloque=1 << 20):
@@ -29,6 +31,8 @@ class M2Integridad(Modulo):
     titulo = "Integridad de artefactos (.gguf, ChromaDB)"
     activo = False
     etiqueta_escaneo = "integridad"
+    descripcion = "SHA-256 de los artefactos (.gguf, bases vectoriales) frente a un hash declarado o un manifiesto"
+    tipo = "pasivo"
 
     def ejecutar(self, objetivo):
         hallazgos = []
@@ -68,7 +72,18 @@ class M2Integridad(Modulo):
                     "Restaura el artefacto desde una copia de confianza.", REFS))
                 continue
             real = sha256_fichero(ruta)
-            if not esperado:
+            if esperado and not (isinstance(esperado, str) and _RE_SHA256.fullmatch(esperado)):
+                # Un valor que no es un SHA-256 (un marcador, un hash truncado...) no demuestra
+                # que el artefacto esté alterado: no se compara, y no se vuelca el valor.
+                longitud = f"{len(esperado)} caracteres" if isinstance(esperado, str) else "no es texto"
+                hallazgos.append(Hallazgo(
+                    "M2", f"M2-SHA-INVALIDO-{nombre}", f"El sha256 declarado no es válido: {nombre}",
+                    Severidad.INFO, "sin_concluir",
+                    f"el valor declarado no es un SHA-256 (64 caracteres hexadecimales): {longitud}; "
+                    f"sha256 actual: {real}",
+                    "Corrige el valor declarado en el objetivo o en el manifiesto con el hash de un "
+                    "original de confianza.", REFS))
+            elif not esperado:
                 hallazgos.append(Hallazgo(
                     "M2", f"M2-SINREF-{nombre}", f"Sin hash de referencia para {nombre}",
                     Severidad.MEDIA, "confirmado", f"sha256 actual: {real}",

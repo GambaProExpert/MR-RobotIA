@@ -34,6 +34,8 @@ MITRE ATLAS (AML.T0049) y NIST AI 600-1 (2.9).
 """
 from __future__ import annotations
 
+import os
+
 from mrrobotia.modulos.h2_identificacion import destino_declarado
 from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
 from mrrobotia.perfiles import perfil_de
@@ -78,8 +80,16 @@ PELIGROSOS = {
     6006: ("TensorBoard", Severidad.MEDIA),
 }
 
+# Rango de puertos dinámicos de Windows: los usan los servicios del propio sistema (RPC casi
+# siempre). Veinte hallazgos con la misma causa no ayudan a nadie: se agrupan en uno.
+RANGO_DINAMICO = (49152, 65535)
+
 
 # ----------------------------------------------------- funciones puras: auxiliares
+def _es_windows():
+    return os.name == "nt"
+
+
 def _subir_nivel(sev):
     """Sube la severidad un nivel, con tope en CRITICA (ALTA->CRITICA, MEDIA->ALTA...)."""
     return Severidad(min(int(sev) + 1, int(Severidad.CRITICA)))
@@ -115,7 +125,8 @@ def _hallazgo_interno(puerto, canal, evidencia):
         REFS)
 
 
-def _evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan=(), internos=None):
+def _evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan=(), internos=None,
+                     agrupar_dinamicos=False):
     """Clasifica una lista de puertos en escucha en hallazgos (función PURA).
 
     `enumerados`: lista de `(puerto:int, clase_bind, pid)`, con `clase_bind` en
@@ -130,6 +141,8 @@ def _evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan=(), intern
     - Inesperado (ni esperado ni peligroso): BAJA si no es loopback (o alcanzable), si
       no INFO. Hallazgo `H3-PUERTOS-INESPERADO-<puerto>`.
     - Esperado: no genera hallazgo (su exposición de red la cubre H2).
+    - Con `agrupar_dinamicos` (Windows), los inesperados del rango dinámico 49152-65535 se
+      agrupan en un único `H3-PUERTOS-DINAMICOS` con su número y la lista de puertos.
     - Canal interno: en loopback no se señala; fuera de él, ALTA `H3-PUERTOS-INTERNO-<puerto>`.
     - Si solo había puertos esperados, todos en loopback: un INFO `H3-PUERTOS-OK`.
     """
@@ -139,6 +152,7 @@ def _evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan=(), intern
     hallazgos = []
     hubo_hallazgo = False            # ¿algún peligro o inesperado?
     todo_esperado_loopback = True    # ¿todos los puertos son esperados y en loopback?
+    dinamicos = []                   # (puerto, no_loop) inesperados del rango dinámico
 
     for puerto, clase_bind, pid in enumerados:
         no_loop = es_no_loopback(clase_bind) or (puerto in expuestos_lan)
@@ -167,6 +181,10 @@ def _evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan=(), intern
                 hubo_hallazgo = True
             if clase_bind != "loopback":
                 todo_esperado_loopback = False
+        elif agrupar_dinamicos and RANGO_DINAMICO[0] <= puerto <= RANGO_DINAMICO[1]:
+            dinamicos.append((puerto, no_loop))
+            hubo_hallazgo = True
+            todo_esperado_loopback = False
         else:
             sev = Severidad.BAJA if no_loop else Severidad.INFO
             hallazgos.append(Hallazgo(
@@ -177,6 +195,17 @@ def _evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan=(), intern
                 REFS))
             hubo_hallazgo = True
             todo_esperado_loopback = False
+
+    if dinamicos:
+        fuera = sum(1 for _, no_loop in dinamicos if no_loop)
+        hallazgos.append(Hallazgo(
+            MODULO, "H3-PUERTOS-DINAMICOS",
+            f"{len(dinamicos)} puertos inesperados en el rango dinámico {RANGO_DINAMICO[0]}-{RANGO_DINAMICO[1]}",
+            Severidad.BAJA if fuera else Severidad.INFO, "confirmado",
+            f"{len(dinamicos)} puertos en escucha ({fuera} fuera de loopback): "
+            + ", ".join(str(p) for p, _ in sorted(dinamicos)),
+            "Suelen ser servicios del propio Windows (RPC): revisa con 'netstat -ano' solo si "
+            "alguno no lo es.", REFS))
 
     if enumerados and not hubo_hallazgo and todo_esperado_loopback:
         hallazgos.append(Hallazgo(
@@ -194,6 +223,9 @@ class H3Puertos(Modulo):
     titulo = "Puertos abiertos innecesarios o inseguros del host"
     activo = False               # HÍBRIDO: se ejecuta siempre y autogatea con self.activos_ok
     etiqueta_escaneo = "puertos"
+    descripcion = "Puertos en escucha inesperados o peligrosos del host, y barrido de conexión simple (activo)"
+    tipo = "hibrido"
+    requiere_servidor = True
 
     # Constantes accesibles también como atributos del objeto (comodidad/trazabilidad).
     REFS = REFS
@@ -334,7 +366,8 @@ class H3Puertos(Modulo):
                 expuestos_lan, extra_barrido = set(), []
 
         # ---- EVALUACIÓN (pura) + extras del barrido ------------------------------
-        hallazgos.extend(_evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan, internos))
+        hallazgos.extend(_evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan, internos,
+                                          agrupar_dinamicos=_es_windows()))
         hallazgos.extend(extra_barrido)
 
         # ---- propietario del proceso (best-effort) -------------------------------

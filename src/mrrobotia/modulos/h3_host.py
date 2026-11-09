@@ -153,6 +153,9 @@ class H3Host(ModuloHerramienta):
     titulo = "Vulnerabilidades, secretos y configuración del host (Trivy)"
     activo = False               # Trivy solo lee disco local: PASIVO, no gated.
     etiqueta_escaneo = "vulns"
+    descripcion = "Vulnerabilidades, malas configuraciones y secretos del disco local con Trivy"
+    tipo = "pasivo"
+    requiere_servidor = True
 
     herramienta = Herramienta(
         "trivy", "trivy",
@@ -161,6 +164,7 @@ class H3Host(ModuloHerramienta):
             "https://trivy.dev/latest/getting-started/installation/ "
             "(winget install AquaSecurity.Trivy | brew install trivy | apt install trivy)"),
         refs=REFS_SUPPLY)
+    externa = herramienta
 
     def _auditar(self, objetivo, det) -> list[Hallazgo]:
         cfg = objetivo.get("host_trivy", {}) or {}

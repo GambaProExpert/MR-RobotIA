@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mrrobotia"
-version = "0.5.0"
+version = "0.6.0"
 description = "Auditor de postura defensiva para despliegues locales de LLM auto alojados (TFG)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,6 @@ license-files = ["LICENSE"]
 # De momento solo usa la biblioteca estándar; sin dependencias en ejecución.
 dependencies = []
 authors = [
-    # TODO: completar con el nombre y apellidos de Sergio.
     {name = "Sergio"},
 ]
 

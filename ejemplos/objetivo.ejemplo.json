@@ -1,32 +1,31 @@
 {
-  "nombre": "Caso 1 - Qwen3-14B local",
+  "nombre": "Servidor LLM de ejemplo",
   "host": "127.0.0.1",
   "endpoint": "http://127.0.0.1:8080/v1/chat/completions",
   "autorizacion": {
-    "tengo_autorizacion": true,
-    "autorizado_por": "Sergio (propietario del equipo de laboratorio)",
-    "ambito": "Laboratorio del TFG, aislado; infraestructura propia",
-    "fecha": "2026-11-06"
+    "tengo_autorizacion": false,
+    "autorizado_por": "Nombre y cargo de quien autoriza",
+    "ambito": "Equipo propio de pruebas",
+    "fecha": "AAAA-MM-DD"
   },
   "permitir_activos": false,
+  "servidor": "llama.cpp",
   "exposicion": {
     "puerto": 8080,
     "bind_esperado": "127.0.0.1",
     "proxy_autenticador": false,
     "api_key_esperada": true
   },
-  "servidor": "llama.cpp",
   "ssh": {"puerto": 22},
-  "host_trivy": {"ruta": "../Caso1/v2"},
-  "manifiesto": "../Caso1/v2/adapters/qwen3-14b/manifiesto.json",
+  "puertos": {"esperados": []},
+  "host_trivy": {"ruta": "./despliegue"},
+  "manifiesto": "./modelos/manifiesto.json",
   "manifiesto_firmado": false,
   "artefactos": [
-    {"ruta": "../Caso1/v2/adapters/qwen3-14b/lora_ingeniero.gguf"},
-    {"ruta": "../Caso1/v2/adapters/qwen3-14b/lora_mantenimiento.gguf"},
-    {"ruta": "../Caso1/v2/modelos/Qwen3-14B-Q4_K_M.gguf", "sha256": "pon_aqui_un_hash_de_confianza_del_modelo_base"}
+    {"ruta": "./modelos/modelo.gguf"},
+    {"ruta": "./modelos/adaptador.gguf"}
   ],
-  "usuarios": "../Caso1/v2/usuarios.json",
-  "auditoria": "../Caso1/v2/logs/auditoria.jsonl",
-  "dir_logs": "../Caso1/v2/logs",
-  "app_dir": "../Caso1/v2"
+  "usuarios": "./app/usuarios.json",
+  "auditoria": "./app/logs/auditoria.jsonl",
+  "app_dir": "./app"
 }

@@ -85,6 +85,14 @@ class Modulo:
     # lo leen para decidir si hacen comprobaciones activas.
     activos_ok = False
     etiqueta_escaneo = ""      # etiqueta para el selector --escaneo del CLI (la fija cada módulo)
+    # Para --listar: qué hace, si es "pasivo", "hibrido" o "activo", y qué herramienta externa
+    # usa (una `herramientas.Herramienta`, o None).
+    descripcion = ""
+    tipo = "pasivo"
+    externa = None
+    # True: solo tiene sentido en una máquina con un servidor llama.cpp o vLLM (análisis del
+    # host). El CLI lo omite, dejando una nota, si el contexto no contiene ninguno.
+    requiere_servidor = False
     # Qué se ha identificado antes de auditar (contexto.Contexto); lo fija el CLI.
     contexto = None
 
@@ -132,9 +140,15 @@ class Informe:
         self.modulos_ejecutados: list[str] = []
         self.notas: list[str] = []
         self.contexto = None       # contexto.Contexto de la identificación, si la hubo
+        self.pedidos: list[str] = []          # etiquetas de los escaneos pedidos
+        self.omitidos: list[dict] = []        # escaneos que no corrieron: modulo, etiqueta, motivo
 
     def anadir(self, hallazgos):
         self.hallazgos.extend(hallazgos)
+
+    def omitir(self, modulo, motivo):
+        """Anota que un escaneo no se ha ejecutado y por qué."""
+        self.omitidos.append({"modulo": modulo.nombre, "etiqueta": modulo.etiqueta_escaneo, "motivo": motivo})
 
     def _ordenados(self):
         return sorted(self.hallazgos, key=lambda h: -h.severidad)
@@ -174,6 +188,7 @@ class Informe:
             "autorizado_por": self.objetivo["autorizacion"]["autorizado_por"],
             "modulos": self.modulos_ejecutados,
             "notas": self.notas,
+            "escaneos": {"pedidos": self.pedidos, "omitidos": self.omitidos},
             "contexto": self.contexto.dict() if self.contexto is not None else None,
             "hallazgos": [h.dict() for h in self._ordenados()],
         }, ensure_ascii=False, indent=2)
@@ -184,12 +199,18 @@ class Informe:
              f"- Generado: {self.generado}",
              f"- Autorizado por: {aut['autorizado_por']}",
              f"- Ámbito: {aut['ambito']}",
-             f"- Módulos ejecutados: {', '.join(self.modulos_ejecutados) or '—'}", ""]
+             f"- Módulos ejecutados: {', '.join(self.modulos_ejecutados) or '—'}"]
+        if self.pedidos:
+            L.append(f"- Escaneos pedidos: {', '.join(self.pedidos)}")
+        L.append("")
         c = Counter(h.severidad.name for h in self.hallazgos)
         resumen = ", ".join(f"{c[s]} {s}" for s in ("CRITICA", "ALTA", "MEDIA", "BAJA", "INFO") if c[s])
         L.append(f"**Resumen:** {resumen or 'sin hallazgos'}")
         if self.notas:
             L += ["", "**Notas:**"] + [f"- {n}" for n in self.notas]
+        if self.omitidos:
+            L += ["", "**Escaneos omitidos:**"]
+            L += [f"- {o['etiqueta']} ({o['modulo']}): {o['motivo']}" for o in self.omitidos]
         L += self._seccion_contexto()
         L += ["", "| Severidad | Módulo | Hallazgo | Evidencia | Marcos |", "|---|---|---|---|---|"]
         for h in self._ordenados():

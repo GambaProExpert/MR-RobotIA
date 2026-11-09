@@ -138,6 +138,8 @@ class M3Configuracion(Modulo):
     titulo = "Auditoría de configuración (credenciales, auditoría, TLS/red)"
     activo = False
     etiqueta_escaneo = "config"
+    descripcion = "Credenciales, registro de auditoría y enlace/TLS de la aplicación (usuarios.json, auditoria.jsonl)"
+    tipo = "pasivo"
 
     def ejecutar(self, objetivo):
         tiene_usuarios = bool(objetivo.get("usuarios"))

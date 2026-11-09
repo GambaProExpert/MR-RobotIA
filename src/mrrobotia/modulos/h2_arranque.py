@@ -87,6 +87,8 @@ class H2Arranque(Modulo):
     titulo = "Opciones de arranque y entorno del servidor LLM"
     activo = False
     etiqueta_escaneo = "arranque"
+    descripcion = "Opciones de arranque y entorno del proceso del servidor (clave en la línea de órdenes, CORS, TLS...)"
+    tipo = "pasivo"
 
     def ejecutar(self, objetivo):
         if self.contexto is None:

@@ -49,6 +49,8 @@ _RUTA_SSHD_POSIX = "/etc/ssh/sshd_config"
 
 # Tope de hallazgos de la parte activa (algoritmos/CVE); el resto se resume en un INFO.
 MAX_ACTIVOS = 20
+SSH_AUDIT = herramientas.Herramienta(
+    "ssh-audit", "ssh-audit", instalar_con="pip install ssh-audit", refs=REFS)
 
 # CVE que ssh-audit puede señalar en el texto de las notas aunque su campo `cves` esté
 # vacío (la asociación CVE↔versión se retiró en ssh-audit 3.3.0).
@@ -406,6 +408,10 @@ class H3Ssh(Modulo):
     titulo = "Endurecimiento de SSH del host"
     activo = False          # HÍBRIDO: se ejecuta siempre y autogatea la parte activa con self.activos_ok
     etiqueta_escaneo = "ssh"
+    descripcion = "Endurecimiento de SSH: sshd_config (pasivo) y ssh-audit contra el servicio (activo)"
+    tipo = "hibrido"
+    externa = SSH_AUDIT
+    requiere_servidor = True
 
     # Constantes accesibles también como atributos del objeto.
     REFS = REFS
@@ -492,10 +498,7 @@ class H3Ssh(Modulo):
         """Parte activa: detecta ssh-audit y, si está, lo ejecuta contra host:puerto y
         normaliza su JSON. Si no está instalada, un único INFO con cómo instalarla."""
         det = herramientas.detectar(
-            herramientas.Herramienta(
-                "ssh-audit", "ssh-audit",
-                instalar_con="pip install ssh-audit", refs=REFS),
-            objetivo.get("herramientas", {}))
+            SSH_AUDIT, objetivo.get("herramientas", {}))
         if not det.disponible:
             return [Hallazgo(
                 "H3-SSH", "H3-SSH-NO-AUDIT", "ssh-audit no está instalada",

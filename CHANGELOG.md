@@ -3,6 +3,54 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.6.0] - 2026-11-09
+
+### Añadido
+- **Identificación previa (H2-ID)**: antes de auditar, MRRobotIA averigua qué servidor hay
+  (llama.cpp, vLLM u otro), su versión, cómo se arrancó (opciones saneadas y entorno, solo
+  presencia de secretos) y en qué sistema (Windows, Linux, WSL). Procesos locales, tabla de
+  puertos y, con sondeo activo, HTTP; Julius opcional para lo que los perfiles no reconocen. El
+  resultado (`Contexto`) llega a todos los módulos y se vuelca en el informe («Qué se ha
+  identificado»). Avisa si lo declarado en el objetivo contradice lo detectado.
+- **Perfiles por servidor** (`perfiles/`): llama.cpp (completo, probado contra un servidor real) y
+  vLLM (a partir del código de la 0.33.0, **sin validar contra un servidor real**), más un
+  perfil genérico para servidores compatibles con OpenAI.
+- **H2 por servidor**: la exposición se evalúa para cada servidor identificado, con las
+  comprobaciones comunes (enlace, propietario, CORS, `Host`, TLS) y las propias de su perfil. Una
+  causa da un único hallazgo.
+- **H2-ARRANQUE** (escaneo `arranque`): opciones y entorno de arranque del servidor, pasivo.
+- **H2-CVE** (escaneo `cve`): versión del servidor frente a avisos de seguridad incluidos
+  (48 de llama.cpp y 140 de vLLM); una coincidencia por versión es un indicio (`potencial`).
+- **Selector del comando**: `--listar` (escaneos, grupos, tipo pasivo/híbrido y herramienta
+  externa), `--excluir`, grupo `servidor` (`exposicion`, `arranque`, `cve`), `--servidor
+  {auto,llama.cpp,vllm}` y `--solo-declarado`. La ayuda de `--escaneo` se genera del registro de
+  módulos. El informe indica qué escaneos se pidieron y cuáles se omitieron, con el motivo.
+- Pruebas del comando (`tests/test_cli.py`) y de los cambios de M2 y H3-PUERTOS.
+
+### Cambiado
+- **El análisis del host (H3-SSH, H3-PUERTOS, H3-HOST) solo corre en máquinas con servidor
+  llama.cpp o vLLM** (identificado, declarado o forzado); si no, se omite con una nota que explica
+  cómo forzarlo.
+- H3-PUERTOS reconoce los puertos por defecto de cada perfil (llama.cpp `9931` y `8080`, vLLM
+  `8000`) y los canales internos de cada servidor.
+- La carpeta de `--salida` se crea si no existe; si no se puede crear o escribir, el comando falla
+  **antes** de escanear en lugar de perder el escaneo al final.
+
+### Corregido
+- Un módulo que falla ya no aborta la auditoría: queda un hallazgo INFO `<módulo>-ERROR`
+  (`sin_concluir`, solo con el tipo de la excepción) y los demás siguen.
+- `--help` listaba solo parte de las etiquetas de `--escaneo`.
+- En Windows, la tabla de puertos se lee con la API del sistema (`GetExtendedTcpTable`): en algunos
+  equipos, `netstat -ano` mostraba solo una parte de los puertos, distinta en cada lectura.
+- H3-PUERTOS: en Windows, los puertos inesperados del rango dinámico (49152-65535), casi siempre
+  RPC del sistema, daban unos veinte hallazgos; ahora son uno solo, `H3-PUERTOS-DINAMICOS`, con su
+  número y la lista de puertos.
+- M2: un `sha256` declarado que no tiene 64 caracteres hexadecimales ya no se informa como
+  artefacto alterado, sino como INFO `sin_concluir` («el valor declarado no es válido»).
+- Un host no local ya no usa la tabla de puertos ni el `sshd_config` del equipo auditor.
+- El objetivo de ejemplo es genérico (sin rutas ni datos de ningún despliegue concreto) y el
+  README deja de documentar la clave inexistente `builds_vulnerables`.
+
 ## [0.5.0] - 2026-11-08
 
 ### Añadido
