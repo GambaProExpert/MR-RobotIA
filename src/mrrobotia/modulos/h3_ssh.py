@@ -8,7 +8,7 @@ para auditar los algoritmos negociados por el servidor SSH en vivo.
 
 Autogating (igual que H2): NO se marca `activo=True` —así el CLI ejecuta siempre la
 parte pasiva—, sino que se lee `self.activos_ok` (que el CLI pone a True con
---permitir-activos + permitir_activos) para decidir si corre la parte activa. Para
+--active + permitir_activos) para decidir si corre la parte activa. Para
 hosts no locales exige, además, autorizacion.confirmo_no_local, como el núcleo. Si el
 host no es este equipo, tampoco se lee ningún `sshd_config`: sería el del auditor.
 
@@ -549,7 +549,7 @@ class H3Ssh(Modulo):
             hallazgos.append(Hallazgo(
                 "H3-SSH", "H3-SSH-ACTIVO-OMITIDO", "Análisis activo de SSH omitido",
                 Severidad.INFO, "informativo", omision,
-                "El análisis con ssh-audit exige --permitir-activos y permitir_activos=true y, en un host no local, "
+                "El análisis con ssh-audit exige --active y permitir_activos=true y, en un host no local, "
                 "autorizacion.confirmo_no_local=true con permiso escrito.", REFS))
             return [h for h in hallazgos if h is not None]
 

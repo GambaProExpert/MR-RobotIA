@@ -81,11 +81,11 @@ class Modulo:
     titulo = ""
     activo = False
     # El CLI lo pone a True cuando el sondeo activo está autorizado (bandera
-    # --permitir-activos + permitir_activos en el objetivo). Los módulos híbridos
+    # --active + permitir_activos en el objetivo). Los módulos híbridos
     # lo leen para decidir si hacen comprobaciones activas.
     activos_ok = False
-    etiqueta_escaneo = ""      # etiqueta para el selector --escaneo del CLI (la fija cada módulo)
-    # Para --listar: qué hace, si es "pasivo", "hibrido" o "activo", y qué herramienta externa
+    etiqueta_escaneo = ""      # etiqueta para el selector --scan del CLI (la fija cada módulo)
+    # Para --list: qué hace, si es "pasivo", "hibrido" o "activo", y qué herramienta externa
     # usa (una `herramientas.Herramienta`, o None).
     descripcion = ""
     tipo = "pasivo"
@@ -105,7 +105,7 @@ class Modulo:
         if not local and objetivo.get("autorizacion", {}).get("confirmo_no_local") is not True:
             return "host no local sin confirmo_no_local"
         if not self.activos_ok:
-            return "requiere --permitir-activos y permitir_activos=true"
+            return "requiere --active y permitir_activos=true"
         return None
 
     def hallazgo_sin_contexto(self):

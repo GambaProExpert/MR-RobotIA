@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mrrobotia"
-version = "0.6.0"
+version = "0.7.0"
 description = "Auditor de postura defensiva para despliegues locales de LLM auto alojados (TFG)."
 readme = "README.md"
 requires-python = ">=3.10"

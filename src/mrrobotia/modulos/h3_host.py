@@ -2,7 +2,7 @@
 H3 — Vulnerabilidades, secretos y malas configuraciones del host (Trivy).
 
 Módulo PASIVO: Trivy (`trivy fs`) solo LEE el disco local del despliegue, no
-interactúa con el servicio, así que no está condicionado a `--permitir-activos`.
+interactúa con el servicio, así que no está condicionado a `--active`.
 MRRobotIA no reimplementa el escaneo de CVEs: orquesta Trivy de forma LOCAL y
 OFFLINE y normaliza su salida JSON a los `Hallazgo` del informe único. Si el host
 auditado no es este equipo, solo se analiza una ruta local declarada, y se aclara.

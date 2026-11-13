@@ -8,7 +8,7 @@ PROPIO SERVIDOR, nunca en el del auditor, claves de proveedores externos: de nue
 
 H2 corre antes (el orden de `cli.MODULOS` lo garantiza) y lo observado en el servidor real manda
 sobre lo que dice su línea de órdenes: una fila cuyo asunto H2 ya ha podido concluir se descarta,
-para que una causa dé un único hallazgo. Con `--escaneo arranque` solo, H2 no corre y salen todas.
+para que una causa dé un único hallazgo. Con `--scan startup` solo, H2 no corre y salen todas.
 
 Atacantes del modelo de amenazas: A5 (exposición) y A3 (procesos locales). Marcos: OWASP LLM
 Top 10 2025 (LLM10, LLM02, LLM03), MITRE ATLAS y NIST AI 600-1.
@@ -86,7 +86,7 @@ class H2Arranque(Modulo):
     nombre = MODULO
     titulo = "Opciones de arranque y entorno del servidor LLM"
     activo = False
-    etiqueta_escaneo = "arranque"
+    etiqueta_escaneo = "startup"
     descripcion = "Opciones de arranque y entorno del proceso del servidor (clave en la línea de órdenes, CORS, TLS...)"
     tipo = "pasivo"
 

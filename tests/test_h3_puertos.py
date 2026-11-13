@@ -102,7 +102,7 @@ def test_ejecutar_pasivo_detecta_peligroso_y_omite_activo(monkeypatch):
     ids = {h.id for h in hallazgos}
 
     assert "H3-PUERTOS-6379" in ids                 # Redis en 0.0.0.0 -> peligroso
-    assert "H3-PUERTOS-ACTIVO-OMITIDO" in ids        # sin --permitir-activos
+    assert "H3-PUERTOS-ACTIVO-OMITIDO" in ids        # sin --active
     # 8080 es el puerto declarado -> no se señala; y como 6379 es peligroso, no hay OK.
     assert "H3-PUERTOS-INESPERADO-8080" not in ids and "H3-PUERTOS-OK" not in ids
     redis = next(h for h in hallazgos if h.id == "H3-PUERTOS-6379")
@@ -240,7 +240,7 @@ def test_host_no_local_no_lee_la_tabla_del_auditor(monkeypatch):
     h = m.ejecutar({"host": "192.0.2.1", "autorizacion": CONFIRMADO})
     assert ids(h) == {"H3-PUERTOS-NO-LOCAL", "H3-PUERTOS-ACTIVO-OMITIDO"}
     assert all(x.severidad == Severidad.INFO for x in h)
-    assert "permitir-activos" in next(x for x in h if x.id == "H3-PUERTOS-ACTIVO-OMITIDO").evidencia
+    assert "--active" in next(x for x in h if x.id == "H3-PUERTOS-ACTIVO-OMITIDO").evidencia
 
 
 def test_host_no_local_sin_confirmar_no_sondea(monkeypatch):

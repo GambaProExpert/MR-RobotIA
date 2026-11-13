@@ -3,6 +3,37 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.7.0] - 2026-11-13
+
+### Cambiado (ruptura: opciones renombradas, sin alias de las antiguas)
+- **El comando pasa a opciones cortas y en inglés**, con ayuda (`--help`), `--list` y mensajes
+  de error del comando en inglés. Los hallazgos del informe, los mensajes de los módulos y las
+  claves del fichero de objetivo siguen en español.
+
+| Antes | Ahora |
+|---|---|
+| `--objetivo` | `-t`, `--target` |
+| `--permitir-activos` | `-a`, `--active` |
+| `--salida` | `-o`, `--out` |
+| `--escaneo` | `-s`, `--scan` |
+| `--excluir` | `-x`, `--skip` |
+| `--listar` | `-l`, `--list` |
+| `--servidor` | `--server` |
+| `--solo-declarado` | `--declared-only` |
+
+- **Etiquetas de escaneo:** `identificacion` pasa a `id`, `integridad` a `integrity`, `exposicion`
+  a `exposure`, `arranque` a `startup` y `puertos` a `ports` (`config`, `cve`, `ssh` y `vulns`
+  no cambian).
+- **Grupos:** `todo` pasa a `all`, `activo` a `active`, `servidor` a `server` y `pasivo` a
+  `passive` (`host` no cambia).
+- **Variables de entorno:** `MRROBOTIA_OBJETIVO` pasa a `MRROBOTIA_TARGET` y
+  `MRROBOTIA_PERMITIR_ACTIVOS` a `MRROBOTIA_ACTIVE`.
+- El informe usa las etiquetas nuevas en «Escaneos pedidos» y en los motivos de omisión.
+
+### Añadido
+- `README.md` en inglés y `README.es.md` en español, ambos con un inicio rápido y la estructura
+  del fichero de objetivo comentada clave por clave.
+
 ## [0.6.0] - 2026-11-09
 
 ### Añadido

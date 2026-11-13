@@ -461,8 +461,8 @@ def _auditar(entorno, monkeypatch, tmp_path, responder, *argv):
         ruta = tmp_path / "objetivo.json"
         ruta.write_text(json.dumps(objetivo), encoding="utf-8")
         salida = tmp_path / "informe"
-        monkeypatch.setattr(sys, "argv", ["mrrobotia", "--objetivo", str(ruta), "--salida", str(salida), "--permitir-activos",
-                                          "--escaneo", "exposicion,arranque,cve,puertos"])
+        monkeypatch.setattr(sys, "argv", ["mrrobotia", "--target", str(ruta), "--out", str(salida), "--active",
+                                          "--scan", "exposure,startup,cve,ports"])
         cli.main()
     informe = Path(str(salida) + ".json").read_text(encoding="utf-8") + Path(str(salida) + ".md").read_text(encoding="utf-8")
     return s.peticiones, informe

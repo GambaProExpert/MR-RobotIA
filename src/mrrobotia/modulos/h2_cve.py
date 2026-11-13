@@ -89,7 +89,7 @@ class H2Cve(Modulo):
         if not servidor.version:
             return [_info("H2-CVE-SIN-VERSION", "No se conoce la versión del servidor",
                           "sin versión no se pueden cruzar los avisos",
-                          "Con --permitir-activos, MRRobotIA intenta leerla del propio servidor.", "sin_concluir")]
+                          "Con --active, MRRobotIA intenta leerla del propio servidor.", "sin_concluir")]
         if perfil.clave_version(servidor.version) is None:
             return [_info("H2-CVE-SIN-VERSION", "La versión del servidor no se puede comparar",
                           f"versión {servidor.version}",

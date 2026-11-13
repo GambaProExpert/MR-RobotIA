@@ -222,7 +222,7 @@ class H3Puertos(Modulo):
     nombre = "H3-PUERTOS"
     titulo = "Puertos abiertos innecesarios o inseguros del host"
     activo = False               # HÍBRIDO: se ejecuta siempre y autogatea con self.activos_ok
-    etiqueta_escaneo = "puertos"
+    etiqueta_escaneo = "ports"
     descripcion = "Puertos en escucha inesperados o peligrosos del host, y barrido de conexión simple (activo)"
     tipo = "hibrido"
     requiere_servidor = True
@@ -352,7 +352,7 @@ class H3Puertos(Modulo):
             hallazgos.append(Hallazgo(
                 MODULO, "H3-PUERTOS-ACTIVO-OMITIDO", "Barrido activo de puertos omitido",
                 Severidad.INFO, "informativo", omision,
-                "El barrido activo exige --permitir-activos y permitir_activos=true y, en un "
+                "El barrido activo exige --active y permitir_activos=true y, en un "
                 "host no local, autorizacion.confirmo_no_local=true con permiso escrito.", REFS))
         else:
             try:

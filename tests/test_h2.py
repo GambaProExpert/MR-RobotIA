@@ -492,7 +492,7 @@ def test_sin_consentimiento_solo_lo_pasivo(aislado, monkeypatch):
     h = auditar(objetivo(), servidor(enlace="todas"), servidor(2, pid=5), activos=False)
     assert ids(h).count("H2-ACTIVO-OMITIDO") == 1
     assert ids(h).count("H2-BIND") == 2 and ids(h).count("H2-OWNER") == 2
-    assert "requiere --permitir-activos" in uno(h, "H2-ACTIVO-OMITIDO").evidencia
+    assert "requiere --active" in uno(h, "H2-ACTIVO-OMITIDO").evidencia
     assert not {"H2-PORT", "H2-AUTH", "H2-EXPOSICION"} & set(ids(h))
 
 
@@ -711,12 +711,12 @@ def _ejecutar_cli(monkeypatch, tmp_path, obj, *extra):
     ruta = tmp_path / "objetivo.json"
     ruta.write_text(json.dumps(obj), encoding="utf-8")
     salida = tmp_path / "informe"
-    monkeypatch.setattr(sys, "argv", ["mrrobotia", "--objetivo", str(ruta), "--salida", str(salida), *extra])
+    monkeypatch.setattr(sys, "argv", ["mrrobotia", "--target", str(ruta), "--out", str(salida), *extra])
     cli.main()
     return Path(str(salida) + ".json").read_text(encoding="utf-8") + Path(str(salida) + ".md").read_text(encoding="utf-8")
 
 
-ACTIVO = ("--escaneo", "exposicion,arranque,cve", "--permitir-activos")
+ACTIVO = ("--scan", "exposure,startup,cve", "--active")
 _NUNCA = {"/metrics", "/models/sse", "/models/load", "/models/unload", "/completion", "/completions", "/v1/completions",
           "/chat/completions", "/v1/chat/completions", "/v1/responses", "/v1/messages", "/infill", "/tokenize", "/detokenize",
           "/embedding", "/embeddings", "/v1/embeddings", "/rerank", "/v1/rerank"}
@@ -787,8 +787,8 @@ def test_invariante_canario_clave_en_la_linea_de_ordenes(entorno, monkeypatch, t
 
 def test_cli_registra_los_modulos():
     etiquetas = {m.etiqueta_escaneo for m in cli.MODULOS}
-    assert {"arranque", "cve", "exposicion"} <= etiquetas
-    assert cli._resolver_escaneo("arranque,cve") == ({"arranque", "cve"}, False)
+    assert {"startup", "cve", "exposure"} <= etiquetas
+    assert cli._resolver_escaneo("startup,cve") == ({"startup", "cve"}, False)
 
 
 # ------------------------------------------------------------ piezas compartidas
@@ -854,7 +854,7 @@ def test_arranque_suelto_conserva_todas_las_filas(entorno, monkeypatch, tmp_path
         entorno.procesos = [_proceso(s.puerto, "--cors-origins", "*")]
         entorno.abiertos = {s.puerto}
         informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, permitir_activos=True),
-                                "--escaneo", "arranque", "--permitir-activos")
+                                "--scan", "startup", "--active")
     for fila in ("SIN-CLAVE", "TLS", "CORS", "WEBUI", "SLOTS"):
         assert f"H2-ARRANQUE-{fila}" in informe
 

@@ -6,13 +6,13 @@ demás módulos usan para adaptar sus pruebas. Módulo HÍBRIDO, como H2 y H3:
 
 - PASIVO (siempre): SO, procesos y tabla de puertos. No toca la red y, si el host auditado no
   es este equipo, tampoco mira sus procesos: serían los del auditor.
-- ACTIVO (solo con --permitir-activos y permitir_activos=true; si el host no es local, además
+- ACTIVO (solo con --active y permitir_activos=true; si el host no es local, además
   con autorizacion.confirmo_no_local): pregunta por HTTP a cada candidato con `ClienteHTTP`,
   que solo permite GET, HEAD y OPTIONS. Julius se usa únicamente para lo que los perfiles no
   reconocen, y siempre con sondas GET propias: las 64 por defecto pueden enviar un prompt.
 
 Combinación: un proceso y una respuesta HTTP del mismo puerto son un único servidor. Prioridad:
-forzado (--servidor), proceso, HTTP, Julius, declarado (`servidor` del objetivo).
+forzado (--server), proceso, HTTP, Julius, declarado (`servidor` del objetivo).
 
 INVARIANTE DE PRIVACIDAD: la línea de órdenes solo se pasa por la lista blanca del perfil. Al
 informe llegan opciones saneadas, nombres de fichero de los modelos y señales cortas; la salida
@@ -360,13 +360,13 @@ class H2Identificacion(Modulo):
     nombre = MODULO
     titulo = "Identificación del servidor LLM y del sistema"
     activo = False               # HÍBRIDO: se ejecuta siempre y autogatea con self.activos_ok
-    etiqueta_escaneo = "identificacion"
+    etiqueta_escaneo = "id"
     descripcion = "Qué servidor LLM hay (llama.cpp, vLLM...), su versión, cómo se arrancó y en qué sistema (corre siempre, primero)"
     tipo = "hibrido"
     externa = JULIUS
-    # Tipo impuesto por el usuario (--servidor): gana a lo detectado, avisando si difiere.
+    # Tipo impuesto por el usuario (--server): gana a lo detectado, avisando si difiere.
     servidor_forzado = None
-    # --solo-declarado: solo se identifica y se audita el servidor del endpoint o puerto declarado.
+    # --declared-only: solo se identifica y se audita el servidor del endpoint o puerto declarado.
     solo_declarado = False
 
     def ejecutar(self, objetivo):
