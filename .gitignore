@@ -19,6 +19,7 @@ objetivo.json
 /informe_mrrobotia.*
 /informe*.json
 /informe*.md
+informes/
 
 # El ejemplo SÍ se versiona (nombre distinto de objetivo.json, no lo ignora nada de arriba)
 !ejemplos/objetivo.ejemplo.json

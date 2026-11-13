@@ -623,7 +623,7 @@ def _ejecutar_cli(monkeypatch, tmp_path, obj, *extra):
     ruta = tmp_path / "objetivo.json"
     ruta.write_text(json.dumps(obj), encoding="utf-8")
     salida = tmp_path / "informe"
-    monkeypatch.setattr(sys, "argv", ["mrrobotia", "--objetivo", str(ruta), "--salida", str(salida), *extra])
+    monkeypatch.setattr(sys, "argv", ["mrrobotia", "--target", str(ruta), "--out", str(salida), *extra])
     cli.main()
     return Path(str(salida) + ".json").read_text(encoding="utf-8") + Path(str(salida) + ".md").read_text(encoding="utf-8")
 
@@ -636,7 +636,7 @@ def test_invariante_privacidad_canario_de_punta_a_punta(entorno, monkeypatch, tm
         entorno.abiertos = {s.puerto}
         monkeypatch.setattr(h2id.procesos, "leer_entorno", lambda pid, v: {"LLAMA_API_KEY": True})
         obj = objetivo(endpoint=f"{s.url}/v1/models", permitir_activos=True)
-        informe = _ejecutar_cli(monkeypatch, tmp_path, obj, "--escaneo", "identificacion", "--permitir-activos")
+        informe = _ejecutar_cli(monkeypatch, tmp_path, obj, "--scan", "id", "--active")
     assert "modelo.gguf" in informe and "presente" in informe  # el informe sí dice que existen
     assert CANARIO not in informe and "ruta-canario" not in informe
 
@@ -645,7 +645,7 @@ def test_invariante_privacidad_con_respuesta_abierta(entorno, monkeypatch, tmp_p
     with ServidorFalso(llamacpp(modelo=RUTA_CANARIO)) as s:
         entorno.abiertos = {s.puerto}
         obj = objetivo(endpoint=f"{s.url}/v1/models", permitir_activos=True)
-        informe = _ejecutar_cli(monkeypatch, tmp_path, obj, "--escaneo", "identificacion", "--permitir-activos")
+        informe = _ejecutar_cli(monkeypatch, tmp_path, obj, "--scan", "id", "--active")
     assert "modelo.gguf" in informe and "ruta-canario" not in informe
 
 
@@ -674,7 +674,7 @@ def test_invariante_julius_solo_con_sondas_propias(entorno):
 
 # ---------------------------------------------------------------------------- CLI
 def test_cli_acepta_la_etiqueta():
-    assert cli._resolver_escaneo("identificacion") == ({"identificacion"}, False)
+    assert cli._resolver_escaneo("id") == ({"id"}, False)
 
 
 def test_cli_identifica_siempre_primero_y_pasa_el_contexto(entorno, monkeypatch, tmp_path):
@@ -689,7 +689,7 @@ def test_cli_identifica_siempre_primero_y_pasa_el_contexto(entorno, monkeypatch,
 
     monkeypatch.setattr(cli, "MODULOS", [Espia()])
     entorno.procesos = [proceso_llama(8080)]
-    informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(), "--escaneo", "espia")
+    informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(), "--scan", "espia")
     contexto, activos = vistos[0]
     assert contexto.principal().tipo == "llama.cpp" and activos is False
     datos = json.loads(informe[:informe.index("# Informe")])
@@ -704,7 +704,7 @@ def test_cli_solo_identificacion_no_ejecuta_el_resto(entorno, monkeypatch, tmp_p
             pytest.fail("no debe ejecutarse")
 
     monkeypatch.setattr(cli, "MODULOS", [Espia()])
-    informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(), "--escaneo", "identificacion")
+    informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(), "--scan", "id")
     assert '"H2-ID"' in informe
 
 
@@ -712,7 +712,7 @@ def test_cli_pasivo_no_pregunta_por_red(entorno, monkeypatch, tmp_path):
     with ServidorFalso(llamacpp()) as s:
         entorno.abiertos = {s.puerto}
         obj = objetivo(endpoint=s.url, permitir_activos=True)
-        _ejecutar_cli(monkeypatch, tmp_path, obj, "--escaneo", "identificacion,pasivo", "--permitir-activos")
+        _ejecutar_cli(monkeypatch, tmp_path, obj, "--scan", "id,passive", "--active")
     assert s.peticiones == []
 
 

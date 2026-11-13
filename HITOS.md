@@ -50,7 +50,7 @@ contra un endpoint **llama.cpp**; formato de salida y su parseo; mapeo a severid
 
 - Hecho: núcleo (`nucleo.py`, `herramientas.py`), identificación y perfiles, H1/M2, M3 de
   configuración (se integra en H2 para aplicaciones con login), H2 completo y H3.
-- Selector del comando: `--escaneo`, `--excluir`, `--listar`, `--servidor` y `--solo-declarado`.
+- Selector del comando: `--scan`, `--skip`, `--list`, `--server` y `--declared-only` (opciones cortas e inglesas desde la 0.7.0).
 - **Pendiente de validar:** vLLM contra un servidor real (hoy solo el servidor falso que sigue la
   lectura del código de la 0.33.0), y Trivy y ssh-audit instalados de verdad.
 - Pendiente de decidir en H4: qué se hace con un prober propio anterior, que no forma parte de

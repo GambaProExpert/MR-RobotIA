@@ -153,7 +153,7 @@ def test_sshaudit_recorta_a_veinte():
 
 # -------------------------------------------- integración ligera de ejecutar()
 def test_ejecutar_pasivo_lee_config_y_omite_activo(tmp_path):
-    """Con un sshd_config real en disco y sin --permitir-activos: evalúa la config y
+    """Con un sshd_config real en disco y sin --active: evalúa la config y
     marca el análisis activo como omitido (no intenta ejecutar ssh-audit)."""
     cfg = tmp_path / "sshd_config"
     cfg.write_text("# comentario\nPermitRootLogin yes\nPasswordAuthentication yes\n",
