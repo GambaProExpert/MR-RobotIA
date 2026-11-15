@@ -10,9 +10,8 @@ references to OWASP LLM Top 10 2025, MITRE ATLAS and NIST AI 600-1. When useful,
 DeepEval) locally and offline: "MRRobotIA does not do the auditing; it extracts the data". The
 roadmap is in [HITOS.md](HITOS.md) (in Spanish).
 
-> The command line (options, labels, help) is in English. The audit report, the module messages
-> and the keys of the target file (`autorizacion`, `endpoint`, `exposicion`...) are still in
-> Spanish for now.
+> The command line (options, labels, help) and the target file (`target.json` and all its keys)
+> are in English. The audit report and the module messages are still in Spanish for now.
 
 ## What is validated and what is not
 
@@ -42,60 +41,60 @@ The package only uses the standard library: no runtime dependencies. The externa
 says so and explains how to install it.
 
 ## Quick start
-Copy the example target file (on Windows: `copy ejemplos\objetivo.ejemplo.json objetivo.json`):
+Copy the example target file (on Windows: `copy ejemplos\target.example.json target.json`):
 ```
-cp ejemplos/objetivo.ejemplo.json objetivo.json
+cp ejemplos/target.example.json target.json
 ```
-Edit `objetivo.json`: set `tengo_autorizacion` to `true` **only if you have permission** and
-fill in `autorizado_por`, `ambito` and `fecha`. Then run a scan and read the report:
+Edit `target.json`: set `authorized` to `true` **only if you have permission** and
+fill in `authorized_by`, `scope` and `date`. Then run a scan and read the report:
 ```
-mrrobotia -t objetivo.json -o informes/hoy
+mrrobotia -t target.json -o informes/hoy
 ```
 This writes `informes/hoy.md` (human-readable) and `informes/hoy.json`. To see which scans exist,
 run `mrrobotia -l`. Other combinations:
 ```
-mrrobotia -t objetivo.json -s passive          # observe only, never talk to the service
-mrrobotia -t objetivo.json -s server -x cve    # the LLM server, without the advisories scan
-mrrobotia -t objetivo.json -a                  # also allow network probing
+mrrobotia -t target.json -s passive          # observe only, never talk to the service
+mrrobotia -t target.json -s server -x cve    # the LLM server, without the advisories scan
+mrrobotia -t target.json -a                  # also allow network probing
 ```
 
-### Structure of `objetivo.json`, key by key
-Only `autorizacion` is mandatory; everything else is optional and depends on what you want to
+### Structure of `target.json`, key by key
+Only `authorization` is mandatory; everything else is optional and depends on what you want to
 audit. The `//` comments are not valid JSON: remove them in your own file
-(`ejemplos/objetivo.ejemplo.json` is the comment-free version).
+(`ejemplos/target.example.json` is the comment-free version).
 ```jsonc
 {
-  "nombre": "Servidor LLM de ejemplo",        // name shown in the report
-  "host": "127.0.0.1",                         // machine to audit; if not local it needs confirmo_no_local
+  "name": "Example LLM server",                // name shown in the report
+  "host": "127.0.0.1",                         // machine to audit; if not local it needs confirm_non_local
   "endpoint": "http://127.0.0.1:8080/v1/chat/completions",  // server URL: host, port and scheme come from it
-  "autorizacion": {                            // MANDATORY: the tool does not run without it
-    "tengo_autorizacion": true,                //   true only if the system is yours or you have written permission
-    "autorizado_por": "Name and role",         //   who authorizes
-    "ambito": "Own test machine",              //   what may be audited
-    "fecha": "2026-11-13"                      //   date of the authorization
-    // "confirmo_no_local": true               //   only if "host" is not local and you have written permission
+  "authorization": {                           // MANDATORY: the tool does not run without it
+    "authorized": true,                        //   true only if the system is yours or you have written permission
+    "authorized_by": "Name and role",          //   who authorizes
+    "scope": "Own test machine",               //   what may be audited
+    "date": "2026-11-13"                       //   date of the authorization
+    // "confirm_non_local": true               //   only if "host" is not local and you have written permission
   },
-  "permitir_activos": false,                   // true allows network probing, if you also pass -a/--active
-  "servidor": "llama.cpp",                     // declared type ("llama.cpp", "vllm" or other); checked against what is detected
-  "exposicion": {                              // what you expect from the server
-    "puerto": 8080,                            //   server port
-    "bind_esperado": "127.0.0.1",              //   address it should listen on
-    "proxy_autenticador": false,               //   is there an authenticating proxy in front?
-    "api_key_esperada": true                   //   should it require an API key?
+  "allow_active": false,                       // true allows network probing, if you also pass -a/--active
+  "server": "llama.cpp",                       // declared type ("llama.cpp", "vllm" or other); checked against what is detected
+  "exposure": {                                // what you expect from the server
+    "port": 8080,                              //   server port
+    "expected_bind": "127.0.0.1",              //   address it should listen on
+    "auth_proxy": false,                       //   is there an authenticating proxy in front?
+    "api_key_expected": true                   //   should it require an API key?
   },
-  "ssh": {"puerto": 22},                       // sshd port (also accepts "sshd_config": path to its configuration)
-  "puertos": {"esperados": []},                // extra legitimate ports (also accepts "extra_peligrosos")
-  "host_trivy": {"ruta": "./despliegue"},      // directory Trivy scans (also "escaneres" and "severidad")
-  "manifiesto": "./modelos/manifiesto.json",   // manifest of SHA-256 hashes of the artifacts
-  "manifiesto_firmado": false,                 // is the manifest signed?
-  "artefactos": [                              // files whose integrity is checked ({"ruta", "sha256"?})
-    {"ruta": "./modelos/modelo.gguf"},
-    {"ruta": "./modelos/adaptador.gguf"}
+  "ssh": {"port": 22},                         // sshd port (also accepts "sshd_config": path to its configuration)
+  "ports": {"expected": []},                   // extra legitimate ports (also accepts "extra_dangerous")
+  "trivy_host": {"path": "./deploy"},          // directory Trivy scans (also "scanners" and "severity")
+  "manifest": "./models/manifest.json",        // manifest of SHA-256 hashes of the artifacts
+  "manifest_signed": false,                    // is the manifest signed?
+  "artifacts": [                               // files whose integrity is checked ({"path", "sha256"?})
+    {"path": "./models/model.gguf"},
+    {"path": "./models/adapter.gguf"}
   ],
-  "usuarios": "./app/usuarios.json",           // files of the application around the model (read-only)
-  "auditoria": "./app/logs/auditoria.jsonl",   //   audit log (alternative: "dir_logs")
+  "users": "./app/users.json",                 // files of the application around the model (read-only)
+  "audit": "./app/logs/audit.jsonl",           //   audit log (alternative: "logs_dir")
   "app_dir": "./app"                           //   application folder
-  // "herramientas": {"trivy": {"ruta": "...", "timeout": 900}}   // tool paths and timeouts; otherwise looked up in PATH
+  // "tools": {"trivy": {"path": "...", "timeout": 900}}   // tool paths and timeouts; otherwise looked up in PATH
 }
 ```
 **Relative paths** are resolved against the directory you run the command from, not against the
@@ -104,21 +103,21 @@ target file. More detail in "Target file keys" below.
 ## Usage
 Once the target file is ready, the command is:
 ```
-mrrobotia -t objetivo.json -o informe_mrrobotia
+mrrobotia -t target.json -o informe_mrrobotia
 ```
 It can also be run as a module, without installing (from the project root, with `src` on the
 `PYTHONPATH`):
 ```
-python -m mrrobotia -t objetivo.json
+python -m mrrobotia -t target.json
 ```
-`objetivo.json` and the reports contain paths of your system: do not upload them to the cloud
+`target.json` and the reports contain paths of your system: do not upload them to the cloud
 (they are already in `.gitignore`, as is the `informes/` folder).
 
 ### Command options
 | Option | What it does |
 |---|---|
 | `-t`, `--target` | JSON file with scope and authorization (or the `MRROBOTIA_TARGET` variable) |
-| `-a`, `--active` | Enables network probing; it also requires `permitir_activos: true` in the target file (or `MRROBOTIA_ACTIVE=1`) |
+| `-a`, `--active` | Enables network probing; it also requires `allow_active: true` in the target file (or `MRROBOTIA_ACTIVE=1`) |
 | `-o`, `--out` | Prefix of the report `.md` and `.json` files (default `informe_mrrobotia`). If its folder does not exist, it is created; if it cannot be created or written, the command fails **before** scanning |
 | `-s`, `--scan` | Which scans to run, by label or group, comma-separated. Default: all (`all`) |
 | `-x`, `--skip` | Labels or groups to remove from the selection. The `id` scan cannot be skipped |
@@ -129,10 +128,10 @@ python -m mrrobotia -t objetivo.json
 Examples:
 ```
 mrrobotia -l
-mrrobotia -t objetivo.json -s server -x cve
-mrrobotia -t objetivo.json -s passive -o informes/hoy
-mrrobotia -t objetivo.json -a --declared-only
-mrrobotia -t objetivo.json --server vllm
+mrrobotia -t target.json -s server -x cve
+mrrobotia -t target.json -s passive -o informes/hoy
+mrrobotia -t target.json -a --declared-only
+mrrobotia -t target.json --server vllm
 ```
 
 ### Scans and groups
@@ -165,35 +164,35 @@ and then only with GET, HEAD and OPTIONS (plus a side-effect-free POST on llama.
 
 **Host analysis is only done on machines with an LLM server.** `ssh`, `ports` and `vulns` are
 skipped if the context contains no llama.cpp or vLLM server (identified, declared with the
-`servidor` key or forced with `--server`). The report leaves a note saying why and how to force
+`server` key or forced with `--server`). The report leaves a note saying why and how to force
 it. The report also says which scans were requested and which were skipped, with the reason. If
 a module fails, the audit goes on: an INFO finding `<module>-ERROR` is left (with only the
 exception type) and the other modules run.
 
 ### Target file keys
-Besides `nombre`, `autorizacion` (mandatory), `host` and `permitir_activos`:
+Besides `name`, `authorization` (mandatory), `host` and `allow_active`:
 
 | Keys | Read by | Purpose |
 |---|---|---|
 | `endpoint` | H2-ID and the others | Server URL (e.g. `http://127.0.0.1:8080/v1/chat/completions`); host, port, scheme and prefix come from it |
-| `servidor` | H2-ID | `"llama.cpp"`, `"vllm"` or another name: the declared type. It is checked against what is detected (if they differ, finding `H2-ID-CONFLICTO`) |
-| `exposicion` | H2-ID, H2 | `puerto`, `bind_esperado`, `proxy_autenticador`, `api_key_esperada`: what is expected of the declared server |
-| `manifiesto`, `manifiesto_firmado`, `artefactos` | M2 | Hash manifest and list of `{ruta, sha256?}`. A `sha256` that is not 64 hexadecimal characters is not compared: INFO finding |
-| `usuarios`, `auditoria` or `dir_logs`, `app_dir` | M3 | Files of the application around the model (read-only) |
-| `ssh` | H3-SSH | `puerto` and `sshd_config` |
-| `puertos` | H3-PUERTOS | `esperados` (extra legitimate ports) and `extra_peligrosos` |
-| `host_trivy` | H3-HOST | `ruta` (directory to scan), `escaneres`, `severidad` |
-| `herramientas` | H2-ID, H3 | Paths and timeouts per tool, e.g. `{"trivy": {"ruta": "...", "timeout": 900, "cache_dir": "..."}}`. Without it, tools are looked up in the `PATH` |
+| `server` | H2-ID | `"llama.cpp"`, `"vllm"` or another name: the declared type. It is checked against what is detected (if they differ, finding `H2-ID-CONFLICTO`) |
+| `exposure` | H2-ID, H2 | `port`, `expected_bind`, `auth_proxy`, `api_key_expected`: what is expected of the declared server |
+| `manifest`, `manifest_signed`, `artifacts` | M2 | Hash manifest and list of `{path, sha256?}`. A `sha256` that is not 64 hexadecimal characters is not compared: INFO finding |
+| `users`, `audit` or `logs_dir`, `app_dir` | M3 | Files of the application around the model (read-only) |
+| `ssh` | H3-SSH | `port` and `sshd_config` |
+| `ports` | H3-PUERTOS | `expected` (extra legitimate ports) and `extra_dangerous` |
+| `trivy_host` | H3-HOST | `path` (directory to scan), `scanners`, `severity` |
+| `tools` | H2-ID, H3 | Paths and timeouts per tool, e.g. `{"trivy": {"path": "...", "timeout": 900, "cache_dir": "..."}}`. Without it, tools are looked up in the `PATH` |
 
 The `MRROBOTIA_TARGET` and `MRROBOTIA_ACTIVE` environment variables are alternatives to
 `--target` and `--active`.
 
 ## Principles
 - **Explicit authorization.** The target file declares that you have permission. Without
-  `autorizacion.tengo_autorizacion = true`, the tool does not run. A non-local host needs a
-  separate confirmation (`confirmo_no_local`). It is the equivalent of a pentest's consent.
+  `authorization.authorized = true`, the tool does not run. A non-local host needs a
+  separate confirmation (`confirm_non_local`). It is the equivalent of a pentest's consent.
 - **Read-only by default.** Passive scans only observe. Network probing requires `--active`
-  and `permitir_activos: true` in the target file.
+  and `allow_active: true` in the target file.
 - **Only your own infrastructure, or with written permission.** It does not scan or test
   third-party systems.
 - **Nothing sensitive in the report.** Command lines are reduced to a whitelist of options; keys,
@@ -224,7 +223,7 @@ MRRobotIA/
 ├── Guia_agentes.md         # orchestration approach (origin of the redesign)
 ├── LICENSE
 ├── ejemplos/
-│   └── objetivo.ejemplo.json
+│   └── target.example.json
 ├── src/mrrobotia/
 │   ├── __init__.py         # __version__
 │   ├── __main__.py         # `python -m mrrobotia`

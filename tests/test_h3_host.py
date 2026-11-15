@@ -140,7 +140,7 @@ def test_auditar_ejecucion_ok_antepone_offline(tmp_path, monkeypatch):
     monkeypatch.setattr(herramientas, "ejecutar",
                         lambda *a, **k: Resultado(0, salida, "", False, None))
 
-    objetivo = {"host_trivy": {"ruta": str(tmp_path)}}
+    objetivo = {"trivy_host": {"path": str(tmp_path)}}
     hallazgos = H3Host()._auditar(objetivo, _DET)
     assert hallazgos[0].id == "H3-HOST-OFFLINE"            # contexto de honestidad primero
     assert any(h.id == "H3-HOST-CVE-CVE-2024-0002" for h in hallazgos)
@@ -153,21 +153,21 @@ def test_host_no_local_sin_ruta_lo_explica():
 
 def test_host_no_local_con_ruta_local_lo_aclara(tmp_path, monkeypatch):
     monkeypatch.setattr(herramientas, "ejecutar", lambda *a, **k: Resultado(0, json.dumps({"Results": []}), "", False, None))
-    hallazgos = H3Host()._auditar({"host": "192.0.2.1", "host_trivy": {"ruta": str(tmp_path)}}, _DET)
+    hallazgos = H3Host()._auditar({"host": "192.0.2.1", "trivy_host": {"path": str(tmp_path)}}, _DET)
     assert hallazgos[0].id == "H3-HOST-RUTA-LOCAL" and "ruta local" in hallazgos[0].evidencia
     assert any(h.id == "H3-HOST-LIMPIO" for h in hallazgos)
 
 
 def test_host_local_no_lleva_la_aclaracion(tmp_path, monkeypatch):
     monkeypatch.setattr(herramientas, "ejecutar", lambda *a, **k: Resultado(0, json.dumps({"Results": []}), "", False, None))
-    hallazgos = H3Host()._auditar({"host_trivy": {"ruta": str(tmp_path)}}, _DET)
+    hallazgos = H3Host()._auditar({"trivy_host": {"path": str(tmp_path)}}, _DET)
     assert "H3-HOST-RUTA-LOCAL" not in [h.id for h in hallazgos]
 
 
 def test_auditar_timeout(tmp_path, monkeypatch):
     monkeypatch.setattr(herramientas, "ejecutar",
                         lambda *a, **k: Resultado(None, "", "", True, "timeout"))
-    objetivo = {"host_trivy": {"ruta": str(tmp_path)}}
+    objetivo = {"trivy_host": {"path": str(tmp_path)}}
     hallazgos = H3Host()._auditar(objetivo, _DET)
     assert len(hallazgos) == 1
     assert hallazgos[0].id == "H3-HOST-TIMEOUT"
@@ -177,7 +177,7 @@ def test_auditar_timeout(tmp_path, monkeypatch):
 def test_auditar_error(tmp_path, monkeypatch):
     monkeypatch.setattr(herramientas, "ejecutar",
                         lambda *a, **k: Resultado(2, "", "boom", False, None))
-    objetivo = {"host_trivy": {"ruta": str(tmp_path)}}
+    objetivo = {"trivy_host": {"path": str(tmp_path)}}
     hallazgos = H3Host()._auditar(objetivo, _DET)
     assert len(hallazgos) == 1
     assert hallazgos[0].id == "H3-HOST-ERROR"

@@ -97,7 +97,7 @@ def test_ejecutar_pasivo_detecta_peligroso_y_omite_activo(monkeypatch):
 
     m = H3Puertos()
     m.activos_ok = False
-    objetivo = {"host": "127.0.0.1", "endpoint": "http://127.0.0.1:8080/v1", "autorizacion": {}}
+    objetivo = {"host": "127.0.0.1", "endpoint": "http://127.0.0.1:8080/v1", "authorization": {}}
     hallazgos = m.ejecutar(objetivo)
     ids = {h.id for h in hallazgos}
 
@@ -113,7 +113,7 @@ def test_ejecutar_sin_tabla_da_hallazgo_informativo(monkeypatch):
     monkeypatch.setattr(h3, "tabla_puertos", lambda: "")
     m = H3Puertos()
     m.activos_ok = False
-    hallazgos = m.ejecutar({"host": "127.0.0.1", "autorizacion": {}})
+    hallazgos = m.ejecutar({"host": "127.0.0.1", "authorization": {}})
     ids = {h.id for h in hallazgos}
     assert "H3-PUERTOS-SIN-TABLA" in ids
     assert "H3-PUERTOS-OK" not in ids                # sin tabla no se afirma que todo esté bien
@@ -124,7 +124,7 @@ def test_invariante_privacidad_ejecutar_no_vuelca_datos(monkeypatch):
     monkeypatch.setattr(h3, "owner_proceso", lambda pid: None)
     m = H3Puertos()
     m.activos_ok = False
-    hallazgos = m.ejecutar({"host": "127.0.0.1", "autorizacion": {}})
+    hallazgos = m.ejecutar({"host": "127.0.0.1", "authorization": {}})
     volcado = " ".join(f"{x.titulo} {x.evidencia} {x.recomendacion}" for x in hallazgos)
     # La evidencia solo contiene puerto/bind/pid y texto de recomendación; nada de banners.
     assert "banner" not in volcado.lower()
@@ -134,7 +134,7 @@ def test_invariante_privacidad_ejecutar_no_vuelca_datos(monkeypatch):
 
 # ------------------------------------------------ adaptado a lo identificado
 LLAMA, VLLM = PERFILES
-CONFIRMADO = {"confirmo_no_local": True}
+CONFIRMADO = {"confirm_non_local": True}
 
 
 def ids(hallazgos):
@@ -151,7 +151,7 @@ def ejecutar(monkeypatch, tabla, ctx=None, objetivo=None, activos=False):
     m = H3Puertos()
     m.activos_ok = activos
     m.contexto = ctx
-    return m.ejecutar(objetivo or {"host": "127.0.0.1", "autorizacion": {}})
+    return m.ejecutar(objetivo or {"host": "127.0.0.1", "authorization": {}})
 
 
 def fila(direccion):
@@ -174,14 +174,14 @@ def test_no_se_deduce_el_servidor_por_el_puerto(monkeypatch):
 
 
 def test_puertos_declarados_y_de_contexto_se_suman(monkeypatch):
-    objetivo = {"host": "127.0.0.1", "autorizacion": {}, "puertos": {"esperados": [7000, "7001"]}}
+    objetivo = {"host": "127.0.0.1", "authorization": {}, "ports": {"expected": [7000, "7001"]}}
     h = ejecutar(monkeypatch, fila("127.0.0.1:7000") + fila("127.0.0.1:7001") + fila("127.0.0.1:18080"),
                  contexto(("llama.cpp", 18080)), objetivo)
     assert not [i for i in ids(h) if i.startswith("H3-PUERTOS-INESPERADO")]
 
 
 def test_sin_contexto_funciona_con_lo_declarado(monkeypatch):
-    objetivo = {"host": "127.0.0.1", "autorizacion": {}, "puertos": {"esperados": [7000]}}
+    objetivo = {"host": "127.0.0.1", "authorization": {}, "ports": {"expected": [7000]}}
     h = ejecutar(monkeypatch, fila("127.0.0.1:7000"), None, objetivo)
     assert "H3-PUERTOS-OK" in ids(h)
 
@@ -237,7 +237,7 @@ def test_barrido_desde_el_propio_equipo_no_afirma_acceso_externo(monkeypatch):
 def test_host_no_local_no_lee_la_tabla_del_auditor(monkeypatch):
     monkeypatch.setattr(h3, "tabla_puertos", lambda: (_ for _ in ()).throw(AssertionError("tabla del auditor")))
     m = H3Puertos()
-    h = m.ejecutar({"host": "192.0.2.1", "autorizacion": CONFIRMADO})
+    h = m.ejecutar({"host": "192.0.2.1", "authorization": CONFIRMADO})
     assert ids(h) == {"H3-PUERTOS-NO-LOCAL", "H3-PUERTOS-ACTIVO-OMITIDO"}
     assert all(x.severidad == Severidad.INFO for x in h)
     assert "--active" in next(x for x in h if x.id == "H3-PUERTOS-ACTIVO-OMITIDO").evidencia
@@ -247,8 +247,8 @@ def test_host_no_local_sin_confirmar_no_sondea(monkeypatch):
     monkeypatch.setattr(h3, "sondear", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no debe conectar")))
     m = H3Puertos()
     m.activos_ok = True
-    h = m.ejecutar({"host": "192.0.2.1", "autorizacion": {}})
-    assert "confirmo_no_local" in next(x for x in h if x.id == "H3-PUERTOS-ACTIVO-OMITIDO").evidencia
+    h = m.ejecutar({"host": "192.0.2.1", "authorization": {}})
+    assert "confirm_non_local" in next(x for x in h if x.id == "H3-PUERTOS-ACTIVO-OMITIDO").evidencia
 
 
 def test_host_no_local_solo_barre_ese_host(monkeypatch):
@@ -259,20 +259,20 @@ def test_host_no_local_solo_barre_ese_host(monkeypatch):
     m = H3Puertos()
     m.activos_ok = True
     m.contexto = Contexto("linux", servidores=[ServidorDetectado("vllm", "192.0.2.1", 8000)])
-    h = m.ejecutar({"host": "192.0.2.1", "autorizacion": CONFIRMADO})
+    h = m.ejecutar({"host": "192.0.2.1", "authorization": CONFIRMADO})
     assert set(sondeados) == {"192.0.2.1"}
     assert {"H3-PUERTOS-445", "H3-PUERTOS-INTERNO-5557"} <= ids(h)
     assert "equipo auditor" in next(x for x in h if x.id == "H3-PUERTOS-445").titulo
 
 
 def test_objetivo_malformado_no_llega_al_llamador(monkeypatch):
-    h = ejecutar(monkeypatch, fila("127.0.0.1:7000"), objetivo={"host": "127.0.0.1", "autorizacion": {}, "exposicion": ["x"]})
+    h = ejecutar(monkeypatch, fila("127.0.0.1:7000"), objetivo={"host": "127.0.0.1", "authorization": {}, "exposure": ["x"]})
     assert "H3-PUERTOS-INESPERADO-7000" in ids(h)
 
 
 def test_host_local_por_su_ip_de_red_lee_la_tabla(monkeypatch):
     monkeypatch.setattr(h3, "es_host_local", lambda host: host == "10.1.2.3")
-    h = ejecutar(monkeypatch, fila("0.0.0.0:6379"), objetivo={"host": "10.1.2.3", "autorizacion": CONFIRMADO})
+    h = ejecutar(monkeypatch, fila("0.0.0.0:6379"), objetivo={"host": "10.1.2.3", "authorization": CONFIRMADO})
     assert "H3-PUERTOS-6379" in ids(h) and "H3-PUERTOS-NO-LOCAL" not in ids(h)
 
 

@@ -3,6 +3,49 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.8.0] - 2026-11-15
+
+### Cambiado (ruptura: fichero y claves renombrados, sin compatibilidad con los antiguos)
+- **El fichero de objetivo pasa a llamarse `target.json`** (el ejemplo, `ejemplos/target.example.json`)
+  y **todas sus claves pasan a inglés**. Un `objetivo.json` antiguo ya no sirve: hay que
+  renombrarlo y traducir las claves según la tabla. Los hallazgos del informe y los mensajes de
+  los módulos siguen en español.
+
+| Antes | Ahora |
+|---|---|
+| `nombre` | `name` |
+| `servidor` | `server` |
+| `permitir_activos` | `allow_active` |
+| `autorizacion` | `authorization` |
+| `autorizacion.tengo_autorizacion` | `authorization.authorized` |
+| `autorizacion.autorizado_por` | `authorization.authorized_by` |
+| `autorizacion.ambito` | `authorization.scope` |
+| `autorizacion.fecha` | `authorization.date` |
+| `autorizacion.confirmo_no_local` | `authorization.confirm_non_local` |
+| `exposicion` | `exposure` |
+| `exposicion.puerto` | `exposure.port` |
+| `exposicion.bind_esperado` | `exposure.expected_bind` |
+| `exposicion.proxy_autenticador` | `exposure.auth_proxy` |
+| `exposicion.api_key_esperada` | `exposure.api_key_expected` |
+| `manifiesto` | `manifest` |
+| `manifiesto_firmado` | `manifest_signed` |
+| `artefactos[].ruta` | `artifacts[].path` |
+| `usuarios` | `users` |
+| `auditoria` | `audit` |
+| `dir_logs` | `logs_dir` |
+| `ssh.puerto` | `ssh.port` |
+| `puertos.esperados` | `ports.expected` |
+| `puertos.extra_peligrosos` | `ports.extra_dangerous` |
+| `host_trivy` | `trivy_host` |
+| `host_trivy.ruta` | `trivy_host.path` |
+| `host_trivy.escaneres` | `trivy_host.scanners` |
+| `host_trivy.severidad` | `trivy_host.severity` |
+| `herramientas` | `tools` |
+| `herramientas.<nombre>.ruta` | `tools.<name>.path` |
+
+Sin cambios: `endpoint`, `host`, `app_dir`, `ssh.sshd_config`, `artifacts[].sha256`,
+`tools.<name>.timeout` y `tools.<name>.cache_dir`.
+
 ## [0.7.0] - 2026-11-13
 
 ### Cambiado (ruptura: opciones renombradas, sin alias de las antiguas)

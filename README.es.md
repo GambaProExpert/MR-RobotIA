@@ -38,62 +38,62 @@ Las herramientas externas (Julius, ssh-audit, Trivy) son opcionales y se instala
 falta una, el informe lo dice y explica cómo instalarla.
 
 ## Inicio rápido
-Copia el objetivo de ejemplo (en Windows: `copy ejemplos\objetivo.ejemplo.json objetivo.json`):
+Copia el objetivo de ejemplo (en Windows: `copy ejemplos\target.example.json target.json`):
 ```
-cp ejemplos/objetivo.ejemplo.json objetivo.json
+cp ejemplos/target.example.json target.json
 ```
-Edita `objetivo.json`: pon `tengo_autorizacion` a `true` **solo si tienes permiso** y rellena
-`autorizado_por`, `ambito` y `fecha`. Después lanza un escaneo y lee el informe:
+Edita `target.json`: pon `authorized` a `true` **solo si tienes permiso** y rellena
+`authorized_by`, `scope` y `date`. Después lanza un escaneo y lee el informe:
 ```
-mrrobotia -t objetivo.json -o informes/hoy
+mrrobotia -t target.json -o informes/hoy
 ```
 Salen `informes/hoy.md` (legible) e `informes/hoy.json`. Para ver qué escaneos hay, `mrrobotia -l`.
 Otras combinaciones:
 ```
-mrrobotia -t objetivo.json -s passive          # solo observa, no habla con el servicio
-mrrobotia -t objetivo.json -s server -x cve    # el servidor LLM, sin el escaneo de avisos
-mrrobotia -t objetivo.json -a                  # permite además el sondeo por red
+mrrobotia -t target.json -s passive          # solo observa, no habla con el servicio
+mrrobotia -t target.json -s server -x cve    # el servidor LLM, sin el escaneo de avisos
+mrrobotia -t target.json -a                  # permite además el sondeo por red
 ```
-Las **opciones del comando y las etiquetas están en inglés; las claves del fichero de objetivo
-(`autorizacion`, `endpoint`, `exposicion`...) y el informe siguen en español** por ahora.
+Las **opciones del comando, las etiquetas y el fichero de objetivo (`target.json` y todas sus
+claves) están en inglés; el informe y los mensajes de los módulos siguen en español** por ahora.
 
-### Estructura de `objetivo.json`, clave por clave
-Solo `autorizacion` es obligatoria; el resto es opcional y depende de lo que quieras auditar.
-Los comentarios `//` no son JSON válido: quítalos en tu fichero (`ejemplos/objetivo.ejemplo.json`
+### Estructura de `target.json`, clave por clave
+Solo `authorization` es obligatoria; el resto es opcional y depende de lo que quieras auditar.
+Los comentarios `//` no son JSON válido: quítalos en tu fichero (`ejemplos/target.example.json`
 es la versión sin comentarios).
 ```jsonc
 {
-  "nombre": "Servidor LLM de ejemplo",        // nombre que sale en el informe
-  "host": "127.0.0.1",                         // máquina a auditar; si no es local exige confirmo_no_local
+  "name": "Servidor LLM de ejemplo",                // nombre que sale en el informe
+  "host": "127.0.0.1",                         // máquina a auditar; si no es local exige confirm_non_local
   "endpoint": "http://127.0.0.1:8080/v1/chat/completions",  // URL del servidor: de ella salen host, puerto y esquema
-  "autorizacion": {                            // OBLIGATORIA: sin ella la herramienta no corre
-    "tengo_autorizacion": true,                //   true solo si el sistema es tuyo o tienes permiso escrito
-    "autorizado_por": "Nombre y cargo",        //   quién autoriza
-    "ambito": "Equipo propio de pruebas",      //   qué se puede auditar
-    "fecha": "2026-11-13"                      //   fecha de la autorización
-    // "confirmo_no_local": true               //   solo si "host" no es local y tienes permiso escrito
+  "authorization": {                           // OBLIGATORIA: sin ella la herramienta no corre
+    "authorized": true,                        //   true solo si el sistema es tuyo o tienes permiso escrito
+    "authorized_by": "Nombre y cargo",          //   quién autoriza
+    "scope": "Equipo propio de pruebas",               //   qué se puede auditar
+    "date": "2026-11-13"                       //   fecha de la autorización
+    // "confirm_non_local": true               //   solo si "host" no es local y tienes permiso escrito
   },
-  "permitir_activos": false,                   // true permite el sondeo por red, si además usas -a/--active
-  "servidor": "llama.cpp",                     // tipo declarado ("llama.cpp", "vllm" u otro); se contrasta con lo detectado
-  "exposicion": {                              // lo que esperas del servidor
-    "puerto": 8080,                            //   puerto del servidor
-    "bind_esperado": "127.0.0.1",              //   dirección en la que debería escuchar
-    "proxy_autenticador": false,               //   ¿hay delante un proxy que autentica?
-    "api_key_esperada": true                   //   ¿debería exigir clave de API?
+  "allow_active": false,                       // true permite el sondeo por red, si además usas -a/--active
+  "server": "llama.cpp",                       // tipo declarado ("llama.cpp", "vllm" u otro); se contrasta con lo detectado
+  "exposure": {                                // lo que esperas del servidor
+    "port": 8080,                              //   puerto del servidor
+    "expected_bind": "127.0.0.1",              //   dirección en la que debería escuchar
+    "auth_proxy": false,                       //   ¿hay delante un proxy que autentica?
+    "api_key_expected": true                   //   ¿debería exigir clave de API?
   },
-  "ssh": {"puerto": 22},                       // puerto de sshd (también admite "sshd_config": ruta de su configuración)
-  "puertos": {"esperados": []},                // puertos legítimos adicionales (también admite "extra_peligrosos")
-  "host_trivy": {"ruta": "./despliegue"},      // directorio que escanea Trivy (también "escaneres" y "severidad")
-  "manifiesto": "./modelos/manifiesto.json",   // manifiesto de hashes SHA-256 de los artefactos
-  "manifiesto_firmado": false,                 // ¿el manifiesto está firmado?
-  "artefactos": [                              // ficheros cuya integridad se comprueba ({"ruta", "sha256"?})
-    {"ruta": "./modelos/modelo.gguf"},
-    {"ruta": "./modelos/adaptador.gguf"}
+  "ssh": {"port": 22},                         // puerto de sshd (también admite "sshd_config": ruta de su configuración)
+  "ports": {"expected": []},                   // puertos legítimos adicionales (también admite "extra_dangerous")
+  "trivy_host": {"path": "./deploy"},          // directorio que escanea Trivy (también "scanners" and "severity")
+  "manifest": "./models/manifest.json",        // manifiesto de hashes SHA-256 de los artefactos
+  "manifest_signed": false,                    // ¿el manifiesto está firmado?
+  "artifacts": [                               // ficheros cuya integridad se comprueba ({"path", "sha256"?})
+    {"path": "./models/model.gguf"},
+    {"path": "./models/adapter.gguf"}
   ],
-  "usuarios": "./app/usuarios.json",           // ficheros de la aplicación que rodea al modelo (solo lectura)
-  "auditoria": "./app/logs/auditoria.jsonl",   //   registro de auditoría (alternativa: "dir_logs")
+  "users": "./app/users.json",                 // ficheros de la aplicación que rodea al modelo (solo lectura)
+  "audit": "./app/logs/audit.jsonl",           //   registro de auditoría (alternativa: "logs_dir")
   "app_dir": "./app"                           //   carpeta de la aplicación
-  // "herramientas": {"trivy": {"ruta": "...", "timeout": 900}}   // rutas y tiempos límite; si no, se buscan en el PATH
+  // "tools": {"trivy": {"path": "...", "timeout": 900}}   // rutas y tiempos límite; si no, se buscan en el PATH
 }
 ```
 Las **rutas relativas** se resuelven contra el directorio desde el que lanzas el comando, no
@@ -102,21 +102,21 @@ contra el fichero de objetivo. Más detalle en «Claves del fichero de objetivo�
 ## Uso
 Una vez preparado el objetivo, el comando es:
 ```
-mrrobotia -t objetivo.json -o informe_mrrobotia
+mrrobotia -t target.json -o informe_mrrobotia
 ```
 También puede ejecutarse como módulo, sin instalar (desde la raíz del proyecto, con `src` en el
 `PYTHONPATH`):
 ```
-python -m mrrobotia -t objetivo.json
+python -m mrrobotia -t target.json
 ```
-`objetivo.json` y los informes contienen rutas de tu sistema: no los subas a la nube (ya están
+`target.json` y los informes contienen rutas de tu sistema: no los subas a la nube (ya están
 en `.gitignore`, igual que la carpeta `informes/`).
 
 ### Opciones del comando
 | Opción | Qué hace |
 |---|---|
 | `-t`, `--target` | Fichero JSON de alcance y autorización (o la variable `MRROBOTIA_TARGET`) |
-| `-a`, `--active` | Habilita el sondeo por red; hace falta además `permitir_activos: true` en el objetivo (o `MRROBOTIA_ACTIVE=1`) |
+| `-a`, `--active` | Habilita el sondeo por red; hace falta además `allow_active: true` en el objetivo (o `MRROBOTIA_ACTIVE=1`) |
 | `-o`, `--out` | Prefijo de los ficheros `.md` y `.json` del informe (por defecto `informe_mrrobotia`). Si su carpeta no existe, se crea; si no se puede crear o escribir, falla **antes** de escanear |
 | `-s`, `--scan` | Qué escaneos correr, por etiqueta o grupo, separados por comas. Por defecto, todos (`all`) |
 | `-x`, `--skip` | Etiquetas o grupos que quitar de la selección. El escaneo `id` no se puede excluir |
@@ -127,10 +127,10 @@ en `.gitignore`, igual que la carpeta `informes/`).
 Ejemplos:
 ```
 mrrobotia -l
-mrrobotia -t objetivo.json -s server -x cve
-mrrobotia -t objetivo.json -s passive -o informes/hoy
-mrrobotia -t objetivo.json -a --declared-only
-mrrobotia -t objetivo.json --server vllm
+mrrobotia -t target.json -s server -x cve
+mrrobotia -t target.json -s passive -o informes/hoy
+mrrobotia -t target.json -a --declared-only
+mrrobotia -t target.json --server vllm
 ```
 
 ### Escaneos y grupos
@@ -162,35 +162,35 @@ servicio, y entonces solo con GET, HEAD y OPTIONS (más una POST sin efecto en l
 
 **El análisis del host solo se hace en máquinas con servidor LLM.** `ssh`, `ports` y `vulns`
 se omiten si el contexto no contiene un servidor llama.cpp o vLLM (identificado, declarado con la
-clave `servidor` o forzado con `--server`). El informe deja una nota que dice por qué y cómo
+clave `server` o forzado con `--server`). El informe deja una nota que dice por qué y cómo
 forzarlo. El informe indica también qué escaneos se pidieron y cuáles se omitieron, con el motivo.
 Si un módulo falla, la auditoría sigue: queda un hallazgo INFO `<módulo>-ERROR` (con solo el tipo
 de la excepción) y los demás módulos corren.
 
 ### Claves del fichero de objetivo
-Además de `nombre`, `autorizacion` (obligatoria), `host` y `permitir_activos`:
+Además de `name`, `authorization` (obligatoria), `host` y `allow_active`:
 
 | Claves | Las lee | Para qué |
 |---|---|---|
 | `endpoint` | H2-ID y los demás | URL del servidor (p. ej. `http://127.0.0.1:8080/v1/chat/completions`); de ella salen host, puerto, esquema y prefijo |
-| `servidor` | H2-ID | `"llama.cpp"`, `"vllm"` u otro nombre: el tipo declarado. Se contrasta con lo detectado (si difieren, hallazgo `H2-ID-CONFLICTO`) |
-| `exposicion` | H2-ID, H2 | `puerto`, `bind_esperado`, `proxy_autenticador`, `api_key_esperada`: lo que se espera del servidor declarado |
-| `manifiesto`, `manifiesto_firmado`, `artefactos` | M2 | Manifiesto de hashes y lista de `{ruta, sha256?}`. Un `sha256` que no sean 64 caracteres hexadecimales no se compara: hallazgo INFO |
-| `usuarios`, `auditoria` o `dir_logs`, `app_dir` | M3 | Ficheros de la aplicación que rodea al modelo (solo lectura) |
-| `ssh` | H3-SSH | `puerto` y `sshd_config` |
-| `puertos` | H3-PUERTOS | `esperados` (puertos legítimos adicionales) y `extra_peligrosos` |
-| `host_trivy` | H3-HOST | `ruta` (directorio a escanear), `escaneres`, `severidad` |
-| `herramientas` | H2-ID, H3 | Rutas y tiempos límite por herramienta, p. ej. `{"trivy": {"ruta": "...", "timeout": 900, "cache_dir": "..."}}`. Sin esto se buscan en el `PATH` |
+| `server` | H2-ID | `"llama.cpp"`, `"vllm"` u otro nombre: el tipo declarado. Se contrasta con lo detectado (si difieren, hallazgo `H2-ID-CONFLICTO`) |
+| `exposure` | H2-ID, H2 | `port`, `expected_bind`, `auth_proxy`, `api_key_expected`: lo que se espera del servidor declarado |
+| `manifest`, `manifest_signed`, `artifacts` | M2 | Manifiesto de hashes y lista de `{path, sha256?}`. Un `sha256` que no sean 64 caracteres hexadecimales no se compara: hallazgo INFO |
+| `users`, `audit` o `logs_dir`, `app_dir` | M3 | Ficheros de la aplicación que rodea al modelo (solo lectura) |
+| `ssh` | H3-SSH | `port` y `sshd_config` |
+| `ports` | H3-PUERTOS | `expected` (puertos legítimos adicionales) y `extra_dangerous` |
+| `trivy_host` | H3-HOST | `path` (directorio a escanear), `scanners`, `severity` |
+| `tools` | H2-ID, H3 | Rutas y tiempos límite por herramienta, p. ej. `{"trivy": {"path": "...", "timeout": 900, "cache_dir": "..."}}`. Sin esto se buscan en el `PATH` |
 
 Las variables de entorno `MRROBOTIA_TARGET` y `MRROBOTIA_ACTIVE` son alternativas a
 `--target` y `--active`.
 
 ## Principios
 - **Autorización explícita.** El objetivo declara que tienes permiso. Sin
-  `autorizacion.tengo_autorizacion = true`, la herramienta no corre. Un host no local exige
-  confirmación aparte (`confirmo_no_local`). Es el equivalente al consentimiento de un pentest.
+  `authorization.authorized = true`, la herramienta no corre. Un host no local exige
+  confirmación aparte (`confirm_non_local`). Es el equivalente al consentimiento de un pentest.
 - **Lectura por defecto.** Los escaneos pasivos solo observan. El sondeo por red exige
-  `--active` y `permitir_activos: true` en el objetivo.
+  `--active` y `allow_active: true` en el objetivo.
 - **Solo tu infraestructura o con permiso escrito.** No escanea ni prueba sistemas de terceros.
 - **Nada sensible en el informe.** Las líneas de órdenes se reducen a una lista blanca de
   opciones; las claves, los tokens y las rutas absolutas de modelos no se guardan, solo su presencia.
@@ -220,7 +220,7 @@ MRRobotIA/
 ├── Guia_agentes.md         # enfoque de orquestación (origen del rediseño)
 ├── LICENSE
 ├── ejemplos/
-│   └── objetivo.ejemplo.json
+│   └── target.example.json
 ├── src/mrrobotia/
 │   ├── __init__.py         # __version__
 │   ├── __main__.py         # `python -m mrrobotia`

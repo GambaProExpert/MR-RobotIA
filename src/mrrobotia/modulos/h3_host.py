@@ -167,8 +167,8 @@ class H3Host(ModuloHerramienta):
     externa = herramienta
 
     def _auditar(self, objetivo, det) -> list[Hallazgo]:
-        cfg = objetivo.get("host_trivy", {}) or {}
-        ruta = cfg.get("ruta")
+        cfg = objetivo.get("trivy_host", {}) or {}
+        ruta = cfg.get("path")
         local = red.es_host_local(destino_declarado(objetivo).host)
         if not ruta and not local:
             return [Hallazgo(
@@ -176,19 +176,19 @@ class H3Host(ModuloHerramienta):
                 "No se ha analizado el disco del host con Trivy",
                 Severidad.INFO, "informativo",
                 "el host auditado no es este equipo y Trivy solo lee el disco local",
-                "Ejecuta MRRobotIA en ese host, o declara en host_trivy.ruta una copia local de su despliegue.",
+                "Ejecuta MRRobotIA en ese host, o declara en trivy_host.path una copia local de su despliegue.",
                 REFS_SUPPLY)]
         if not ruta or not Path(ruta).exists():
             return [Hallazgo(
                 "H3-HOST", "H3-HOST-SIN-RUTA",
                 "No se declaró una ruta local que escanear con Trivy",
                 Severidad.INFO, "informativo", str(ruta) if ruta else "",
-                "Declara host_trivy.ruta (p. ej. el directorio del despliegue) para el "
+                "Declara trivy_host.path (p. ej. el directorio del despliegue) para el "
                 "escaneo de vulnerabilidades/secretos/config.", REFS_SUPPLY)]
 
-        escaneres = cfg.get("escaneres", ["vuln", "misconfig", "secret"])
-        severidad = cfg.get("severidad", "CRITICAL,HIGH,MEDIUM,LOW")
-        cache = objetivo.get("herramientas", {}).get("trivy", {}).get("cache_dir")
+        escaneres = cfg.get("scanners", ["vuln", "misconfig", "secret"])
+        severidad = cfg.get("severity", "CRITICAL,HIGH,MEDIUM,LOW")
+        cache = objetivo.get("tools", {}).get("trivy", {}).get("cache_dir")
 
         cmd = [
             det.ruta, "fs", "--quiet", "--format", "json",
@@ -208,7 +208,7 @@ class H3Host(ModuloHerramienta):
                 "El escaneo con Trivy agotó el tiempo límite",
                 Severidad.MEDIA, "informativo",
                 f"timeout tras {self._timeout(objetivo, 900)} s escaneando {ruta}",
-                "Aumenta herramientas.trivy.timeout o reduce el alcance (host_trivy.ruta).",
+                "Aumenta tools.trivy.timeout o reduce el alcance (trivy_host.path).",
                 REFS_SUPPLY)]
 
         if res.error or (res.returncode not in (0,) and not res.stdout.strip()):
@@ -245,6 +245,6 @@ class H3Host(ModuloHerramienta):
                 "H3-HOST", "H3-HOST-RUTA-LOCAL",
                 "Trivy analiza una ruta de este equipo, no el host auditado",
                 Severidad.INFO, "informativo",
-                "el host auditado no es este equipo: se analiza la ruta local declarada en host_trivy.ruta",
+                "el host auditado no es este equipo: se analiza la ruta local declarada en trivy_host.path",
                 "Los hallazgos de Trivy hablan de esa ruta: compruébalos en el host si es una copia.", REFS_SUPPLY))
         return hallazgos

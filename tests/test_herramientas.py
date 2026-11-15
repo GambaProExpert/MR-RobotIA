@@ -16,7 +16,7 @@ from mrrobotia.nucleo import Hallazgo, Severidad
 def test_detectar_con_override_a_python():
     """Con un override de ruta al propio Python, se detecta disponible y con versión."""
     H = Herramienta("py", "python")
-    det = detectar(H, overrides={"py": {"ruta": sys.executable}})
+    det = detectar(H, overrides={"py": {"path": sys.executable}})
     assert det.disponible is True
     assert det.ruta == sys.executable
     assert det.version is not None          # 'python --version' imprime 3.x
@@ -86,7 +86,7 @@ def test_modulo_herramienta_no_instalada():
 
 def test_modulo_herramienta_disponible_antepone_version():
     """Con la herramienta disponible, el primer hallazgo es el de trazabilidad '*-VERSION'."""
-    objetivo = {"herramientas": {"py": {"ruta": sys.executable}}}
+    objetivo = {"tools": {"py": {"path": sys.executable}}}
     hallazgos = _Ok().ejecutar(objetivo)
     assert len(hallazgos) == 2
     assert hallazgos[0].id == "MX-VERSION"

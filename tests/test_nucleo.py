@@ -8,32 +8,32 @@ from mrrobotia.nucleo import Informe, Hallazgo, Severidad, ErrorAutorizacion
 
 
 def _escribir(tmp_path, datos):
-    ruta = tmp_path / "objetivo.json"
+    ruta = tmp_path / "target.json"
     ruta.write_text(json.dumps(datos), encoding="utf-8")
     return ruta
 
 
 def test_cargar_objetivo_deniega_sin_autorizacion(tmp_path):
-    ruta = _escribir(tmp_path, {"nombre": "x", "autorizacion": {"tengo_autorizacion": False}})
+    ruta = _escribir(tmp_path, {"name": "x", "authorization": {"authorized": False}})
     with pytest.raises(ErrorAutorizacion):
         nucleo.cargar_objetivo(ruta)
 
 
 def test_cargar_objetivo_deniega_sin_clave_autorizacion(tmp_path):
-    ruta = _escribir(tmp_path, {"nombre": "x"})
+    ruta = _escribir(tmp_path, {"name": "x"})
     with pytest.raises(ErrorAutorizacion):
         nucleo.cargar_objetivo(ruta)
 
 
 def test_cargar_objetivo_deniega_host_no_local_sin_confirmar(tmp_path):
     ruta = _escribir(tmp_path, {
-        "nombre": "x",
+        "name": "x",
         "host": "192.168.1.50",
-        "autorizacion": {
-            "tengo_autorizacion": True,
-            "autorizado_por": "Sergio",
-            "ambito": "lab",
-            "fecha": "2026-11-06",
+        "authorization": {
+            "authorized": True,
+            "authorized_by": "Sergio",
+            "scope": "lab",
+            "date": "2026-11-06",
         },
     })
     with pytest.raises(ErrorAutorizacion):
@@ -42,31 +42,31 @@ def test_cargar_objetivo_deniega_host_no_local_sin_confirmar(tmp_path):
 
 def test_cargar_objetivo_acepta_valido(tmp_path):
     datos = {
-        "nombre": "Objetivo válido",
+        "name": "Objetivo válido",
         "host": "127.0.0.1",
-        "autorizacion": {
-            "tengo_autorizacion": True,
-            "autorizado_por": "Sergio",
-            "ambito": "lab del TFG",
-            "fecha": "2026-11-06",
+        "authorization": {
+            "authorized": True,
+            "authorized_by": "Sergio",
+            "scope": "lab del TFG",
+            "date": "2026-11-06",
         },
     }
     ruta = _escribir(tmp_path, datos)
     objetivo = nucleo.cargar_objetivo(ruta)
-    assert objetivo["nombre"] == "Objetivo válido"
-    assert objetivo["autorizacion"]["autorizado_por"] == "Sergio"
+    assert objetivo["name"] == "Objetivo válido"
+    assert objetivo["authorization"]["authorized_by"] == "Sergio"
 
 
 def test_cargar_objetivo_acepta_host_no_local_confirmado(tmp_path):
     datos = {
-        "nombre": "remoto",
+        "name": "remoto",
         "host": "10.0.0.5",
-        "autorizacion": {
-            "tengo_autorizacion": True,
-            "autorizado_por": "Sergio",
-            "ambito": "lab",
-            "fecha": "2026-11-06",
-            "confirmo_no_local": True,
+        "authorization": {
+            "authorized": True,
+            "authorized_by": "Sergio",
+            "scope": "lab",
+            "date": "2026-11-06",
+            "confirm_non_local": True,
         },
     }
     ruta = _escribir(tmp_path, datos)
@@ -76,12 +76,12 @@ def test_cargar_objetivo_acepta_host_no_local_confirmado(tmp_path):
 
 def test_informe_genera_markdown_y_json():
     objetivo = {
-        "nombre": "Prueba",
-        "autorizacion": {
-            "tengo_autorizacion": True,
-            "autorizado_por": "Sergio",
-            "ambito": "lab",
-            "fecha": "2026-11-06",
+        "name": "Prueba",
+        "authorization": {
+            "authorized": True,
+            "authorized_by": "Sergio",
+            "scope": "lab",
+            "date": "2026-11-06",
         },
     }
     informe = Informe(objetivo)
@@ -103,20 +103,20 @@ def test_informe_genera_markdown_y_json():
     assert datos["herramienta"] == "MRRobotIA"
     assert datos["autorizado_por"] == "Sergio"
     # la autorización no debe volcarse dentro del objetivo del informe
-    assert "autorizacion" not in datos["objetivo"]
+    assert "authorization" not in datos["objetivo"]
     # ordenado por severidad descendente: la CRITICA va primero
     assert datos["hallazgos"][0]["severidad"] == "CRITICA"
     assert datos["hallazgos"][0]["modulo"] == "M2"
 
 
 def test_informe_marca_lo_sin_concluir():
-    inf = Informe({"nombre": "x", "autorizacion": {"autorizado_por": "a", "ambito": "b"}})
+    inf = Informe({"name": "x", "authorization": {"authorized_by": "a", "scope": "b"}})
     inf.anadir([Hallazgo("M", "X", "Sin dato", Severidad.INFO, "sin_concluir", "e")])
     assert "Sin dato *(sin concluir)*" in inf.to_markdown()
 
 
 def test_informe_marca_lo_potencial():
-    obj = {"nombre": "x", "autorizacion": {"autorizado_por": "x", "ambito": "x"}}
+    obj = {"name": "x", "authorization": {"authorized_by": "x", "scope": "x"}}
     informe = Informe(obj)
     informe.anadir([Hallazgo("H", "A", "Coincide por versión", Severidad.ALTA, "potencial", "e"),
                     Hallazgo("H", "B", "Observado", Severidad.ALTA, "confirmado", "e")])

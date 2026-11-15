@@ -22,13 +22,13 @@ def test_m2_un_hallazgo_por_tipo(tmp_path):
     manif.write_text("{}", encoding="utf-8")  # existe pero sin firma
 
     objetivo = {
-        "manifiesto": str(manif),
-        "manifiesto_firmado": False,
-        "artefactos": [
-            {"ruta": str(coincide), "sha256": sha_ok},
-            {"ruta": str(alterado), "sha256": "0" * 64},
-            {"ruta": str(ausente), "sha256": "0" * 64},
-            {"ruta": str(sinref)},
+        "manifest": str(manif),
+        "manifest_signed": False,
+        "artifacts": [
+            {"path": str(coincide), "sha256": sha_ok},
+            {"path": str(alterado), "sha256": "0" * 64},
+            {"path": str(ausente), "sha256": "0" * 64},
+            {"path": str(sinref)},
         ],
     }
 
@@ -49,9 +49,9 @@ def test_m2_manifiesto_firmado_y_hash_desde_manifiesto(tmp_path):
     manif.write_text(json.dumps({"modelo.gguf": {"sha256": sha}}), encoding="utf-8")
 
     objetivo = {
-        "manifiesto": str(manif),
-        "manifiesto_firmado": True,
-        "artefactos": [{"ruta": str(art)}],
+        "manifest": str(manif),
+        "manifest_signed": True,
+        "artifacts": [{"path": str(art)}],
     }
     ids = {h.id for h in M2Integridad().ejecutar(objetivo)}
     assert "M2-MANIF-SIN-FIRMA" not in ids   # firmado: no debe avisar
@@ -60,8 +60,8 @@ def test_m2_manifiesto_firmado_y_hash_desde_manifiesto(tmp_path):
 
 def test_m2_manifiesto_ausente_y_sin_artefactos(tmp_path):
     objetivo = {
-        "manifiesto": str(tmp_path / "no_existe.json"),
-        "artefactos": [],
+        "manifest": str(tmp_path / "no_existe.json"),
+        "artifacts": [],
     }
     por_id = {h.id: h for h in M2Integridad().ejecutar(objetivo)}
     assert por_id["M2-MANIF-FALTA"].severidad == Severidad.ALTA
@@ -74,7 +74,7 @@ def test_m2_sha256_no_valido_no_es_alteracion(tmp_path):
     manif.write_text(json.dumps({"modelo.gguf": {"sha256": "pon_aqui_un_hash"}}), encoding="utf-8")
     for declarado in ("relleno-que-no-es-un-hash", "ab" * 31, "g" * 64, 12345):
         hallazgos = M2Integridad().ejecutar(
-            {"artefactos": [{"ruta": str(art), "sha256": declarado}]})
+            {"artifacts": [{"path": str(art), "sha256": declarado}]})
         assert [h.id for h in hallazgos] == ["M2-SHA-INVALIDO-modelo.gguf"]
         h = hallazgos[0]
         assert (h.severidad, h.estado) == (Severidad.INFO, "sin_concluir")
@@ -82,14 +82,14 @@ def test_m2_sha256_no_valido_no_es_alteracion(tmp_path):
         assert sha256_fichero(art) in h.evidencia
     # El mismo valor inválido puesto en el manifiesto da el mismo resultado.
     hallazgos = M2Integridad().ejecutar(
-        {"manifiesto": str(manif), "manifiesto_firmado": True, "artefactos": [{"ruta": str(art)}]})
+        {"manifest": str(manif), "manifest_signed": True, "artifacts": [{"path": str(art)}]})
     assert [h.id for h in hallazgos] == ["M2-SHA-INVALIDO-modelo.gguf"]
 
 
 def test_m2_sha256_valido_en_mayusculas_sigue_comparando(tmp_path):
     art = _crear(tmp_path / "modelo.gguf", b"contenido")
     sha = sha256_fichero(art)
-    assert [h.id for h in M2Integridad().ejecutar({"artefactos": [{"ruta": str(art), "sha256": sha.upper()}]})] \
+    assert [h.id for h in M2Integridad().ejecutar({"artifacts": [{"path": str(art), "sha256": sha.upper()}]})] \
         == ["M2-OK-modelo.gguf"]
-    assert [h.id for h in M2Integridad().ejecutar({"artefactos": [{"ruta": str(art), "sha256": "0" * 64}]})] \
+    assert [h.id for h in M2Integridad().ejecutar({"artifacts": [{"path": str(art), "sha256": "0" * 64}]})] \
         == ["M2-ALTERADO-modelo.gguf"]

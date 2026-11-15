@@ -237,15 +237,15 @@ class H3Puertos(Modulo):
         haya identificado y de lo que declare el objetivo, nunca de deducir el servidor por el
         puerto: sin contexto, el módulo trabaja solo con lo declarado."""
         destino = destino_declarado(objetivo)
-        puertos_cfg = objetivo.get("puertos", {}) or {}
-        declarados = [destino.puerto, *(puertos_cfg.get("esperados") or ())]
+        puertos_cfg = objetivo.get("ports", {}) or {}
+        declarados = [destino.puerto, *(puertos_cfg.get("expected") or ())]
         esperados = {p for p in map(a_puerto, declarados) if p is not None}
         internos = {}
         for servidor in (self.contexto.servidores if self.contexto is not None else ()):
             if servidor.puerto is not None:
                 esperados.add(servidor.puerto)
             internos.update(perfil_de(servidor).puertos_internos)
-        extra = _normalizar_extra(puertos_cfg.get("extra_peligrosos", {}))
+        extra = _normalizar_extra(puertos_cfg.get("extra_dangerous", {}))
         peligrosos = {**PELIGROSOS, **extra}
         return destino.host, esperados, peligrosos, internos
 
@@ -352,8 +352,8 @@ class H3Puertos(Modulo):
             hallazgos.append(Hallazgo(
                 MODULO, "H3-PUERTOS-ACTIVO-OMITIDO", "Barrido activo de puertos omitido",
                 Severidad.INFO, "informativo", omision,
-                "El barrido activo exige --active y permitir_activos=true y, en un "
-                "host no local, autorizacion.confirmo_no_local=true con permiso escrito.", REFS))
+                "El barrido activo exige --active y allow_active=true y, en un "
+                "host no local, authorization.confirm_non_local=true con permiso escrito.", REFS))
         else:
             try:
                 expuestos_lan, extra_barrido = self._barrido_activo(host, enumerados, esperados, peligrosos, internos)
@@ -361,7 +361,7 @@ class H3Puertos(Modulo):
                 hallazgos.append(Hallazgo(
                     MODULO, "H3-PUERTOS-ERROR", "Error durante el barrido activo de puertos",
                     Severidad.INFO, "informativo", type(e).__name__,
-                    "Revisa la configuración de 'puertos' en el objetivo y el estado del host.",
+                    "Revisa la configuración de 'ports' en el objetivo y el estado del host.",
                     REFS))
                 expuestos_lan, extra_barrido = set(), []
 
@@ -398,7 +398,7 @@ def _a_severidad(valor, por_defecto=Severidad.ALTA):
 
 
 def _normalizar_extra(extra):
-    """Normaliza `extra_peligrosos` del objetivo (que viene de JSON) a {puerto:int ->
+    """Normaliza `extra_dangerous` del objetivo (que viene de JSON) a {puerto:int ->
     (servicio:str, Severidad)}, de modo que el merge con PELIGROSOS use claves int y
     severidades comparables. Ignora entradas malformadas sin lanzar."""
     norm = {}

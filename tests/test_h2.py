@@ -33,8 +33,8 @@ RUTA_CANARIO = "/srv/ruta-canario/privada/modelo.gguf"
 
 
 def objetivo(**extra):
-    base = {"nombre": "prueba", "host": "127.0.0.1",
-            "autorizacion": {"tengo_autorizacion": True, "autorizado_por": "x", "ambito": "x", "fecha": "2026-01-01"}}
+    base = {"name": "prueba", "host": "127.0.0.1",
+            "authorization": {"authorized": True, "authorized_by": "x", "scope": "x", "date": "2026-01-01"}}
     return {**base, **extra}
 
 
@@ -499,16 +499,16 @@ def test_sin_consentimiento_solo_lo_pasivo(aislado, monkeypatch):
 def test_host_no_local_exige_confirmacion(aislado, monkeypatch):
     monkeypatch.setattr(h2.red, "sondear", lambda *a, **k: pytest.fail("no debe conectar"))
     h = auditar(objetivo(host="203.0.113.9", endpoint="http://203.0.113.9:8080/v1"), servidor(8080, host="203.0.113.9", enlace=None))
-    assert "confirmo_no_local" in uno(h, "H2-ACTIVO-OMITIDO").evidencia and "H2-BIND-DESCONOCIDO" in ids(h)
+    assert "confirm_non_local" in uno(h, "H2-ACTIVO-OMITIDO").evidencia and "H2-BIND-DESCONOCIDO" in ids(h)
 
 
 def test_regla_de_consentimiento_compartida():
     m = H2Identificacion()
-    assert m.motivo_omision_activa({"autorizacion": {}}, False) == "host no local sin confirmo_no_local"
-    assert "permitir_activos" in m.motivo_omision_activa({"autorizacion": {}}, True)
+    assert m.motivo_omision_activa({"authorization": {}}, False) == "host no local sin confirm_non_local"
+    assert "allow_active" in m.motivo_omision_activa({"authorization": {}}, True)
     m.activos_ok = True
-    assert m.motivo_omision_activa({"autorizacion": {"confirmo_no_local": True}}, False) is None
-    assert m.motivo_omision_activa({"autorizacion": {}}, True) is None
+    assert m.motivo_omision_activa({"authorization": {"confirm_non_local": True}}, False) is None
+    assert m.motivo_omision_activa({"authorization": {}}, True) is None
 
 
 def test_puerto_cerrado_no_recibe_http(aislado, monkeypatch):
@@ -653,44 +653,44 @@ def test_sin_respuesta_http_no_afirma_el_esquema(aislado):
 
 # --------------------------------------------- lo declarado solo vale para su servidor
 def test_proxy_y_clave_esperada_solo_para_el_declarado(aislado):
-    cfg = {"proxy_autenticador": True, "api_key_esperada": True}
+    cfg = {"auth_proxy": True, "api_key_expected": True}
     with ServidorFalso(llamacpp()) as declarado, ServidorFalso(llamacpp()) as otro:
-        h = auditar(objetivo(endpoint=declarado.url, exposicion=cfg),
+        h = auditar(objetivo(endpoint=declarado.url, exposure=cfg),
                     servidor(declarado.puerto, enlace="todas"), servidor(otro.puerto, enlace="todas"))
     aut = [x for x in h if x.id == "H2-AUTH"]
-    assert aut[0].severidad == Severidad.ALTA and "api_key_esperada" in aut[0].evidencia    # MEDIA + 1
-    assert aut[1].severidad == Severidad.MEDIA and "api_key_esperada" not in aut[1].evidencia
+    assert aut[0].severidad == Severidad.ALTA and "api_key_expected" in aut[0].evidencia    # MEDIA + 1
+    assert aut[1].severidad == Severidad.MEDIA and "api_key_expected" not in aut[1].evidencia
     expo = [x.severidad for x in h if x.id == "H2-EXPOSICION"]
     assert expo == [Severidad.INFO, Severidad.CRITICA]         # tras proxy solo es un resumen
 
 
 def test_clave_esperada_sube_la_severidad_en_loopback(aislado):
     with ServidorFalso(llamacpp()) as s:
-        h = auditar(objetivo(endpoint=s.url, exposicion={"api_key_esperada": True}), servidor(s.puerto))
+        h = auditar(objetivo(endpoint=s.url, exposure={"api_key_expected": True}), servidor(s.puerto))
     assert uno(h, "H2-AUTH").severidad == Severidad.ALTA
 
 
 def test_clave_esperada_no_cambia_nada_si_la_tiene(aislado):
     with ServidorFalso(llamacpp(clave="k")) as s:
-        h = auditar(objetivo(endpoint=s.url, exposicion={"api_key_esperada": True}), servidor(s.puerto))
+        h = auditar(objetivo(endpoint=s.url, exposure={"api_key_expected": True}), servidor(s.puerto))
     assert uno(h, "H2-AUTH").severidad == Severidad.INFO
 
 
 def test_sin_puerto_declarado_vale_para_el_unico_servidor(aislado):
     with ServidorFalso(llamacpp()) as s:
-        h = auditar(objetivo(exposicion={"api_key_esperada": True}), servidor(s.puerto))
+        h = auditar(objetivo(exposure={"api_key_expected": True}), servidor(s.puerto))
     assert uno(h, "H2-AUTH").severidad == Severidad.ALTA
 
 
 def test_bind_esperado_del_objetivo(aislado, monkeypatch):
     monkeypatch.setattr(h2.red, "sondear", lambda *a, **k: False)
-    h = auditar(objetivo(exposicion={"puerto": 8080, "bind_esperado": "0.0.0.0"}), servidor(8080))
+    h = auditar(objetivo(exposure={"port": 8080, "expected_bind": "0.0.0.0"}), servidor(8080))
     assert uno(h, "H2-BIND").severidad == Severidad.MEDIA
 
 
 def test_otro_servidor_se_compara_con_loopback(aislado, monkeypatch):
     monkeypatch.setattr(h2.red, "sondear", lambda *a, **k: False)
-    h = auditar(objetivo(exposicion={"puerto": 8080, "bind_esperado": "0.0.0.0"}), servidor(8080, enlace="todas"), servidor(9, enlace="todas"))
+    h = auditar(objetivo(exposure={"port": 8080, "expected_bind": "0.0.0.0"}), servidor(8080, enlace="todas"), servidor(9, enlace="todas"))
     assert [x.severidad for x in h if x.id == "H2-BIND"] == [Severidad.MEDIA, Severidad.ALTA]
 
 
@@ -708,7 +708,7 @@ def entorno(monkeypatch):
 
 
 def _ejecutar_cli(monkeypatch, tmp_path, obj, *extra):
-    ruta = tmp_path / "objetivo.json"
+    ruta = tmp_path / "target.json"
     ruta.write_text(json.dumps(obj), encoding="utf-8")
     salida = tmp_path / "informe"
     monkeypatch.setattr(sys, "argv", ["mrrobotia", "--target", str(ruta), "--out", str(salida), *extra])
@@ -725,7 +725,7 @@ _NUNCA = {"/metrics", "/models/sse", "/models/load", "/models/unload", "/complet
 def _auditar_cli(entorno, monkeypatch, tmp_path, responder):
     with ServidorFalso(responder) as s:
         entorno.abiertos = {s.puerto}
-        _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, permitir_activos=True), *ACTIVO)
+        _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, allow_active=True), *ACTIVO)
     assert s.peticiones, "debe haber preguntado"
     for p in s.peticiones:
         assert p.metodo in {"GET", "HEAD", "OPTIONS"} or (p.metodo, p.ruta) == ("POST", RUTA_ACCION_NULA), (p.metodo, p.ruta)
@@ -752,7 +752,7 @@ def test_invariante_peticiones_permitidas_en_otros(entorno, monkeypatch, tmp_pat
 def test_invariante_servidor_dormido_de_punta_a_punta(entorno, monkeypatch, tmp_path):
     with ServidorFalso(llamacpp(dormido=True)) as s:
         entorno.abiertos = {s.puerto}
-        _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, permitir_activos=True), *ACTIVO)
+        _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, allow_active=True), *ACTIVO)
     rutas = {p.ruta.partition("?")[0] for p in s.peticiones}
     assert not rutas & {"/slots", "/lora-adapters", "/slots/0"}
 
@@ -761,7 +761,7 @@ def test_invariante_canarios_servidor_abierto(entorno, monkeypatch, tmp_path):
     arranque = llamacpp(modelo=RUTA_CANARIO, plantilla=CANARIO_PLANTILLA, prompt=CANARIO_PROMPT, adaptadores=(RUTA_CANARIO,))
     with ServidorFalso(arranque) as s:
         entorno.abiertos = {s.puerto}
-        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, permitir_activos=True), *ACTIVO)
+        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, allow_active=True), *ACTIVO)
     assert "modelo.gguf" in informe                             # el nombre del fichero sí
     for canario in (CANARIO_PROMPT, CANARIO_PLANTILLA, "ruta-canario"):
         assert canario not in informe
@@ -770,7 +770,7 @@ def test_invariante_canarios_servidor_abierto(entorno, monkeypatch, tmp_path):
 def test_invariante_canarios_router(entorno, monkeypatch, tmp_path):
     with ServidorFalso(llamacpp(modelo=RUTA_CANARIO, router=True)) as s:
         entorno.abiertos = {s.puerto}
-        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, permitir_activos=True), *ACTIVO)
+        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, allow_active=True), *ACTIVO)
     assert "ruta-canario" not in informe
 
 
@@ -780,7 +780,7 @@ def test_invariante_canario_clave_en_la_linea_de_ordenes(entorno, monkeypatch, t
             "/srv/ruta-canario/llama-server", "-m", RUTA_CANARIO, "--port", str(s.puerto), "--api-key", CANARIO_CLAVE,
             "--hf-token", CANARIO_CLAVE, "--mcp-servers-json", CANARIO_CLAVE, "-mu", f"https://u:{CANARIO_CLAVE}@h/m"])]
         entorno.abiertos = {s.puerto}
-        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, permitir_activos=True), *ACTIVO)
+        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, allow_active=True), *ACTIVO)
     assert "H2-ARRANQUE-CLAVE-EN-ORDEN" in informe
     assert CANARIO_CLAVE not in informe and "ruta-canario" not in informe
 
@@ -843,7 +843,7 @@ def test_una_causa_un_hallazgo_de_punta_a_punta(entorno, monkeypatch, tmp_path):
     with ServidorFalso(llamacpp()) as s:
         entorno.procesos = [_proceso(s.puerto, "--cors-origins", "*")]
         entorno.abiertos = {s.puerto}
-        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, permitir_activos=True), *ACTIVO)
+        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, allow_active=True), *ACTIVO)
     assert "H2-WEBUI" in informe and "H2-CORS" in informe
     for fila in ("SIN-CLAVE", "TLS", "CORS", "WEBUI", "SLOTS"):
         assert f"H2-ARRANQUE-{fila}" not in informe
@@ -853,7 +853,7 @@ def test_arranque_suelto_conserva_todas_las_filas(entorno, monkeypatch, tmp_path
     with ServidorFalso(llamacpp()) as s:
         entorno.procesos = [_proceso(s.puerto, "--cors-origins", "*")]
         entorno.abiertos = {s.puerto}
-        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, permitir_activos=True),
+        informe = _ejecutar_cli(monkeypatch, tmp_path, objetivo(endpoint=s.url, allow_active=True),
                                 "--scan", "startup", "--active")
     for fila in ("SIN-CLAVE", "TLS", "CORS", "WEBUI", "SLOTS"):
         assert f"H2-ARRANQUE-{fila}" in informe
@@ -883,4 +883,4 @@ def test_rotulo_y_url_de_un_servidor():
 def test_objetivo_malformado_no_llega_al_llamador():
     m = H2Exposicion()
     m.contexto = Contexto("linux", servidores=[servidor()])
-    assert "H2-ERROR" in ids(m.ejecutar({"exposicion": ["no es un objeto"]}))
+    assert "H2-ERROR" in ids(m.ejecutar({"exposure": ["no es un objeto"]}))

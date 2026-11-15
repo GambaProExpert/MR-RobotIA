@@ -78,14 +78,14 @@ def _extraer_version(texto):
 def detectar(herramienta, overrides=None):
     """Busca la herramienta y, si está, consulta su versión.
 
-    La ruta efectiva es `overrides[nombre]["ruta"]` si existe; si no, lo que
+    La ruta efectiva es `overrides[nombre]["path"]` si existe; si no, lo que
     devuelva `shutil.which(binario)`. Nunca lanza: si el binario está en disco
     pero falla la consulta de versión, sigue considerándose DISPONIBLE (con
     `version=None` y el tipo de error), porque existe y podrá ejecutarse.
     """
     overrides = overrides or {}
     conf = overrides.get(herramienta.nombre) or {}
-    ruta = conf.get("ruta") or shutil.which(herramienta.binario)
+    ruta = conf.get("path") or shutil.which(herramienta.binario)
     if not ruta:
         return Deteccion(False, None, None, "no encontrada en PATH")
     if herramienta.version_args is None:
@@ -155,7 +155,7 @@ class ModuloHerramienta(Modulo):
     activo = False
 
     def ejecutar(self, objetivo):
-        overrides = objetivo.get("herramientas", {}) or {}
+        overrides = objetivo.get("tools", {}) or {}
         det = detectar(self.herramienta, overrides)
         if not det.disponible:
             # Orquestar, no reinventar: se informa, no se revienta.
@@ -191,9 +191,9 @@ class ModuloHerramienta(Modulo):
         raise NotImplementedError
 
     def _timeout(self, objetivo, defecto=600):
-        """Timeout en segundos para esta herramienta: `objetivo['herramientas']
+        """Timeout en segundos para esta herramienta: `objetivo["tools"]
         [nombre]['timeout']` si está declarado, si no `defecto`."""
         try:
-            return objetivo["herramientas"][self.herramienta.nombre]["timeout"]
+            return objetivo["tools"][self.herramienta.nombre]["timeout"]
         except (KeyError, TypeError):
             return defecto

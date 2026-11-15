@@ -456,9 +456,9 @@ def _auditar(entorno, monkeypatch, tmp_path, responder, *argv):
             entorno.procesos = [Proceso(100, "python", ["/opt/ruta-canario/bin/python", "/opt/ruta-canario/bin/vllm", "serve", RUTA_PRIVADA,
                                                         "--port", str(s.puerto), "--host", "127.0.0.1", *argv])]
         entorno.abiertos = {s.puerto}
-        objetivo = {"nombre": "x", "host": "127.0.0.1", "endpoint": s.url, "permitir_activos": True,
-                    "autorizacion": {"tengo_autorizacion": True, "autorizado_por": "x", "ambito": "x", "fecha": "2026-01-01"}}
-        ruta = tmp_path / "objetivo.json"
+        objetivo = {"name": "x", "host": "127.0.0.1", "endpoint": s.url, "allow_active": True,
+                    "authorization": {"authorized": True, "authorized_by": "x", "scope": "x", "date": "2026-01-01"}}
+        ruta = tmp_path / "target.json"
         ruta.write_text(json.dumps(objetivo), encoding="utf-8")
         salida = tmp_path / "informe"
         monkeypatch.setattr(sys, "argv", ["mrrobotia", "--target", str(ruta), "--out", str(salida), "--active",

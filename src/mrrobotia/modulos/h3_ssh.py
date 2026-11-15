@@ -8,8 +8,8 @@ para auditar los algoritmos negociados por el servidor SSH en vivo.
 
 Autogating (igual que H2): NO se marca `activo=True` —así el CLI ejecuta siempre la
 parte pasiva—, sino que se lee `self.activos_ok` (que el CLI pone a True con
---active + permitir_activos) para decidir si corre la parte activa. Para
-hosts no locales exige, además, autorizacion.confirmo_no_local, como el núcleo. Si el
+--active + allow_active) para decidir si corre la parte activa. Para
+hosts no locales exige, además, authorization.confirm_non_local, como el núcleo. Si el
 host no es este equipo, tampoco se lee ningún `sshd_config`: sería el del auditor.
 
 INVARIANTE DE PRIVACIDAD (crítico): la evidencia de los hallazgos son SOLO nombres de
@@ -490,7 +490,7 @@ class H3Ssh(Modulo):
 
     def _timeout(self, objetivo):
         try:
-            return objetivo["herramientas"]["ssh-audit"]["timeout"]
+            return objetivo["tools"]["ssh-audit"]["timeout"]
         except (KeyError, TypeError):
             return 30
 
@@ -498,7 +498,7 @@ class H3Ssh(Modulo):
         """Parte activa: detecta ssh-audit y, si está, lo ejecuta contra host:puerto y
         normaliza su JSON. Si no está instalada, un único INFO con cómo instalarla."""
         det = herramientas.detectar(
-            SSH_AUDIT, objetivo.get("herramientas", {}))
+            SSH_AUDIT, objetivo.get("tools", {}))
         if not det.disponible:
             return [Hallazgo(
                 "H3-SSH", "H3-SSH-NO-AUDIT", "ssh-audit no está instalada",
@@ -535,7 +535,7 @@ class H3Ssh(Modulo):
     # --------------------------------------------------------------- orquestación
     def ejecutar(self, objetivo):
         host = self._host(objetivo)
-        puerto_ssh = (objetivo.get("ssh") or {}).get("puerto", 22)
+        puerto_ssh = (objetivo.get("ssh") or {}).get("port", 22)
         local = red.es_host_local(host)
         # El sshd_config de este equipo no dice nada de otro host.
         hallazgos = list(self._pasivo(objetivo)) if local else [Hallazgo(
@@ -549,8 +549,8 @@ class H3Ssh(Modulo):
             hallazgos.append(Hallazgo(
                 "H3-SSH", "H3-SSH-ACTIVO-OMITIDO", "Análisis activo de SSH omitido",
                 Severidad.INFO, "informativo", omision,
-                "El análisis con ssh-audit exige --active y permitir_activos=true y, en un host no local, "
-                "autorizacion.confirmo_no_local=true con permiso escrito.", REFS))
+                "El análisis con ssh-audit exige --active y allow_active=true y, en un host no local, "
+                "authorization.confirm_non_local=true con permiso escrito.", REFS))
             return [h for h in hallazgos if h is not None]
 
         # ---- ACTIVO (solo si autorizado y host permitido) ----------------------

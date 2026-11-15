@@ -59,18 +59,18 @@ class Hallazgo:
 def cargar_objetivo(ruta):
     """Carga el fichero de alcance y verifica la autorización. Deniega por defecto."""
     objetivo = json.loads(Path(ruta).read_text(encoding="utf-8"))
-    aut = objetivo.get("autorizacion", {})
-    if aut.get("tengo_autorizacion") is not True:
+    aut = objetivo.get("authorization", {})
+    if aut.get("authorized") is not True:
         raise ErrorAutorizacion(
-            "El objetivo debe declarar autorizacion.tengo_autorizacion = true. "
+            "El objetivo debe declarar authorization.authorized = true. "
             "MRRobotIA solo audita sistemas propios o con permiso escrito.")
-    for campo in ("autorizado_por", "ambito", "fecha"):
+    for campo in ("authorized_by", "scope", "date"):
         if not aut.get(campo):
-            raise ErrorAutorizacion(f"Falta autorizacion.{campo} en el objetivo.")
+            raise ErrorAutorizacion(f"Falta authorization.{campo} en el objetivo.")
     host = objetivo.get("host", "127.0.0.1")
-    if host not in ("127.0.0.1", "localhost", "::1") and aut.get("confirmo_no_local") is not True:
+    if host not in ("127.0.0.1", "localhost", "::1") and aut.get("confirm_non_local") is not True:
         raise ErrorAutorizacion(
-            f"El host '{host}' no es local. Marca autorizacion.confirmo_no_local = true "
+            f"El host '{host}' no es local. Marca authorization.confirm_non_local = true "
             "solo si tienes permiso escrito para auditarlo.")
     return objetivo
 
@@ -81,7 +81,7 @@ class Modulo:
     titulo = ""
     activo = False
     # El CLI lo pone a True cuando el sondeo activo está autorizado (bandera
-    # --active + permitir_activos en el objetivo). Los módulos híbridos
+    # --active + allow_active en el objetivo). Los módulos híbridos
     # lo leen para decidir si hacen comprobaciones activas.
     activos_ok = False
     etiqueta_escaneo = ""      # etiqueta para el selector --scan del CLI (la fija cada módulo)
@@ -101,11 +101,11 @@ class Modulo:
 
     def motivo_omision_activa(self, objetivo, local):
         """Por qué no se puede sondear por red, o None si se puede: hace falta el doble
-        consentimiento y, si el host auditado no es este equipo, confirmo_no_local."""
-        if not local and objetivo.get("autorizacion", {}).get("confirmo_no_local") is not True:
-            return "host no local sin confirmo_no_local"
+        consentimiento y, si el host auditado no es este equipo, confirm_non_local."""
+        if not local and objetivo.get("authorization", {}).get("confirm_non_local") is not True:
+            return "host no local sin confirm_non_local"
         if not self.activos_ok:
-            return "requiere --active y permitir_activos=true"
+            return "requiere --active y allow_active=true"
         return None
 
     def hallazgo_sin_contexto(self):
@@ -184,8 +184,8 @@ class Informe:
             "generado": self.generado,
             "host_auditor": socket.gethostname(),
             "so": platform.platform(),
-            "objetivo": {k: v for k, v in self.objetivo.items() if k != "autorizacion"},
-            "autorizado_por": self.objetivo["autorizacion"]["autorizado_por"],
+            "objetivo": {k: v for k, v in self.objetivo.items() if k != "authorization"},
+            "autorizado_por": self.objetivo["authorization"]["authorized_by"],
             "modulos": self.modulos_ejecutados,
             "notas": self.notas,
             "escaneos": {"pedidos": self.pedidos, "omitidos": self.omitidos},
@@ -194,11 +194,11 @@ class Informe:
         }, ensure_ascii=False, indent=2)
 
     def to_markdown(self):
-        aut = self.objetivo["autorizacion"]
-        L = [f"# Informe MRRobotIA — {self.objetivo.get('nombre', 'objetivo')}", "",
+        aut = self.objetivo["authorization"]
+        L = [f"# Informe MRRobotIA — {self.objetivo.get('name', 'objetivo')}", "",
              f"- Generado: {self.generado}",
-             f"- Autorizado por: {aut['autorizado_por']}",
-             f"- Ámbito: {aut['ambito']}",
+             f"- Autorizado por: {aut['authorized_by']}",
+             f"- Ámbito: {aut['scope']}",
              f"- Módulos ejecutados: {', '.join(self.modulos_ejecutados) or '—'}"]
         if self.pedidos:
             L.append(f"- Escaneos pedidos: {', '.join(self.pedidos)}")

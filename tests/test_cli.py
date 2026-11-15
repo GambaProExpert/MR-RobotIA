@@ -21,8 +21,8 @@ ETIQUETAS = {"id", "integrity", "config", "exposure", "startup", "cve", "ssh", "
 
 
 def objetivo(**extra):
-    base = {"nombre": "prueba", "host": "127.0.0.1",
-            "autorizacion": {"tengo_autorizacion": True, "autorizado_por": "x", "ambito": "x", "fecha": "2026-01-01"}}
+    base = {"name": "prueba", "host": "127.0.0.1",
+            "authorization": {"authorized": True, "authorized_by": "x", "scope": "x", "date": "2026-01-01"}}
     return {**base, **extra}
 
 
@@ -64,7 +64,7 @@ class Espia(nucleo.Modulo):
 
 def lanzar(monkeypatch, tmp_path, obj, *extra, nombre="informe"):
     """Ejecuta el comando y devuelve el JSON del informe."""
-    ruta = tmp_path / "objetivo.json"
+    ruta = tmp_path / "target.json"
     ruta.write_text(json.dumps(obj), encoding="utf-8")
     salida = tmp_path / nombre
     monkeypatch.setattr(sys, "argv", ["mrrobotia", "--target", str(ruta), "--out", str(salida), *extra])
@@ -231,8 +231,8 @@ def test_solo_declarado_no_prueba_otros_candidatos():
 
 
 def test_solo_declarado_sin_servidor_declarado(entorno, monkeypatch, tmp_path):
-    ruta = tmp_path / "objetivo.json"
-    ruta.write_text(json.dumps(objetivo(servidor="llama.cpp")), encoding="utf-8")
+    ruta = tmp_path / "target.json"
+    ruta.write_text(json.dumps(objetivo(server="llama.cpp")), encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["mrrobotia", "--target", str(ruta), "--out", str(tmp_path / "i"),
                                       "--declared-only"])
     with pytest.raises(SystemExit) as e:
@@ -243,7 +243,7 @@ def test_solo_declarado_sin_servidor_declarado(entorno, monkeypatch, tmp_path):
 
 def test_solo_declarado_con_puerto_en_exposicion(entorno, monkeypatch, tmp_path):
     entorno.procesos = [proceso_llama(8080, pid=1), proceso_llama(8081, pid=2)]
-    datos = lanzar(monkeypatch, tmp_path, objetivo(exposicion={"puerto": 8081}), "--scan", "id",
+    datos = lanzar(monkeypatch, tmp_path, objetivo(exposure={"port": 8081}), "--scan", "id",
                    "--declared-only")
     assert [s["puerto"] for s in datos["contexto"]["servidores"]] == [8081]
 
@@ -259,7 +259,7 @@ def test_host_omitido_sin_servidor(entorno, monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "MODULOS", [host, otro])
     datos = lanzar(monkeypatch, tmp_path, objetivo())
     assert (host.ejecuciones, otro.ejecuciones) == (0, 1)
-    assert any("ESPIA-host" in n and "llama.cpp o vLLM" in n and "--server" in n and "'servidor'" in n
+    assert any("ESPIA-host" in n and "llama.cpp o vLLM" in n and "--server" in n and "'server'" in n
                for n in datos["notas"])
     assert datos["escaneos"]["omitidos"][0]["etiqueta"] == "host"
     assert "ESPIA-host" not in datos["modulos"]
@@ -273,7 +273,7 @@ def test_host_se_ejecuta_con_servidor(entorno, monkeypatch, tmp_path, como):
     if como == "proceso":
         entorno.procesos = [proceso_llama(8080)]
     elif como == "declarado":
-        obj["servidor"] = "vllm"
+        obj["server"] = "vllm"
     else:
         extra = ["--server", "llama.cpp"]
     datos = lanzar(monkeypatch, tmp_path, obj, *extra)
@@ -283,7 +283,7 @@ def test_host_se_ejecuta_con_servidor(entorno, monkeypatch, tmp_path, como):
 def test_otro_servicio_no_cuenta_como_servidor_llm(entorno, monkeypatch, tmp_path):
     host = Espia("host", requiere_servidor=True)
     monkeypatch.setattr(cli, "MODULOS", [host])
-    lanzar(monkeypatch, tmp_path, objetivo(endpoint="http://127.0.0.1:8080", servidor="ollama"))
+    lanzar(monkeypatch, tmp_path, objetivo(endpoint="http://127.0.0.1:8080", server="ollama"))
     assert host.ejecuciones == 0
 
 
@@ -300,7 +300,7 @@ def test_salida_imposible_falla_antes_de_escanear(entorno, monkeypatch, tmp_path
     espia = Espia()
     monkeypatch.setattr(cli, "MODULOS", [espia])
     monkeypatch.setattr(cli.IDENTIFICACION, "ejecutar", lambda obj: pytest.fail("no debe escanear"))
-    ruta = tmp_path / "objetivo.json"
+    ruta = tmp_path / "target.json"
     ruta.write_text(json.dumps(objetivo()), encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["mrrobotia", "--target", str(ruta), "--out", str(fichero / "sub" / "inf")])
     with pytest.raises(SystemExit) as e:
@@ -328,7 +328,7 @@ def test_un_modulo_que_falla_no_aborta(entorno, monkeypatch, tmp_path):
     malo = Espia("malo", falla=RuntimeError("secreto-en-el-mensaje /ruta/privada"))
     bueno = Espia("bueno")
     monkeypatch.setattr(cli, "MODULOS", [malo, bueno])
-    ruta = tmp_path / "objetivo.json"
+    ruta = tmp_path / "target.json"
     ruta.write_text(json.dumps(objetivo()), encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["mrrobotia", "--target", str(ruta), "--out", str(tmp_path / "i")])
     cli.main()

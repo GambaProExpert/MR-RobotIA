@@ -6,8 +6,8 @@ demás módulos usan para adaptar sus pruebas. Módulo HÍBRIDO, como H2 y H3:
 
 - PASIVO (siempre): SO, procesos y tabla de puertos. No toca la red y, si el host auditado no
   es este equipo, tampoco mira sus procesos: serían los del auditor.
-- ACTIVO (solo con --active y permitir_activos=true; si el host no es local, además
-  con autorizacion.confirmo_no_local): pregunta por HTTP a cada candidato con `ClienteHTTP`,
+- ACTIVO (solo con --active y allow_active=true; si el host no es local, además
+  con authorization.confirm_non_local): pregunta por HTTP a cada candidato con `ClienteHTTP`,
   que solo permite GET, HEAD y OPTIONS. Julius se usa únicamente para lo que los perfiles no
   reconocen, y siempre con sondas GET propias: las 64 por defecto pueden enviar un prompt.
 
@@ -94,11 +94,11 @@ def _prefijo_de_ruta(ruta):
 
 
 def destino_declarado(objetivo):
-    """Interpreta `endpoint`, `host` y `exposicion.puerto` del objetivo."""
-    cfg = objetivo.get("exposicion")
+    """Interpreta `endpoint`, `host` y `exposure.port` del objetivo."""
+    cfg = objetivo.get("exposure")
     cfg = cfg if isinstance(cfg, dict) else {}
     host = objetivo.get("host") or cfg.get("host") or "127.0.0.1"
-    puerto = red.a_puerto(cfg.get("puerto"))
+    puerto = red.a_puerto(cfg.get("port"))
     esquema, prefijo = "http", ""
     endpoint = objetivo.get("endpoint")
     if endpoint:
@@ -453,7 +453,7 @@ class H2Identificacion(Modulo):
         return GENERICO.identificar_http(cliente), "http"
 
     def _julius(self, candidato, cliente, objetivo, h):
-        det = herramientas.detectar(JULIUS, objetivo.get("herramientas") or {})
+        det = herramientas.detectar(JULIUS, objetivo.get("tools") or {})
         if not det.disponible:
             if not self._julius_avisada:
                 self._julius_avisada = True
@@ -481,7 +481,7 @@ class H2Identificacion(Modulo):
     # ------------------------------------------------------------ declaraciones
     def _aplicar_declaraciones(self, objetivo, destino, servidores, h):
         forzado = _tipo_normalizado(self.servidor_forzado)
-        declarado = _tipo_normalizado(objetivo.get("servidor"))
+        declarado = _tipo_normalizado(objetivo.get("server"))
         if destino.puerto is not None:
             servidor = next((s for s in servidores if s.puerto == destino.puerto), None)
         elif forzado is not None or len(servidores) == 1:

@@ -160,7 +160,7 @@ def test_ejecutar_pasivo_lee_config_y_omite_activo(tmp_path):
                    encoding="utf-8")
     m = H3Ssh()
     m.activos_ok = False
-    objetivo = {"host": "127.0.0.1", "autorizacion": {},
+    objetivo = {"host": "127.0.0.1", "authorization": {},
                 "ssh": {"sshd_config": str(cfg)}}
     hallazgos = m.ejecutar(objetivo)
     ids = {h.id for h in hallazgos}
@@ -173,7 +173,7 @@ def test_ejecutar_pasivo_lee_config_y_omite_activo(tmp_path):
 def test_ejecutar_sin_config_es_info(tmp_path):
     m = H3Ssh()
     m.activos_ok = False
-    objetivo = {"host": "127.0.0.1", "autorizacion": {},
+    objetivo = {"host": "127.0.0.1", "authorization": {},
                 "ssh": {"sshd_config": str(tmp_path / "no_existe")}}
     ids = {h.id for h in m.ejecutar(objetivo)}
     assert "H3-SSH-SIN-CONFIG" in ids
@@ -182,7 +182,7 @@ def test_ejecutar_sin_config_es_info(tmp_path):
 def test_ejecutar_host_no_local_sin_confirmacion_omite_activo():
     m = H3Ssh()
     m.activos_ok = True  # aunque los activos estén habilitados...
-    objetivo = {"host": "10.0.0.5", "autorizacion": {"confirmo_no_local": False},
+    objetivo = {"host": "10.0.0.5", "authorization": {"confirm_non_local": False},
                 "ssh": {"sshd_config": "ruta/que/no/existe"}}
     hallazgos = m.ejecutar(objetivo)
     omitidos = [h for h in hallazgos if h.id == "H3-SSH-ACTIVO-OMITIDO"]
@@ -193,7 +193,7 @@ def test_host_no_local_no_lee_el_sshd_config_del_auditor(tmp_path):
     cfg = tmp_path / "sshd_config"
     cfg.write_text("PermitRootLogin yes\n", encoding="utf-8")
     m = H3Ssh()
-    objetivo = {"host": "192.0.2.1", "autorizacion": {"confirmo_no_local": True}, "ssh": {"sshd_config": str(cfg)}}
+    objetivo = {"host": "192.0.2.1", "authorization": {"confirm_non_local": True}, "ssh": {"sshd_config": str(cfg)}}
     hallazgos = m.ejecutar(objetivo)
     assert {h.id for h in hallazgos} == {"H3-SSH-NO-LOCAL", "H3-SSH-ACTIVO-OMITIDO"}
     assert all(h.severidad == Severidad.INFO for h in hallazgos) and str(cfg) not in repr(hallazgos)
@@ -205,5 +205,5 @@ def test_host_no_local_confirmado_solo_hace_la_parte_activa(monkeypatch, tmp_pat
     monkeypatch.setattr(H3Ssh, "_pasivo", lambda self, o: (_ for _ in ()).throw(AssertionError("sshd_config del auditor")))
     m = H3Ssh()
     m.activos_ok = True
-    hallazgos = m.ejecutar({"host": "192.0.2.1", "autorizacion": {"confirmo_no_local": True}, "ssh": {"puerto": 2222}})
+    hallazgos = m.ejecutar({"host": "192.0.2.1", "authorization": {"confirm_non_local": True}, "ssh": {"port": 2222}})
     assert objetivo_visto == [("192.0.2.1", 2222)] and [h.id for h in hallazgos] == ["H3-SSH-NO-LOCAL"]

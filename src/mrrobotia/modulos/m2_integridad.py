@@ -37,11 +37,11 @@ class M2Integridad(Modulo):
     def ejecutar(self, objetivo):
         hallazgos = []
         manifiesto = {}
-        ruta_manif = objetivo.get("manifiesto")
+        ruta_manif = objetivo.get("manifest")
         if ruta_manif:
             if Path(ruta_manif).exists():
                 manifiesto = json.loads(Path(ruta_manif).read_text(encoding="utf-8"))
-                if not objetivo.get("manifiesto_firmado"):
+                if not objetivo.get("manifest_signed"):
                     hallazgos.append(Hallazgo(
                         "M2", "M2-MANIF-SIN-FIRMA", "El manifiesto de integridad no está firmado",
                         Severidad.MEDIA, "confirmado", str(ruta_manif),
@@ -54,7 +54,7 @@ class M2Integridad(Modulo):
                     Severidad.ALTA, "confirmado", str(ruta_manif),
                     "Genera un manifiesto de integridad de los artefactos y protégelo.", REFS))
 
-        artefactos = objetivo.get("artefactos", [])
+        artefactos = objetivo.get("artifacts", [])
         if not artefactos:
             hallazgos.append(Hallazgo(
                 "M2", "M2-SIN-ARTEFACTOS", "No hay artefactos declarados para verificar",
@@ -62,7 +62,7 @@ class M2Integridad(Modulo):
                 "Añade los .gguf y las bases vectoriales al fichero de objetivo."))
 
         for art in artefactos:
-            ruta = Path(art["ruta"])
+            ruta = Path(art["path"])
             nombre = ruta.name
             esperado = art.get("sha256") or (manifiesto.get(nombre) or {}).get("sha256")
             if not ruta.exists():

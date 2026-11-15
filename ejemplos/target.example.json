@@ -1,0 +1,31 @@
+{
+  "name": "Example LLM server",
+  "host": "127.0.0.1",
+  "endpoint": "http://127.0.0.1:8080/v1/chat/completions",
+  "authorization": {
+    "authorized": false,
+    "authorized_by": "Name and role of the person who authorizes",
+    "scope": "Own test machine",
+    "date": "YYYY-MM-DD"
+  },
+  "allow_active": false,
+  "server": "llama.cpp",
+  "exposure": {
+    "port": 8080,
+    "expected_bind": "127.0.0.1",
+    "auth_proxy": false,
+    "api_key_expected": true
+  },
+  "ssh": {"port": 22},
+  "ports": {"expected": []},
+  "trivy_host": {"path": "./deploy"},
+  "manifest": "./models/manifest.json",
+  "manifest_signed": false,
+  "artifacts": [
+    {"path": "./models/model.gguf"},
+    {"path": "./models/adapter.gguf"}
+  ],
+  "users": "./app/users.json",
+  "audit": "./app/logs/audit.jsonl",
+  "app_dir": "./app"
+}

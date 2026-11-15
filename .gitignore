@@ -15,12 +15,12 @@ dist/
 venv/
 
 # Datos de objetivo y salidas de informe (contienen rutas y datos locales del sistema)
-objetivo.json
+target.json
 /informe_mrrobotia.*
 /informe*.json
 /informe*.md
 informes/
 
-# El ejemplo SÍ se versiona (nombre distinto de objetivo.json, no lo ignora nada de arriba)
-!ejemplos/objetivo.ejemplo.json
+# El ejemplo SÍ se versiona (nombre distinto de target.json, no lo ignora nada de arriba)
+!ejemplos/target.example.json
 /cambios14Nov.md

@@ -2,7 +2,7 @@
 M3 — Auditoría de configuración (postura en reposo y de red del despliegue).
 
 Módulo PASIVO y de SOLO LECTURA: a partir de las rutas declaradas en el objetivo
-(`usuarios`, `auditoria`/`dir_logs` y, opcionalmente, `app_dir`), revisa que la
+(`users`, `audit`/`logs_dir` y, opcionalmente, `app_dir`), revisa que la
 configuración no exponga información sensible ni credenciales. No abre puertos ni
 interactúa con el servicio: solo lee ficheros de configuración. **Nunca imprime
 secretos**: no vuelca contraseñas ni hashes y solo informa con recuentos y nombres
@@ -142,18 +142,18 @@ class M3Configuracion(Modulo):
     tipo = "pasivo"
 
     def ejecutar(self, objetivo):
-        tiene_usuarios = bool(objetivo.get("usuarios"))
-        tiene_audit = bool(objetivo.get("auditoria") or objetivo.get("dir_logs"))
+        tiene_usuarios = bool(objetivo.get("users"))
+        tiene_audit = bool(objetivo.get("audit") or objetivo.get("logs_dir"))
         tiene_app = bool(objetivo.get("app_dir"))
         if not (tiene_usuarios or tiene_audit or tiene_app):
             return [Hallazgo(
                 "M3", "M3-SIN-RUTAS", "No se declararon rutas de configuración para auditar",
                 Severidad.INFO, "informativo", "",
-                "Añade al objetivo las claves 'usuarios', 'auditoria' o 'dir_logs' y, opcionalmente, "
+                "Añade al objetivo las claves 'users', 'audit' o 'logs_dir' y, opcionalmente, "
                 "'app_dir' (para .streamlit/config.toml).", REFS)]
         h = []
         if tiene_usuarios:
-            h += self._revisar_usuarios(objetivo["usuarios"])
+            h += self._revisar_usuarios(objetivo["users"])
         if tiene_audit:
             h += self._revisar_auditoria(objetivo)
         h += self._revisar_red(objetivo)
@@ -166,7 +166,7 @@ class M3Configuracion(Modulo):
             return [Hallazgo(
                 "M3", "M3-USUARIOS-FALTA", "No existe el fichero de usuarios declarado",
                 Severidad.INFO, "informativo", str(ruta),
-                "Declara la ruta correcta en 'usuarios' si este objetivo tiene login.", REFS)]
+                "Declara la ruta correcta en 'users' si este objetivo tiene login.", REFS)]
         h = list(_hallazgos_permisos(ruta, "USUARIOS", "usuarios.json"))
         try:
             datos = json.loads(ruta.read_text(encoding="utf-8"))
@@ -240,15 +240,15 @@ class M3Configuracion(Modulo):
 
     # ----------------------------------------------------------------- auditoría
     def _revisar_auditoria(self, objetivo):
-        if objetivo.get("auditoria"):
-            ruta = Path(objetivo["auditoria"])
+        if objetivo.get("audit"):
+            ruta = Path(objetivo["audit"])
         else:
-            ruta = Path(objetivo["dir_logs"]) / "auditoria.jsonl"
+            ruta = Path(objetivo["logs_dir"]) / "auditoria.jsonl"
         if not ruta.exists():
             return [Hallazgo(
                 "M3", "M3-AUDIT-FALTA", "No existe el registro de auditoría declarado",
                 Severidad.INFO, "informativo", str(ruta),
-                "Declara la ruta correcta ('auditoria' o 'dir_logs') si este objetivo registra auditoría.",
+                "Declara la ruta correcta ('audit' o 'logs_dir') si este objetivo registra auditoría.",
                 REFS)]
         h = list(_hallazgos_permisos(ruta, "AUDIT", "auditoria.jsonl"))
         entradas = con_texto = 0

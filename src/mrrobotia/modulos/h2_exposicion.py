@@ -7,12 +7,12 @@ este módulo; lo específico, en `perfil.sondear`.
 
 Módulo HÍBRIDO: siempre mira el enlace de red y el propietario del proceso, sin tocar el
 servicio. La parte activa exige el doble consentimiento y, si el host no es este equipo,
-autorizacion.confirmo_no_local (la misma regla que H2-ID, en `Modulo.motivo_omision_activa`).
+authorization.confirm_non_local (la misma regla que H2-ID, en `Modulo.motivo_omision_activa`).
 Solo usa `ClienteHTTP`, que no permite otra cosa que GET, HEAD, OPTIONS y las POST sin efecto
 de la lista blanca del perfil. No recibe sondeo HTTP un servidor solo declarado y sin confirmar,
 ni uno con el puerto cerrado; sin puerto TCP (socket UNIX, proceso hijo) quedan las pasivas.
 
-`bind_esperado`, `proxy_autenticador` y `api_key_esperada` del objetivo hablan del servidor
+`expected_bind`, `auth_proxy` y `api_key_expected` del objetivo hablan del servidor
 declarado: un segundo servidor del mismo host no está tras ese proxy solo porque lo esté el otro.
 
 INVARIANTE DE PRIVACIDAD: la evidencia son estados, recuentos y nombres de fichero. Nunca el
@@ -68,8 +68,8 @@ class _Esperado:
 def _esperado(cfg, es_declarado):
     if not es_declarado:
         return _Esperado()
-    return _Esperado(cfg.get("bind_esperado") or BIND_POR_DEFECTO, bool(cfg.get("proxy_autenticador")),
-                     cfg.get("api_key_esperada") is True)
+    return _Esperado(cfg.get("expected_bind") or BIND_POR_DEFECTO, bool(cfg.get("auth_proxy")),
+                     cfg.get("api_key_expected") is True)
 
 
 def _servidor_declarado(servidores, destino):
@@ -92,7 +92,7 @@ def _evaluar_bind(enlace, bind_esperado, proxy):
         if esperado == "loopback":
             return _info("H2-BIND", "El servidor LLM escucha solo en loopback", "enlace a loopback (127.0.0.1/::1)")
         return _h("H2-BIND", "El enlace del servidor no coincide con el esperado", Severidad.MEDIA,
-                  f"enlace a loopback; bind_esperado declarado = {limpiar(bind_esperado)}",
+                  f"enlace a loopback; expected_bind declarado = {limpiar(bind_esperado)}",
                   "Revisa el arranque del servidor: el enlace real no coincide con el declarado en el objetivo.")
     pista_proxy = "" if proxy else " (no se declaró proxy autenticador)"
     if enlace == "todas":
@@ -102,7 +102,7 @@ def _evaluar_bind(enlace, bind_esperado, proxy):
         titulo = "El servidor LLM escucha en una interfaz no local"
         evidencia = f"enlace a {limpiar(enlace[1])} (no es loopback)"
     if enlace == esperado:
-        return _h("H2-BIND", titulo, Severidad.MEDIA, evidencia + "; coincide con bind_esperado",
+        return _h("H2-BIND", titulo, Severidad.MEDIA, evidencia + "; coincide con expected_bind",
                   "La exposición es la declarada: confirma que está protegida (autenticación, TLS, cortafuegos) (A5)."
                   + pista_proxy)
     return _h("H2-BIND", titulo, Severidad.ALTA, evidencia,
@@ -226,7 +226,7 @@ def _subir_auth_si_se_esperaba_clave(hallazgos, servidor, esperada):
     for h in hallazgos:
         if h.id == "H2-AUTH" and h.severidad < Severidad.CRITICA:
             h.severidad = Severidad(h.severidad + 1)
-            h.evidencia += "; el objetivo declara api_key_esperada"
+            h.evidencia += "; el objetivo declara api_key_expected"
 
 
 def _hallazgo_lan(direccion, puerto):
@@ -260,10 +260,10 @@ class H2Exposicion(Modulo):
             return self._auditar_servidores(objetivo)
         except Exception as e:              # invariante: un fallo nunca llega al llamador
             return [_info("H2-ERROR", "Error durante el sondeo de exposición", type(e).__name__,
-                          "Revisa la configuración de 'exposicion' en el objetivo.")]
+                          "Revisa la configuración de 'exposure' en el objetivo.")]
 
     def _auditar_servidores(self, objetivo):
-        cfg = objetivo.get("exposicion") or {}
+        cfg = objetivo.get("exposure") or {}
         destino = destino_declarado(objetivo)
         servidores = self.contexto.servidores
         omision = self.motivo_omision_activa(objetivo, red.es_host_local(destino.host))

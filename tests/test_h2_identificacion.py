@@ -25,8 +25,8 @@ RUTA_CANARIO = "/srv/ruta-canario/privada/modelo.gguf"
 
 
 def objetivo(**extra):
-    base = {"nombre": "prueba", "host": "127.0.0.1",
-            "autorizacion": {"tengo_autorizacion": True, "autorizado_por": "x", "ambito": "x", "fecha": "2026-01-01"}}
+    base = {"name": "prueba", "host": "127.0.0.1",
+            "authorization": {"authorized": True, "authorized_by": "x", "scope": "x", "date": "2026-01-01"}}
     return {**base, **extra}
 
 
@@ -91,7 +91,7 @@ def test_destino_del_endpoint():
 
 
 def test_destino_por_exposicion_y_sin_datos():
-    d = h2id.destino_declarado(objetivo(exposicion={"puerto": 8123}))
+    d = h2id.destino_declarado(objetivo(exposure={"port": 8123}))
     assert (d.host, d.puerto) == ("127.0.0.1", 8123)
     assert h2id.destino_declarado({}).puerto is None
     assert h2id.destino_declarado(objetivo(endpoint="http://[::1")).host == "127.0.0.1"
@@ -203,9 +203,9 @@ def test_host_remoto_no_inspecciona_procesos_locales(entorno, monkeypatch):
     monkeypatch.setattr(h2id.procesos, "enumerar", lambda: pytest.fail("no debe mirar procesos"))
     monkeypatch.setattr(h2id.red, "tabla_puertos", lambda: pytest.fail("no debe mirar la tabla"))
     obj = objetivo(host="203.0.113.9", endpoint="http://203.0.113.9:8000/v1/models")
-    m, h = ejecutar(obj, activos=True)                          # sin confirmo_no_local
+    m, h = ejecutar(obj, activos=True)                          # sin confirm_non_local
     assert m.contexto.servidores == []
-    assert "confirmo_no_local" in uno(h, "H2-ID-ACTIVO-OMITIDO").evidencia
+    assert "confirm_non_local" in uno(h, "H2-ID-ACTIVO-OMITIDO").evidencia
 
 
 def test_todas_las_interfaces_cuenta_como_local(entorno):
@@ -453,7 +453,7 @@ def test_interpretar_julius_ambiguo():
 
 def test_detectar_sin_consultar_version():
     # El «binario» no es ejecutable: si se consultara la versión, el resultado llevaría el error.
-    det = detectar(Herramienta("x", "x", version_args=None), {"x": {"ruta": "ruta-inexistente"}})
+    det = detectar(Herramienta("x", "x", version_args=None), {"x": {"path": "ruta-inexistente"}})
     assert (det.disponible, det.version, det.ruta, det.error) == (True, None, "ruta-inexistente", None)
 
 
@@ -494,7 +494,7 @@ def test_licencia_de_las_sondas():
 def test_conflicto_declarado_contra_detectado(entorno):
     with ServidorFalso(llamacpp()) as s:
         entorno.abiertos = {s.puerto}
-        m, h = ejecutar(objetivo(endpoint=s.url, servidor="vllm"), activos=True)
+        m, h = ejecutar(objetivo(endpoint=s.url, server="vllm"), activos=True)
     assert m.contexto.principal().tipo == "llama.cpp"           # gana lo detectado
     c = uno(h, "H2-ID-CONFLICTO")
     assert c.severidad == Severidad.MEDIA and "vllm" in c.evidencia and "llama.cpp" in c.evidencia
@@ -503,38 +503,38 @@ def test_conflicto_declarado_contra_detectado(entorno):
 def test_declarado_coincide(entorno):
     with ServidorFalso(llamacpp()) as s:
         entorno.abiertos = {s.puerto}
-        m, h = ejecutar(objetivo(endpoint=s.url, servidor="llama.cpp"), activos=True)
+        m, h = ejecutar(objetivo(endpoint=s.url, server="llama.cpp"), activos=True)
     assert m.contexto.principal().fuentes == ["http", "declarado"] and "H2-ID-CONFLICTO" not in ids(h)
 
 
 def test_declarado_concreta_al_generico(entorno):
     with ServidorFalso(generico_openai()) as s:
         entorno.abiertos = {s.puerto}
-        m, h = ejecutar(objetivo(endpoint=s.url, servidor="vllm"), activos=True)
+        m, h = ejecutar(objetivo(endpoint=s.url, server="vllm"), activos=True)
     assert m.contexto.principal().tipo == "vllm" and "H2-ID-CONFLICTO" not in ids(h)
 
 
 def test_declarado_sin_detectar_se_conserva_con_confianza_baja(entorno):
-    m, h = ejecutar(objetivo(endpoint="http://127.0.0.1:8080/v1", servidor="llama.cpp"))
+    m, h = ejecutar(objetivo(endpoint="http://127.0.0.1:8080/v1", server="llama.cpp"))
     d = m.contexto.principal()
     assert (d.tipo, d.puerto, d.confianza, d.fuentes) == ("llama.cpp", 8080, "baja", ["declarado"])
     assert "sin confirmar" in uno(h, "H2-ID-SIN-SERVIDOR").evidencia and "H2-ID-SERVIDOR" not in ids(h)
 
 
 def test_declarado_con_puerto_cerrado_lo_senala(entorno):
-    m, _ = ejecutar(objetivo(endpoint="http://127.0.0.1:18099/v1", servidor="llama.cpp"), activos=True)
+    m, _ = ejecutar(objetivo(endpoint="http://127.0.0.1:18099/v1", server="llama.cpp"), activos=True)
     assert "puerto cerrado en el sondeo activo" in m.contexto.principal().senales
 
 
 def test_declarado_sin_puerto_contra_lo_detectado(entorno):
     entorno.procesos = [proceso_llama(1, pid=1), proceso_llama(2, pid=2)]
-    m, h = ejecutar(objetivo(servidor="vllm"))
+    m, h = ejecutar(objetivo(server="vllm"))
     assert uno(h, "H2-ID-CONFLICTO") and {s.tipo for s in m.contexto.servidores} == {"llama.cpp"}
 
 
 def test_declarado_sin_puerto_entre_varios_si_consta(entorno):
     entorno.procesos = [proceso_llama(1, pid=1), proceso_llama(2, pid=2)]
-    _, h = ejecutar(objetivo(servidor="llama.cpp"))
+    _, h = ejecutar(objetivo(server="llama.cpp"))
     assert "H2-ID-CONFLICTO" not in ids(h)
 
 
@@ -620,7 +620,7 @@ def test_celdas_del_informe_escapadas():
 
 # ------------------------------------------------- invariantes de punta a punta
 def _ejecutar_cli(monkeypatch, tmp_path, obj, *extra):
-    ruta = tmp_path / "objetivo.json"
+    ruta = tmp_path / "target.json"
     ruta.write_text(json.dumps(obj), encoding="utf-8")
     salida = tmp_path / "informe"
     monkeypatch.setattr(sys, "argv", ["mrrobotia", "--target", str(ruta), "--out", str(salida), *extra])
@@ -635,7 +635,7 @@ def test_invariante_privacidad_canario_de_punta_a_punta(entorno, monkeypatch, tm
             "--hf-token", CANARIO, "--mcp-servers-json", CANARIO, "-mu", f"https://u:{CANARIO}@h/m"])]
         entorno.abiertos = {s.puerto}
         monkeypatch.setattr(h2id.procesos, "leer_entorno", lambda pid, v: {"LLAMA_API_KEY": True})
-        obj = objetivo(endpoint=f"{s.url}/v1/models", permitir_activos=True)
+        obj = objetivo(endpoint=f"{s.url}/v1/models", allow_active=True)
         informe = _ejecutar_cli(monkeypatch, tmp_path, obj, "--scan", "id", "--active")
     assert "modelo.gguf" in informe and "presente" in informe  # el informe sí dice que existen
     assert CANARIO not in informe and "ruta-canario" not in informe
@@ -644,7 +644,7 @@ def test_invariante_privacidad_canario_de_punta_a_punta(entorno, monkeypatch, tm
 def test_invariante_privacidad_con_respuesta_abierta(entorno, monkeypatch, tmp_path):
     with ServidorFalso(llamacpp(modelo=RUTA_CANARIO)) as s:
         entorno.abiertos = {s.puerto}
-        obj = objetivo(endpoint=f"{s.url}/v1/models", permitir_activos=True)
+        obj = objetivo(endpoint=f"{s.url}/v1/models", allow_active=True)
         informe = _ejecutar_cli(monkeypatch, tmp_path, obj, "--scan", "id", "--active")
     assert "modelo.gguf" in informe and "ruta-canario" not in informe
 
@@ -711,7 +711,7 @@ def test_cli_solo_identificacion_no_ejecuta_el_resto(entorno, monkeypatch, tmp_p
 def test_cli_pasivo_no_pregunta_por_red(entorno, monkeypatch, tmp_path):
     with ServidorFalso(llamacpp()) as s:
         entorno.abiertos = {s.puerto}
-        obj = objetivo(endpoint=s.url, permitir_activos=True)
+        obj = objetivo(endpoint=s.url, allow_active=True)
         _ejecutar_cli(monkeypatch, tmp_path, obj, "--scan", "id,passive", "--active")
     assert s.peticiones == []
 

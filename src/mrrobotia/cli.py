@@ -13,7 +13,7 @@ Environment variables (alternative to the options):
 
 It audits ONLY the infrastructure declared by the target file, which must include the
 authorization. Active modules (which interact with the service) are skipped unless
-enabled with -a/--active (or MRROBOTIA_ACTIVE) AND permitir_activos=true in the target
+enabled with -a/--active (or MRROBOTIA_ACTIVE) AND allow_active=true in the target
 file. HYBRID modules (H2, H3...) always do their passive part (network binding, processes,
 files) and their active part (network probing) only when active probing is enabled.
 
@@ -201,7 +201,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("-t", "--target", help="JSON file with scope and authorization (or the MRROBOTIA_TARGET variable)")
     ap.add_argument("-a", "--active", action="store_true",
-                    help="Enable the modules that interact with the service (also requires permitir_activos=true)")
+                    help="Enable the modules that interact with the service (also requires allow_active=true)")
     ap.add_argument("-o", "--out", default="informe_mrrobotia",
                     help="Prefix of the report files; if its folder does not exist, it is created")
     ap.add_argument("-s", "--scan", default="all", help=_ayuda_escaneo().replace("%", "%%"))
@@ -237,13 +237,13 @@ def main():
     seleccion, forzar_pasivo = _resolver_escaneo(args.scan, args.skip)
     if args.declared_only and destino_declarado(objetivo).puerto is None:
         sys.exit("--declared-only: the target file declares no server. Set 'endpoint' "
-                 "(e.g. http://127.0.0.1:8080) or 'exposicion.puerto', or drop --declared-only.")
+                 "(e.g. http://127.0.0.1:8080) or 'exposure.port', or drop --declared-only.")
     _preparar_salida(args.out)
 
     informe = nucleo.Informe(objetivo)
     activos_ok = (args.active
                   or os.environ.get("MRROBOTIA_ACTIVE") in ("1", "true", "True")) \
-        and objetivo.get("permitir_activos") is True
+        and objetivo.get("allow_active") is True
     if forzar_pasivo:
         activos_ok = False
     informe.pedidos = [m.etiqueta_escaneo for m in [IDENTIFICACION, *MODULOS]
@@ -269,7 +269,7 @@ def main():
         m.activos_ok = activos_ok   # los módulos híbridos (p. ej. H2, H3) autogatean su parte activa
         m.contexto = IDENTIFICACION.contexto
         if m.activo and not activos_ok:
-            motivo = "módulo activo; requiere --active y permitir_activos=true"
+            motivo = "módulo activo; requiere --active y allow_active=true"
             informe.notas.append(f"{m.nombre} ({m.titulo}) omitido: {motivo}.")
             informe.omitir(m, motivo)
             continue
@@ -277,7 +277,7 @@ def main():
             informe.notas.append(
                 f"{m.nombre} ({m.titulo}) omitido: el análisis del host es solo para máquinas con un "
                 "servidor llama.cpp o vLLM y no se ha identificado ninguno. Si lo hay, fuerza el tipo "
-                "con --server o con la clave 'servidor' del objetivo.")
+                "con --server o con la clave 'server' del objetivo.")
             informe.omitir(m, "no se ha identificado un servidor llama.cpp ni vLLM")
             continue
         informe.anadir(_ejecutar_aislado(m, objetivo))

@@ -40,7 +40,7 @@ def test_m3_usuarios_debiles_y_auditoria_con_texto(tmp_path):
         encoding="utf-8")
     _blindar(auditoria)
 
-    h = M3Configuracion().ejecutar({"usuarios": str(usuarios), "auditoria": str(auditoria)})
+    h = M3Configuracion().ejecutar({"users": str(usuarios), "audit": str(auditoria)})
     por_id = _por_id(h)
 
     assert por_id["M3-USUARIOS-ITER-DEBIL"].severidad == Severidad.ALTA
@@ -71,7 +71,7 @@ def test_m3_configuracion_limpia_sin_hallazgos_relevantes(tmp_path):
         encoding="utf-8")
     _blindar(auditoria)
 
-    h = M3Configuracion().ejecutar({"usuarios": str(usuarios), "auditoria": str(auditoria)})
+    h = M3Configuracion().ejecutar({"users": str(usuarios), "audit": str(auditoria)})
 
     relevantes = [(x.id, x.severidad.name) for x in h if x.severidad >= Severidad.MEDIA]
     assert relevantes == [], relevantes
@@ -81,8 +81,8 @@ def test_m3_configuracion_limpia_sin_hallazgos_relevantes(tmp_path):
 
 
 def test_m3_rutas_inexistentes_son_informativas(tmp_path):
-    objetivo = {"usuarios": str(tmp_path / "no_existe.json"),
-                "auditoria": str(tmp_path / "tampoco.jsonl")}
+    objetivo = {"users": str(tmp_path / "no_existe.json"),
+                "audit": str(tmp_path / "tampoco.jsonl")}
     por_id = _por_id(M3Configuracion().ejecutar(objetivo))
     assert por_id["M3-USUARIOS-FALTA"].severidad == Severidad.INFO
     assert por_id["M3-AUDIT-FALTA"].severidad == Severidad.INFO
@@ -94,7 +94,7 @@ def test_m3_dir_logs_resuelve_auditoria(tmp_path):
     (logs / "auditoria.jsonl").write_text(
         json.dumps({"evento": "login_ok", "pregunta_sha256": "aa" * 8}) + "\n", encoding="utf-8")
     _blindar(logs / "auditoria.jsonl")
-    por_id = _por_id(M3Configuracion().ejecutar({"dir_logs": str(logs)}))
+    por_id = _por_id(M3Configuracion().ejecutar({"logs_dir": str(logs)}))
     assert por_id["M3-AUDIT-OK"].severidad == Severidad.INFO
 
 
@@ -131,12 +131,12 @@ def test_m3_auditoria_grande_sin_rotacion(tmp_path):
     with open(auditoria, "wb") as f:
         f.truncate(51 * 1024 * 1024)        # 51 MB, sin ficheros rotados junto a él
     _blindar(auditoria)
-    por_id = _por_id(M3Configuracion().ejecutar({"auditoria": str(auditoria)}))
+    por_id = _por_id(M3Configuracion().ejecutar({"audit": str(auditoria)}))
     assert por_id["M3-AUDIT-ROTACION"].severidad == Severidad.BAJA
 
 
 def test_m3_sin_rutas_declaradas(tmp_path):
-    por_id = _por_id(M3Configuracion().ejecutar({"nombre": "objetivo sin config"}))
+    por_id = _por_id(M3Configuracion().ejecutar({"name": "objetivo sin config"}))
     assert por_id["M3-SIN-RUTAS"].severidad == Severidad.INFO
 
 
@@ -147,7 +147,7 @@ def test_m3_permisos_posix_laxos(tmp_path):
                                               "iteraciones": 200000, "hash": "cd" * 32}}),
                         encoding="utf-8")
     os.chmod(usuarios, 0o644)               # legible por grupo y otros
-    por_id = _por_id(M3Configuracion().ejecutar({"usuarios": str(usuarios)}))
+    por_id = _por_id(M3Configuracion().ejecutar({"users": str(usuarios)}))
     assert por_id["M3-USUARIOS-PERMISOS"].severidad == Severidad.ALTA
 
 
@@ -157,5 +157,5 @@ def test_m3_permisos_windows_es_informativo(tmp_path):
     usuarios.write_text(json.dumps({"alice": {"rol": "ingeniero", "sal": "ab" * 16,
                                               "iteraciones": 200000, "hash": "cd" * 32}}),
                         encoding="utf-8")
-    por_id = _por_id(M3Configuracion().ejecutar({"usuarios": str(usuarios)}))
+    por_id = _por_id(M3Configuracion().ejecutar({"users": str(usuarios)}))
     assert por_id["M3-USUARIOS-PERMISOS"].severidad == Severidad.INFO
