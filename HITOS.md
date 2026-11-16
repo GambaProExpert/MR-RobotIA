@@ -1,7 +1,7 @@
 # MRRobotIA — Hitos (roadmap por capas)
 
 > Operativiza [Guia_agentes.md](Guia_agentes.md). Alcance elegido: **LLM + RAG + host**.
-> Estado de este documento: versión 0.9.0 (2026-11-16). H0-H3 hechos; H4-H6 por hacer. vLLM está validado contra un
+> Estado de este documento: versión 0.9.0 (2026-11-16). H0-H3 hechos; H4-H7 por hacer (H7 con el diseño hecho). vLLM está validado contra un
 > vLLM 0.33.0 real en CPU; quedan por validar GPU, generación, Trivy y ssh-audit reales (ver más abajo).
 
 ## Qué es ahora MRRobotIA
@@ -31,14 +31,86 @@ ya consolidadas** contra un servidor LLM local y **normaliza sus datos** a un in
 | **H4 · Barrido del endpoint** | 2 | **garak** (NVIDIA) | barrido amplio del endpoint REST/llama.cpp (sondas de inyección y más) → informe JSONL normalizado | por hacer (sustituirá a un prober propio previo, fuera del repositorio) |
 | **H5 · Prompt injection / evals** | 2 | **promptfoo** | red team + evals en YAML como *gate* de CI: inyección directa e indirecta, fuga entre sesiones, agencia excesiva, BOLA/BFLA | por hacer |
 | **H6 · Datos no salen de la red** | 2 | **DeepEval / DeepTeam** | **MUY IMPORTANTE**: comprobar que prompts y salidas no salen de la red; juez local (`deepeval set-ollama`), red teaming offline | por hacer |
+| **H7 · Simulación de ataques con verificación** | 2 | código propio + **Schemathesis** y **vegeta** opcionales | ataques inocuos y acotados contra el servidor (o la pasarela o aplicación de delante) y, por cada uno: ¿se bloqueó?, ¿quedó constancia (logs, métricas, auditoría)?, ¿se recuperó el servidor? Remedio y repetición de lo que falló | por hacer (diseño hecho; ver abajo) |
 | Capa 3 · agentes, MCP, herramientas | 3 | agentic-radar, etc. | superficie de agentes/MCP | **más adelante** (fuera de alcance ahora) |
 
 ## Orden propuesto
 
-`H0 → H2 → H3 → H4 → H5 → H6`
+`H0 → H2 → H3 → H4 → H5 → H6 → H7`
 
 - **H0, H2 y H3 no dependen** de instalar garak/promptfoo/DeepEval: son el cimiento y la Capa 1.
 - **H4–H6** sí requieren esas herramientas en local; se abordan después del núcleo.
+- **H7** va después de H4-H6 (decisión del 16/11/2026), aunque su primera fase no depende de ellos:
+  cuando estén, sus sondas sirven como carga útil del H7.
+
+## H7 · Simulación de ataques con verificación de detección y recuperación (diseño, 16/11/2026)
+
+H2-H3 miran la configuración y H4-H5 mirarán el modelo. El H7 mira **la plataforma en funcionamiento**,
+con un ejercicio de *purple team*: lanza ataques **inocuos y acotados** y responde tres preguntas por
+ataque: **¿se bloqueó?**, **¿quedó constancia?** y **¿se recuperó?**
+
+- **Enfoque híbrido.** Un catálogo mínimo y seguro, propio y declarativo, más adaptadores opcionales a
+  Schemathesis (*fuzzing* sobre OpenAPI) y vegeta (carga a ritmo fijo), invocados por `subprocess`; si
+  faltan, hallazgo informativo, como con Trivy. Lo propio es la verificación: vigilancia de vida,
+  correlación de evidencias y repetición.
+- **Ciclo de cada escenario**, ejecutados de uno en uno:
+  1. línea base (`/health` y generación mínima);
+  2. ataque marcado;
+  3. vigilancia de vida (salud, latencia, PID o reinicio);
+  4. búsqueda de evidencias;
+  5. veredicto con remedio;
+  6. entrada en el fichero de repetición.
+- **Veredicto:**
+  - bloqueado y detectado: INFO;
+  - bloqueado sin constancia: MEDIA (sin trazabilidad);
+  - no bloqueado: ALTA;
+  - el servidor no se recupera en el tiempo fijado o cambia de proceso: CRÍTICA.
+- **Dos marcas por ejecución.** Un `run_id` en `User-Agent` y `X-Request-Id` (si aparece en un log, el
+  intento quedó registrado) y un **canario** distinto dentro del prompt (si aparece en un log o en otra
+  respuesta, el sistema guarda o expone prompts en claro).
+- **Evidencias**, todas de solo lectura:
+  - log de peticiones del servidor o de la pasarela;
+  - diferencia de métricas entre antes y después;
+  - `journalctl` y `docker logs`;
+  - registro de auditoría JSONL, cuya cadena de hashes se verifica tras el ataque.
+  
+  Correlación en cascada: marca exacta, diferencia de métricas y, como último recurso, ventana temporal
+  con tipo de evento.
+- **Salvaguardas («atacar sin hacer daño»):**
+  - doble consentimiento (`-a` más autorización en el objetivo) y etiqueta `redteam` **fuera de `all`**;
+  - presupuesto de peticiones, concurrencia, `max_tokens` (1-8) y tiempos;
+  - cortafuegos que aborta si el servidor se degrada;
+  - rutas con efectos siempre prohibidas, según el perfil de cada servidor;
+  - en llama.cpp, lecturas con efecto (`/metrics` pone contadores a cero; `/slots` despierta un servidor
+    dormido) solo con precaución;
+  - niveles de riesgo `seguro`, `carga` y `arriesgado` (este último con `allow_risky`);
+  - nunca reproducir un CVE que H2-CVE ya infiere por la versión;
+  - una generación mínima de prueba antes de nada.
+- **Familias de escenarios:**
+  - autenticación (sin clave, clave errónea, variantes de cabecera);
+  - consumo (tope de tokens, contexto excedido, parámetros caros, ráfaga acotada, desconexión a mitad
+    del *stream*);
+  - entradas malformadas y marcadores de plantilla (comprobados con `/tokenize`, sin generar);
+  - fuga entre sesiones y de prompts a los logs;
+  - uso de adaptadores por petición sin RBAC delante (llama.cpp);
+  - SSRF con un escuchador propio en loopback (vLLM multimodal);
+  - gramáticas patológicas (arriesgado).
+- **Objetivo:** claves nuevas `evidence` (logs, unidad de journal, contenedor, métricas, auditoría) y
+  `redteam` (límites y tiempos).
+- **Comando:** `-s redteam` y `--retest <informe.json>`. Este último repite solo lo que falló y lo marca
+  como `corregido`, `sigue` o `empeora`.
+- **Entregas:**
+  - H7a: ciclo, vigilancia, evidencias, autenticación, entradas y fugas;
+  - H7b: consumo y carga;
+  - H7c: repetición y reglas de detección sugeridas;
+  - H7d: adaptadores y objetivos de tipo pasarela o aplicación;
+  - H7e: canario periódico.
+- **Validación prevista:**
+  - llama.cpp real en local;
+  - vLLM real (con compilador de C para los escenarios que generan);
+  - una API con autenticación, límites y auditoría encadenada.
+- **Pendiente de decidir:** qué parte del catálogo se publica. Propuesta: solo fallos ya divulgados y
+  corregidos, citando su aviso.
 
 ## Qué declara cada hito (a rellenar con savvy-flow)
 
