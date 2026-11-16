@@ -109,8 +109,9 @@ ataque: **¿se bloqueó?**, **¿quedó constancia?** y **¿se recuperó?**
   - llama.cpp real en local;
   - vLLM real (con compilador de C para los escenarios que generan);
   - una API con autenticación, límites y auditoría encadenada.
-- **Pendiente de decidir:** qué parte del catálogo se publica. Propuesta: solo fallos ya divulgados y
-  corregidos, citando su aviso.
+- **Publicación del catálogo** (decidido el 16/11/2026): se publica, pero en el repositorio solo entran
+  escenarios de fallos **ya divulgados y corregidos**, citando su aviso (CVE/GHSA). Un fallo nuevo que
+  encuentre el H7 se comunica antes en privado al proyecto afectado y no entra hasta que se publique.
 
 ## Qué declara cada hito (a rellenar con savvy-flow)
 
