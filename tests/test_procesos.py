@@ -136,3 +136,54 @@ def test_entorno_legible(tmp_path):
     assert entorno_legible(9, str(tmp_path)) is True
     assert entorno_legible(12345, str(tmp_path)) is False
     assert entorno_legible("no-es-pid", str(tmp_path)) is False
+
+
+# ------------------------------------------------- árbol de procesos y versión local
+def test_enumerar_linux_lee_el_padre(tmp_path):
+    _proceso_falso(tmp_path, 10, b"vllm\0serve\0")
+    (tmp_path / "10" / "stat").write_bytes(b"10 (vllm (raro) x) S 1 10 10 0")
+    _proceso_falso(tmp_path, 11, b"VLLM::EngineCore\0")
+    (tmp_path / "11" / "stat").write_bytes(b"11 (VLLM::EngineCore) S 10 10 10 0")
+    _proceso_falso(tmp_path, 12, b"otro\0")                     # sin stat legible
+    padres = {p.pid: p.ppid for p in procesos.enumerar_linux(str(tmp_path))}
+    assert padres == {10: 1, 11: 10, 12: None}
+
+
+def test_json_de_windows_trae_el_padre():
+    lista = procesos_desde_json(_salida([{"ProcessId": 7, "ParentProcessId": 3, "Name": "a", "CommandLine": "a"},
+                                         {"ProcessId": 8, "Name": "b", "CommandLine": "b"}]))
+    assert [p.ppid for p in lista] == [3, None]
+
+
+def test_descendientes_recorre_el_arbol_y_aguanta_ciclos():
+    lista = [Proceso(1, "a", ["a"], 0), Proceso(2, "b", ["b"], 1), Proceso(3, "c", ["c"], 2), Proceso(4, "d", ["d"], 9),
+             Proceso(5, "e", ["e"], 6), Proceso(6, "f", ["f"], 5)]            # 5 y 6 se señalan entre sí
+    assert procesos.descendientes(lista, 1) == {2, 3}
+    assert procesos.descendientes(lista, 5) == {6}
+
+
+def venv_falso(raiz, version="0.33.0+cpu", paquete="vllm"):
+    sitio = raiz / "lib" / "python3.12" / "site-packages"
+    (sitio / f"{paquete}-{version}.dist-info").mkdir(parents=True)
+    (sitio / f"{paquete}-{version}.dist-info" / "METADATA").write_text(
+        f"Metadata-Version: 2.4\nName: {paquete}\nVersion: {version}\n", encoding="utf-8")
+    (raiz / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
+    (raiz / "bin").mkdir()
+    return str(raiz / "bin" / "python")
+
+
+def test_version_de_paquete_desde_los_metadatos_del_entorno(tmp_path):
+    python = venv_falso(tmp_path)
+    assert procesos.version_de_paquete(python, "vllm") == "0.33.0+cpu"
+    assert procesos.version_de_paquete(python, "otro") is None
+
+
+@pytest.mark.parametrize("ruta", ["python", "/no/existe/bin/python", "vllm"])
+def test_version_de_paquete_sin_entorno_es_none(ruta):
+    assert procesos.version_de_paquete(ruta, "vllm") is None
+
+
+def test_version_de_paquete_fuera_de_un_entorno_virtual(tmp_path):
+    venv_falso(tmp_path)
+    (tmp_path / "pyvenv.cfg").unlink()
+    assert procesos.version_de_paquete(str(tmp_path / "bin" / "python"), "vllm") is None

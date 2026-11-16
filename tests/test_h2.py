@@ -189,6 +189,26 @@ def test_cors_origen_fijo_saneado():
     assert h.severidad == Severidad.INFO and "app.test" in h.evidencia
 
 
+def test_cors_rechazo_explicito_de_starlette_es_concluyente():
+    """vLLM 0.33.0 real: la comprobación previa de un origen no permitido da 400 «Disallowed CORS origin»."""
+    rechazo = Respuesta(400, {"access-control-allow-methods": "GET, POST"}, b"Disallowed CORS origin")
+    h = h2._evaluar_cors(rechazo, rechazo, "abierta", False)
+    assert h.severidad == Severidad.INFO and h.estado == "informativo" and "no admite orígenes externos" in h.titulo
+    assert "Disallowed CORS origin" in h.evidencia
+
+
+def test_cors_400_con_otro_cuerpo_no_concluye():
+    for cuerpo in (b"", b"Bad Request"):
+        h = h2._evaluar_cors(Respuesta(400, {}, cuerpo), cors(), "abierta", False)
+        assert h.estado == "sin_concluir"
+
+
+def test_bind_dice_la_direccion_real_de_escucha():
+    h = h2._evaluar_bind("todas", "127.0.0.1", False, ["0.0.0.0:8010"])
+    assert "escucha en 0.0.0.0:8010" in h.evidencia
+    assert "escucha en" not in h2._evaluar_bind("todas", "127.0.0.1", False).evidencia
+
+
 @pytest.mark.parametrize("estado", [None, 404, 405])
 def test_cors_no_concluyente_no_se_presenta_como_seguro(estado):
     h = h2._evaluar_cors(respuesta(estado), cors(), "abierta", False)

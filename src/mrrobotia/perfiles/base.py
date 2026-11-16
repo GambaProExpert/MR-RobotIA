@@ -177,6 +177,15 @@ class Perfil:
     def reconoce_proceso(self, argv) -> bool:
         return False
 
+    def es_hijo(self, argv) -> bool:
+        """¿Es un proceso auxiliar del servidor (del que solo se ve el título) y no el que sirve HTTP?
+        Sus puertos, si los tiene, son canales internos y no el endpoint del servidor."""
+        return False
+
+    def version_local(self, argv):
+        """Versión instalada leída de ficheros locales (sin red ni importar código), o None."""
+        return None
+
     def _op_de(self, nombre):
         """Entrada de la tabla para una opción; `--a_b` equivale a `--a-b` en ambos servidores."""
         clave = nombre.replace("_", "-") if nombre.startswith("--") else nombre

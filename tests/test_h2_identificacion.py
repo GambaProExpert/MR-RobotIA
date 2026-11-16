@@ -781,3 +781,53 @@ def test_host_de_redireccion_saneado():
     candidato = h2id._Candidato("http", "127.0.0.1", 80)
     respuesta = Respuesta(302, {"location": "http://a|b.invalid/"}, b"")
     assert "|" not in (h2id._host_de_redireccion(respuesta, candidato) or "")
+
+
+# ------------------------------------------- árbol de procesos de vLLM (vLLM 0.33.0 real)
+TABLA_VLLM = ("State Recv-Q Send-Q Local Address:Port Peer Address:Port Process\n"
+              'LISTEN 0 2048 127.0.0.1:8010 0.0.0.0:* users:(("vllm",pid=500,fd=13))\n'
+              'LISTEN 0 4096 127.0.1.1:37109 0.0.0.0:* users:(("VLLM::Worker",pid=593,fd=35))\n'
+              'LISTEN 0 4096 127.0.1.1:37567 0.0.0.0:* users:(("VLLM::Worker",pid=593,fd=51))\n'
+              'LISTEN 0 4096 127.0.0.54:53 0.0.0.0:*\n')
+
+
+def arbol_vllm(raiz):
+    from test_procesos import venv_falso
+    python = venv_falso(raiz)
+    return [Proceso(500, "python", [python, f"{raiz}/bin/vllm", "serve", "org/m", "--port", "8010", "--host", "127.0.0.1"], 483),
+            Proceso(551, "python", [python, "-c", "from multiprocessing.resource_tracker import main"], 500),
+            Proceso(552, "VLLM::EngineCore", ["VLLM::EngineCore"], 500),
+            Proceso(593, "VLLM::Worker", ["VLLM::Worker"], 552)]
+
+
+def test_los_hijos_de_vllm_no_son_otro_servidor(entorno, tmp_path):
+    entorno.procesos = arbol_vllm(tmp_path)
+    entorno.tabla = TABLA_VLLM
+    m, h = ejecutar(objetivo())
+    assert [(s.pid, s.puerto) for s in m.contexto.servidores] == [(500, 8010)]
+    assert m.contexto.servidores[0].pids_hijos == [551, 552, 593]
+    assert ids(h).count("H2-ID-SERVIDOR") == 1
+
+
+def test_un_hijo_suelto_no_toma_sus_puertos_internos_como_endpoint(entorno):
+    entorno.procesos = [Proceso(593, "VLLM::Worker", ["VLLM::Worker"], 1)]
+    entorno.tabla = TABLA_VLLM
+    m, _ = ejecutar(objetivo())
+    assert [s.puerto for s in m.contexto.servidores] == [None]
+
+
+def test_version_pasiva_desde_los_metadatos_locales(entorno, tmp_path):
+    entorno.procesos = arbol_vllm(tmp_path)
+    entorno.tabla = TABLA_VLLM
+    m, h = ejecutar(objetivo())
+    s = m.contexto.servidores[0]
+    assert s.version == "0.33.0+cpu" and "versión leída de los metadatos del paquete" in s.senales
+    assert "0.33.0+cpu en 127.0.0.1:8010" in uno(h, "H2-ID-SERVIDOR").evidencia
+
+
+def test_la_evidencia_del_enlace_dice_donde_escucha_de_verdad(entorno, tmp_path):
+    entorno.procesos = arbol_vllm(tmp_path)
+    entorno.tabla = TABLA_VLLM.replace("127.0.0.1:8010", "0.0.0.0:8010")
+    m, h = ejecutar(objetivo())
+    assert m.contexto.servidores[0].escucha == ["0.0.0.0:8010"]
+    assert "enlace: todas (0.0.0.0:8010)" in uno(h, "H2-ID-SERVIDOR").evidencia

@@ -3,6 +3,31 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.9.0] - 2026-11-16
+
+### Corregido (tras contrastar el perfil de vLLM con un vLLM 0.33.0 real en CPU)
+- **Servidor fantasma:** los procesos que cuelgan del servidor (`VLLM::EngineCore`, `VLLM::Worker`...) ya no se
+  cuentan como otro servidor ni sus puertos efímeros como puertos inesperados en H3. Se agrupa por árbol de
+  procesos (ahora se lee el proceso padre en Linux y Windows) y los puertos de esos hijos son canales internos.
+- **CORS:** una comprobación previa respondida con 400 «Disallowed CORS origin» es una respuesta concluyente
+  («no admite orígenes externos»), no «sin concluir».
+- **Frontend Rust de vLLM** (`owned_by: vllm-frontend-rs`): `/v1/models` sin clave ya cuenta como autenticación
+  abierta y confirma H2-HOST.
+- **Versión en modo pasivo:** se lee de `vllm-*.dist-info/METADATA` del entorno virtual del proceso (solo
+  ficheros locales, sin red).
+- **H2-CONTROL-SIN-CLAVE:** `/scale_elastic_ep` existe en todos los modos y `--api-key` no la protege, pero solo
+  reescala un motor con data parallel elástico; sola pasa a informativa. Las demás rutas de control, igual.
+- **Modo desarrollo:** también se comprueba `/pause` (404 sin el modo, 405 con él).
+- **Evidencia de enlace:** H2-BIND y H2-ID dicen la dirección real de escucha de la tabla de puertos.
+- **H3 en WSL:** el resolvedor DNS que WSL2 pone en 10.255.255.254:53 deja de salir como puerto inesperado
+  (solo en WSL, sin proceso visible y sin otra dirección en ese puerto).
+- `/ping` figura entre las rutas públicas conocidas del perfil.
+- El texto de ayuda del comando decía que las claves del objetivo estaban en español; están en inglés desde la 0.8.0.
+
+### Documentación
+- HITOS y READMEs: vLLM validado contra un vLLM 0.33.0 real en CPU; sin validar GPU, generación, Trivy y ssh-audit.
+- Propuesta sin implementar: usar el número de rutas de OpenAPI como señal de modo (varía con la versión y las opciones).
+
 ## [0.8.0] - 2026-11-15
 
 ### Cambiado (ruptura: fichero y claves renombrados, sin compatibilidad con los antiguos)

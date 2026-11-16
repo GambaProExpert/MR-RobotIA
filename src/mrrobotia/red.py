@@ -169,6 +169,23 @@ def pid_desde_tabla(salida, puerto):
     return None
 
 
+def direcciones_escucha(salida, puerto):
+    """Direcciones locales reales (sin repetir) de las filas en escucha de ese puerto, como `0.0.0.0:8010`.
+    La zona de `ss` (`127.0.0.53%lo`) se quita."""
+    sufijo = ":" + str(puerto)
+    direcciones = []
+    for linea in (salida or "").splitlines():
+        if not es_fila_escucha(linea):
+            continue
+        for token in linea.split():
+            if token.endswith(sufijo) and len(token) > len(sufijo):
+                texto = token.split("%", 1)[0] + sufijo if "%" in token else token
+                if texto not in direcciones:
+                    direcciones.append(texto)
+                break
+    return direcciones
+
+
 def es_no_loopback(clase_bind):
     """¿El enlace deja el servicio fuera de loopback (todas las interfaces u otra IP)?"""
     return clase_bind == "todas" or (isinstance(clase_bind, tuple) and clase_bind[0] == "otra")

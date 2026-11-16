@@ -18,7 +18,7 @@ from mrrobotia.modulos.h2_arranque import FILA_A_OBSERVADO, H2Arranque
 from mrrobotia.nucleo import Severidad
 from mrrobotia.perfiles import PERFILES
 from mrrobotia.perfiles import vllm as perfil_vllm
-from mrrobotia.perfiles.vllm import RUTAS_CONTROL, RUTAS_INFERENCIA
+from mrrobotia.perfiles.vllm import RUTA_ESCALADO, RUTAS_CONTROL, RUTAS_DESARROLLO, RUTAS_INFERENCIA, RUTAS_PUBLICAS
 from mrrobotia.procesos import Proceso
 from mrrobotia.red import ClienteHTTP
 from servidor_falso import SOLO_POST_DESARROLLO, ServidorFalso, desde_rutas, vllm
@@ -38,7 +38,7 @@ NUNCA_POST = {"/pause", "/resume", "/sleep", "/wake_up", "/release_kv_cache_memo
               "/tokenize", "/detokenize", "/v1/chat/completions"}
 # Rutas que el sondeo puede pedir. Cualquier otra, incluida `/server_info`, hace fallar la prueba.
 RUTAS_DEL_SONDEO = {"/v1/models", "/version", "/metrics", "/load", "/kv_event_sources", "/tokenizer_info", "/openapi.json",
-                    perfil_vllm.RUTA_DESARROLLO, *RUTAS_INFERENCIA, *RUTAS_CONTROL}
+                    *RUTAS_DESARROLLO, *RUTAS_INFERENCIA, *RUTAS_CONTROL, RUTA_ESCALADO}
 
 
 def servidor(**kw):
@@ -137,7 +137,41 @@ def test_modo_desarrollo(expuesto, severidad):
 
 def test_modo_desarrollo_inactivo():
     d = uno(sondear(vllm())[0], "H2-DESARROLLO")
-    assert d.severidad == Severidad.INFO and "inactivo" in d.titulo
+    assert d.severidad == Severidad.INFO and "inactivo" in d.titulo and "/pause" in d.evidencia
+
+
+def test_modo_desarrollo_comprueba_tambien_pause():
+    """En la 0.33.0 real, con el modo desarrollo `/pause` pasa de 404 a 405."""
+    h, rutas, _ = sondear(vllm(desarrollo=True))
+    assert ("GET", "/pause") in rutas and ("POST", "/pause") not in rutas
+    assert "/collective_rpc, /pause" in uno(h, "H2-DESARROLLO").evidencia
+
+    def solo_pause(p):
+        return (405, {"Allow": "POST"}, b"") if p.ruta == "/pause" else vllm()(p)
+
+    d = uno(sondear(solo_pause)[0], "H2-DESARROLLO")
+    assert d.severidad == Severidad.ALTA and "/pause" in d.evidencia
+
+
+def test_rutas_publicas_incluyen_ping_y_el_servidor_falso_las_sirve():
+    assert "/ping" in RUTAS_PUBLICAS
+    with ServidorFalso(vllm()) as f:
+        cliente = ClienteHTTP(f.url, timeout=2)
+        assert {r: cliente.get(r).estado for r in RUTAS_PUBLICAS} == dict.fromkeys(RUTAS_PUBLICAS, 200)
+
+
+# --------------------------------------------------------- frontend Rust
+def test_frontend_rust_sin_clave_es_autenticacion_abierta():
+    h, _, s = sondear(vllm(rust=True))
+    assert s.autenticacion == "abierta" and uno(h, "H2-AUTH").estado != "sin_concluir"
+    assert "frontend Rust" in uno(h, "H2-BUILD").evidencia
+
+
+def test_frontend_rust_se_identifica_con_su_propietario_de_modelos():
+    with ServidorFalso(vllm(rust=True)) as f:
+        ident = VLLM.identificar_http(ClienteHTTP(f.url, timeout=2))
+    assert ident.autenticacion == "abierta" and ident.confianza == "alta"
+    assert "/v1/models con owned_by de vllm" in ident.senales and ident.modelos
 
 
 def test_modo_desarrollo_sin_concluir():
@@ -175,7 +209,24 @@ def test_controles_sin_clave_agrupados(arranque, ruta):
 
 @pytest.mark.parametrize("expuesto,severidad", [(False, Severidad.BAJA), (True, Severidad.ALTA)])
 def test_severidad_de_los_controles(expuesto, severidad):
-    assert uno(sondear(vllm(), expuesto=expuesto)[0], "H2-CONTROL-SIN-CLAVE").severidad == severidad
+    assert uno(sondear(vllm(perfilador=True), expuesto=expuesto)[0], "H2-CONTROL-SIN-CLAVE").severidad == severidad
+
+
+@pytest.mark.parametrize("expuesto", [False, True])
+@pytest.mark.parametrize("clave", [None, "k"])
+def test_la_ruta_de_escalado_sola_no_es_un_hallazgo_con_gravedad(expuesto, clave):
+    """`/scale_elastic_ep` existe en todos los modos (405 a GET, también con --api-key, que no la protege), pero
+    solo actúa en un motor con data parallel elástico: sola, es informativa."""
+    c = uno(sondear(vllm(clave=clave), expuesto=expuesto)[0], "H2-CONTROL-SIN-CLAVE")
+    assert c.severidad == Severidad.INFO and c.estado == "informativo" and RUTA_ESCALADO in c.evidencia
+    assert "data parallel elástico" in c.evidencia
+
+
+def test_sin_la_ruta_de_escalado_no_hay_hallazgo_de_control():
+    def responder(p):
+        return (404, {}, b'{"detail":"Not Found"}') if p.ruta == RUTA_ESCALADO else vllm()(p)
+
+    assert "H2-CONTROL-SIN-CLAVE" not in ids(sondear(responder)[0])
 
 
 def test_abort_requests_de_desarrollo_no_es_otra_causa():
@@ -495,6 +546,16 @@ def test_ninguna_ruta_que_actua_recibe_un_post(entorno, monkeypatch, tmp_path):
 def test_nunca_se_pide_server_info(entorno, monkeypatch, tmp_path):
     peticiones, _ = _auditar(entorno, monkeypatch, tmp_path, vllm(**ESCENARIOS["completo"]))
     assert not [p for p in peticiones if p.ruta.partition("?")[0] == "/server_info"]
+
+
+def test_frontend_rust_sin_clave_confirma_host_y_exposicion(entorno, monkeypatch, tmp_path):
+    _, informe = _auditar(entorno, monkeypatch, tmp_path, vllm(rust=True))
+    assert "no valida la cabecera Host y no exige clave" in informe and "autenticación sin determinar" not in informe
+
+
+def test_cors_por_defecto_de_vllm_no_se_queda_sin_concluir(entorno, monkeypatch, tmp_path):
+    _, informe = _auditar(entorno, monkeypatch, tmp_path, vllm())
+    assert "CORS no admite orígenes externos" in informe and "CORS sin concluir" not in informe
 
 
 def test_invariante_canarios(entorno, monkeypatch, tmp_path):

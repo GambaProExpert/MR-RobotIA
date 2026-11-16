@@ -6,6 +6,8 @@ pasivo (con la tabla de puertos y el propietario parcheados, sin tocar la red). 
 también el invariante de privacidad: la evidencia es puerto/bind/pid y nunca vuelca datos
 ni banners del servicio.
 """
+import pytest
+
 from mrrobotia.contexto import Contexto, ServidorDetectado
 from mrrobotia.modulos import h3_puertos as h3
 from mrrobotia.modulos.h3_puertos import H3Puertos, _evaluar_puertos, PELIGROSOS
@@ -318,3 +320,47 @@ def test_ejecutar_agrupa_dinamicos_solo_en_windows(monkeypatch):
         ids = [h.id for h in H3Puertos().ejecutar(objetivo)]
         assert ("H3-PUERTOS-DINAMICOS" in ids) is agrupa
         assert ("H3-PUERTOS-INESPERADO-49664" in ids) is (not agrupa)
+
+
+# ----------------------------------- procesos auxiliares de vLLM y DNS de WSL (vLLM 0.33.0 real)
+TABLA_WSL = ('State Recv-Q Send-Q Local Address:Port Peer Address:Port Process\n'
+             'LISTEN 0 2048 127.0.0.1:8010 0.0.0.0:* users:(("vllm",pid=500,fd=13))\n'
+             'LISTEN 0 4096 127.0.1.1:37109 0.0.0.0:* users:(("VLLM::Worker",pid=593,fd=35))\n'
+             'LISTEN 0 4096 0.0.0.0:41331 0.0.0.0:* users:(("VLLM::Worker",pid=593,fd=59))\n'
+             'LISTEN 0 4096 127.0.0.54:53 0.0.0.0:*\n'
+             'LISTEN 0 1000 10.255.255.254:53 0.0.0.0:*\n'
+             'LISTEN 0 4096 127.0.0.53%lo:53 0.0.0.0:*\n')
+
+
+def ctx_vllm(wsl, hijos=(552, 593)):
+    s = ServidorDetectado("vllm", "127.0.0.1", 8010, pid=500, pids_hijos=list(hijos))
+    return Contexto("linux", wsl=wsl, servidores=[s])
+
+
+def test_puertos_de_procesos_hijos_no_son_inesperados_y_fuera_de_loopback_son_internos(monkeypatch):
+    h = ejecutar(monkeypatch, TABLA_WSL, ctx_vllm(True))
+    assert "H3-PUERTOS-INESPERADO-37109" not in ids(h)
+    assert "H3-PUERTOS-INTERNO-41331" in ids(h) and "H3-PUERTOS-INESPERADO-41331" not in ids(h)
+
+
+def test_sin_arbol_conocido_los_puertos_de_los_hijos_siguen_siendo_inesperados(monkeypatch):
+    assert "H3-PUERTOS-INESPERADO-37109" in ids(ejecutar(monkeypatch, TABLA_WSL, ctx_vllm(True, hijos=())))
+
+
+def test_dns_de_wsl_solo_se_ignora_en_wsl(monkeypatch):
+    assert "H3-PUERTOS-INESPERADO-53" not in ids(ejecutar(monkeypatch, TABLA_WSL, ctx_vllm(True)))
+    assert "H3-PUERTOS-INESPERADO-53" in ids(ejecutar(monkeypatch, TABLA_WSL, ctx_vllm(False)))
+
+
+@pytest.mark.parametrize("fila_dns", [
+    'LISTEN 0 1000 10.255.255.254:53 0.0.0.0:* users:(("dnsmasq",pid=77,fd=4))\n',       # con proceso visible
+    'LISTEN 0 1000 192.168.1.5:53 0.0.0.0:*\n',                                           # otra dirección
+])
+def test_dns_de_wsl_no_tapa_otro_servidor_dns(monkeypatch, fila_dns):
+    tabla = 'LISTEN 0 4096 127.0.0.54:53 0.0.0.0:*\n' + fila_dns
+    assert "H3-PUERTOS-INESPERADO-53" in ids(ejecutar(monkeypatch, tabla, ctx_vllm(True)))
+
+
+def test_dns_de_wsl_no_tapa_un_enlace_a_todas_las_interfaces(monkeypatch):
+    tabla = 'LISTEN 0 1000 10.255.255.254:53 0.0.0.0:*\nLISTEN 0 1000 0.0.0.0:53 0.0.0.0:*\n'
+    assert "H3-PUERTOS-INESPERADO-53" in ids(ejecutar(monkeypatch, tabla, ctx_vllm(True)))

@@ -207,21 +207,26 @@ def _host_de_redireccion(respuesta, candidato):
 
 
 def _servidor_de_proceso(perfil, proceso, tabla):
+    hijo = perfil.es_hijo(proceso.argv)
     opciones = perfil.analizar_argv(proceso.argv)
     entorno = procesos.leer_entorno(proceso.pid, perfil.variables)
     host, puerto = perfil.puerto_y_host(opciones, entorno)
     sin_tcp = "uds" in opciones or str(opciones.get("host", "")).endswith(".sock")
-    if puerto is None and not sin_tcp:
+    if puerto is None and not sin_tcp and not hijo:      # los puertos de un hijo son internos
         puertos = red.puertos_de_pid(tabla, proceso.pid)
         puerto = puertos[0] if puertos else None
     # Sin argumentos visibles no se sabe si indicó --host: no vale el enlace por defecto.
     respaldo = None if sin_tcp or len(proceso.argv) < 2 else _enlace_de_opcion(host, perfil.enlace_defecto)
     senales = [f"proceso {perfil.nombre}"] + (["socket UNIX: sin puerto TCP"] if sin_tcp else [])
+    version = None if hijo else perfil.version_local(proceso.argv)
+    if version:
+        senales.append("versión leída de los metadatos del paquete")
     return ServidorDetectado(
         tipo=perfil.id, host=_host_conexion(host), puerto=puerto,
         esquema=perfil.esquema_de(opciones, entorno), prefijo=perfil.prefijo_de(opciones, entorno),
-        confianza="media", fuentes=["proceso"], pid=proceso.pid,
+        version=version, confianza="media", fuentes=["proceso"], pid=proceso.pid,
         enlace=(red.bind_desde_tabla(tabla, puerto) if puerto else None) or respaldo,
+        escucha=red.direcciones_escucha(tabla, puerto) if puerto else [],
         opciones=opciones, entorno=entorno, autenticacion=perfil.autenticacion_de(opciones, entorno),
         modelos=perfil.modelos_de(opciones), senales=senales)
 
@@ -248,11 +253,21 @@ def _desde_procesos(tabla):
     """(servidores reconocidos, ¿se pudo enumerar?). Un equipo siempre tiene procesos: una
     lista vacía significa que la enumeración falló, no que no haya ninguno."""
     lista = procesos.enumerar()
-    servidores = []
+    reconocidos = []
     for proceso in lista:
         perfil = next((p for p in PERFILES if p.reconoce_proceso(proceso.argv)), None)
         if perfil is not None:
-            servidores.append(_servidor_de_proceso(perfil, proceso, tabla))
+            reconocidos.append((proceso, perfil))
+    # Un servidor y los procesos que cuelgan de él son uno solo: el que sirve HTTP es el raíz del árbol.
+    pids = {p.pid for p, _ in reconocidos}
+    hijos = {p.pid: procesos.descendientes(lista, p.pid) for p, _ in reconocidos}
+    servidores = []
+    for proceso, perfil in reconocidos:
+        if any(proceso.pid in hijos[otro] for otro in pids if otro != proceso.pid):
+            continue
+        servidor = _servidor_de_proceso(perfil, proceso, tabla)
+        servidor.pids_hijos = sorted(hijos[proceso.pid])
+        servidores.append(servidor)
     return _depurar(servidores), bool(lista)
 
 
@@ -309,6 +324,7 @@ def _incorporar(servidores, candidato, ident, fuente, tabla):
             existente.puerto, existente.host, existente.esquema = puerto, candidato.host, candidato.esquema
             existente.prefijo = existente.prefijo or candidato.prefijo
             existente.enlace = red.bind_desde_tabla(tabla, puerto) or existente.enlace
+            existente.escucha = red.direcciones_escucha(tabla, puerto) or existente.escucha
     if existente is not None:
         _fusionar(existente, ident, fuente)
         return
@@ -317,7 +333,7 @@ def _incorporar(servidores, candidato, ident, fuente, tabla):
         prefijo=candidato.prefijo, version=ident.version, confianza=ident.confianza,
         fuentes=[fuente], pid=red.pid_desde_tabla(tabla, puerto),
         enlace=red.bind_desde_tabla(tabla, puerto), autenticacion=ident.autenticacion,
-        modelos=list(ident.modelos), senales=list(ident.senales)))
+        modelos=list(ident.modelos), senales=list(ident.senales), escucha=red.direcciones_escucha(tabla, puerto)))
 
 
 def _solo_declarado(servidor):
@@ -328,7 +344,8 @@ def _solo_declarado(servidor):
 def _evidencia_servidor(s):
     partes = [f"{s.tipo} {s.version or '(versión desconocida)'} en {texto_direccion(s)}",
               f"fuentes: {', '.join(s.fuentes)}", f"confianza: {s.confianza}",
-              f"enlace: {texto_enlace(s.enlace)}", f"autenticación: {s.autenticacion or 'sin comprobar'}"]
+              f"enlace: {texto_enlace(s.enlace)}" + (f" ({', '.join(s.escucha)})" if s.escucha else ""),
+              f"autenticación: {s.autenticacion or 'sin comprobar'}"]
     if s.pid is not None:
         partes.append(f"pid {s.pid}")
     return "; ".join(partes)

@@ -21,7 +21,7 @@ Before any module, H2-ID identifies what it is dealing with (server, version, st
 and OS); it always runs. Host analysis (H3) is only done on machines with a llama.cpp or
 vLLM server. With -l/--list you can see all the scans and groups.
 
-The audit report and the keys of the target file are in Spanish for now.
+The audit report is in Spanish for now; the keys of the target file are in English.
 """
 import argparse
 import os

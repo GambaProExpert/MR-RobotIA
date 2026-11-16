@@ -371,3 +371,11 @@ def test_subprocess_no_usa_shell(monkeypatch, sin_api_de_windows):
     monkeypatch.setattr(red.subprocess, "run", falso_run)
     red.tabla_puertos()
     assert llamadas and all(isinstance(o, list) and "shell" not in k for o, k in llamadas)
+
+
+def test_direcciones_escucha_reales_de_un_puerto():
+    tabla = ('LISTEN 0 4096 0.0.0.0:8010 0.0.0.0:*\nLISTEN 0 4096 [::]:8010 [::]:*\n'
+             'LISTEN 0 4096 127.0.0.53%lo:53 0.0.0.0:*\nLISTEN 0 4096 127.0.0.1:18010 0.0.0.0:*\n')
+    assert red.direcciones_escucha(tabla, 8010) == ["0.0.0.0:8010", "[::]:8010"]
+    assert red.direcciones_escucha(tabla, 53) == ["127.0.0.53:53"]
+    assert red.direcciones_escucha(tabla, 9) == [] and red.direcciones_escucha("", 8010) == []

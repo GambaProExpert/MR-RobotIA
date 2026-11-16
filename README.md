@@ -18,7 +18,7 @@ roadmap is in [HITOS.md](HITOS.md) (in Spanish).
 | Part | Status |
 |---|---|
 | **llama.cpp** (full profile: identification, exposure, startup and security advisories) | Tested against a real `llama-server` (build b11583) |
-| **vLLM** (same profile) | Implemented from the code of version 0.33.0 and **not validated against a real server**: the tests use a fake server that follows that reading |
+| **vLLM** (same profile) | Implemented from the code of version 0.33.0 and **validated against a real vLLM 0.33.0 on CPU** (read-only requests): not yet validated on a GPU or with generation; the tests use a fake server that follows that reading and those observations |
 | Any other service (Ollama, LM Studio...) | Only recognized (with the Julius probes, if installed) and given the common checks; it has no profile of its own |
 | Trivy and `ssh-audit` | Only with simulated output: the real tools have not been run |
 | Julius | Tried by hand against a real server. Inside MRRobotIA, which only calls it for what the profiles do not recognize, it has been run against a non-LLM service; positive recognition is tested with simulated output |

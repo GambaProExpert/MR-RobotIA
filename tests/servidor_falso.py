@@ -234,6 +234,8 @@ def vllm(clave=None, version="0.33.0", modelo="org/modelo-falso", docs=True, met
     """vLLM 0.33.0 según su código: `--api-key` solo protege cuatro prefijos y OPTIONS queda exento."""
     base = {"Server": server} if server else {}
     solo_post = set(_SOLO_POST_VLLM)
+    if rust:                    # el frontend Rust no tiene /invocations (404), como el real
+        solo_post.discard("/invocations")
     solo_post |= _SOLO_POST_POOLING if pooling else set()
     solo_post |= SOLO_POST_DESARROLLO if desarrollo else set()
     solo_post |= {"/abort_requests"} if tokens_only else set()
@@ -266,12 +268,12 @@ def vllm(clave=None, version="0.33.0", modelo="org/modelo-falso", docs=True, met
                      b"vllm:num_requests_waiting{model_name=\"m\"} 0.0\n")
             return 200, {**base, "Content-Type": "text/plain"}, texto
         if ruta == "/v1/models":
-            fila = {"id": modelo, "object": "model", "created": 1, "owned_by": "vllm", "root": raiz or modelo, "parent": None, "permission": []}
+            fila = {"id": modelo, "object": "model", "created": 1, "owned_by": "vllm-frontend-rs" if rust else "vllm", "root": raiz or modelo, "parent": None, "permission": []}
             return _respuesta_json(200, {"object": "list", "data": [fila]}, base)
-        if ruta == "/openapi.json" and docs:
+        if ruta == "/openapi.json" and docs and not rust:      # el frontend Rust no tiene documentación
             rutas = {"/tokenize": {}, "/detokenize": {}, "/version": {}}
             return _respuesta_json(200, {"openapi": "3.1.0", "info": {"title": "FastAPI", "version": "0.1.0"}, "paths": rutas}, base)
-        if ruta == "/health":
+        if ruta in ("/health", "/ping") and not (rust and ruta == "/ping"):
             return 200, base, b""
         if comodin:
             return _respuesta_json(200, {"ok": True}, base)

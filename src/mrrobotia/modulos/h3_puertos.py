@@ -40,7 +40,7 @@ from mrrobotia.modulos.h2_identificacion import destino_declarado
 from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
 from mrrobotia.perfiles import perfil_de
 from mrrobotia.red import (
-    a_puerto, bind_desde_tabla, clasificar_direccion, es_host_local, es_no_loopback, ip_rutable,
+    a_puerto, bind_desde_tabla, clasificar_direccion, direcciones_escucha, es_host_local, es_no_loopback, ip_rutable,
     owner_proceso, pid_desde_tabla, puertos_en_escucha, sondear, tabla_puertos,
 )
 
@@ -84,6 +84,10 @@ PELIGROSOS = {
 # siempre). Veinte hallazgos con la misma causa no ayudan a nadie: se agrupan en uno.
 RANGO_DINAMICO = (49152, 65535)
 
+# WSL2 añade a `lo` la dirección 10.255.255.254/32 y su resolvedor DNS escucha en ella (es la que escribe
+# en /etc/resolv.conf). No tiene proceso visible y no es un servicio del usuario: solo se ignora en WSL.
+DIRECCION_DNS_WSL = "10.255.255.254"
+
 
 # ----------------------------------------------------- funciones puras: auxiliares
 def _es_windows():
@@ -107,6 +111,15 @@ def _texto_bind(clase_bind):
     return "desconocido"
 
 
+def _es_dns_wsl(puerto, direcciones, pid):
+    """¿Es el resolvedor DNS que WSL2 pone en 10.255.255.254:53? Solo si todas las direcciones locales
+    del puerto son esa o de loopback, y el puerto no tiene un proceso visible."""
+    if puerto != 53 or pid is not None or f"{DIRECCION_DNS_WSL}:53" not in direcciones:
+        return False
+    return all(d == f"{DIRECCION_DNS_WSL}:53" or clasificar_direccion(d.rpartition(":")[0]) == "loopback"
+               for d in direcciones)
+
+
 def _evidencia_puerto(puerto, clase_bind, pid):
     """Evidencia mínima y reproducible: puerto + enlace + PID. Sin banners ni datos."""
     pid_txt = str(pid) if pid is not None else "?"
@@ -126,7 +139,7 @@ def _hallazgo_interno(puerto, canal, evidencia):
 
 
 def _evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan=(), internos=None,
-                     agrupar_dinamicos=False):
+                     agrupar_dinamicos=False, pids_hijos=None):
     """Clasifica una lista de puertos en escucha en hallazgos (función PURA).
 
     `enumerados`: lista de `(puerto:int, clase_bind, pid)`, con `clase_bind` en
@@ -134,6 +147,8 @@ def _evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan=(), intern
     legítimos del servidor. `peligrosos`: dict puerto -> (servicio, severidad_base).
     `expuestos_lan`: puertos que el barrido activo confirmó alcanzables desde la red.
     `internos`: dict puerto -> canal interno que puede abrir alguno de los servidores.
+    `pids_hijos`: dict pid -> servidor del que cuelga. Los puertos de esos procesos (los motores y
+    trabajadores que lanza el servidor) son canales internos aunque su número sea efímero.
 
     Reglas:
     - Peligroso: severidad_base; si el enlace no es loopback o está en `expuestos_lan`,
@@ -149,6 +164,7 @@ def _evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan=(), intern
     esperados = set(esperados or ())
     expuestos_lan = set(expuestos_lan or ())
     internos = internos or {}
+    pids_hijos = pids_hijos or {}
     hallazgos = []
     hubo_hallazgo = False            # ¿algún peligro o inesperado?
     todo_esperado_loopback = True    # ¿todos los puertos son esperados y en loopback?
@@ -175,9 +191,10 @@ def _evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan=(), intern
             # bind (si sale de loopback) lo evalúa H2; aquí solo cuenta para el OK.
             if clase_bind != "loopback":
                 todo_esperado_loopback = False
-        elif puerto in internos:
+        elif puerto in internos or pid in pids_hijos:
             if no_loop:
-                hallazgos.append(_hallazgo_interno(puerto, internos[puerto], evidencia))
+                canal = internos.get(puerto) or f"proceso auxiliar de {pids_hijos[pid]}"
+                hallazgos.append(_hallazgo_interno(puerto, canal, evidencia))
                 hubo_hallazgo = True
             if clase_bind != "loopback":
                 todo_esperado_loopback = False
@@ -232,6 +249,8 @@ class H3Puertos(Modulo):
     PELIGROSOS = PELIGROSOS
 
     # ----------------------------------------------------------- configuración
+    _pids_hijos: dict = {}
+
     def _config(self, objetivo):
         """Deriva (host, esperados, peligrosos, internos). Lo que se espera sale de lo que H2-ID
         haya identificado y de lo que declare el objetivo, nunca de deducir el servidor por el
@@ -241,10 +260,12 @@ class H3Puertos(Modulo):
         declarados = [destino.puerto, *(puertos_cfg.get("expected") or ())]
         esperados = {p for p in map(a_puerto, declarados) if p is not None}
         internos = {}
+        self._pids_hijos = {}
         for servidor in (self.contexto.servidores if self.contexto is not None else ()):
             if servidor.puerto is not None:
                 esperados.add(servidor.puerto)
             internos.update(perfil_de(servidor).puertos_internos)
+            self._pids_hijos.update({pid: servidor.tipo for pid in servidor.pids_hijos})
         extra = _normalizar_extra(puertos_cfg.get("extra_dangerous", {}))
         peligrosos = {**PELIGROSOS, **extra}
         return destino.host, esperados, peligrosos, internos
@@ -312,7 +333,8 @@ class H3Puertos(Modulo):
 
     # --------------------------------------------------------------- orquestación
     def _enumerar(self, hallazgos):
-        """Puertos en escucha de este equipo como [(puerto, enlace, pid)]."""
+        """Puertos en escucha de este equipo como [(puerto, enlace, pid)]. En WSL no se cuenta el
+        resolvedor DNS que el propio WSL pone en 10.255.255.254."""
         salida = tabla_puertos()
         if not salida:
             hallazgos.append(Hallazgo(
@@ -323,8 +345,10 @@ class H3Puertos(Modulo):
                 "Comprueba a mano con 'netstat -ano' (Windows) o 'ss -ltnp' (Linux) qué "
                 "puertos escuchan en el host.", REFS))
             return []
-        return [(p, bind_desde_tabla(salida, p), pid_desde_tabla(salida, p))
-                for p in sorted(puertos_en_escucha(salida))]
+        wsl = self.contexto is not None and self.contexto.wsl
+        filas = [(p, bind_desde_tabla(salida, p), pid_desde_tabla(salida, p))
+                 for p in sorted(puertos_en_escucha(salida))]
+        return [f for f in filas if not (wsl and _es_dns_wsl(f[0], direcciones_escucha(salida, f[0]), f[2]))]
 
     def ejecutar(self, objetivo):
         host, esperados, peligrosos, internos = self._config(objetivo)
@@ -367,7 +391,7 @@ class H3Puertos(Modulo):
 
         # ---- EVALUACIÓN (pura) + extras del barrido ------------------------------
         hallazgos.extend(_evaluar_puertos(enumerados, esperados, peligrosos, expuestos_lan, internos,
-                                          agrupar_dinamicos=_es_windows()))
+                                          agrupar_dinamicos=_es_windows(), pids_hijos=self._pids_hijos))
         hallazgos.extend(extra_barrido)
 
         # ---- propietario del proceso (best-effort) -------------------------------

@@ -15,7 +15,7 @@ sí los saca». La hoja de ruta está en [HITOS.md](HITOS.md).
 | Parte | Estado |
 |---|---|
 | **llama.cpp** (perfil completo: identificación, exposición, arranque y avisos de seguridad) | Probado contra un `llama-server` real (build b11583) |
-| **vLLM** (mismo perfil) | Implementado a partir del código de la versión 0.33.0 y **sin validar contra un servidor real**: las pruebas usan un servidor falso que sigue esa lectura |
+| **vLLM** (mismo perfil) | Implementado a partir del código de la versión 0.33.0 y **validado contra un vLLM 0.33.0 real en CPU** (solo peticiones de lectura): aún sin validar en GPU ni con generación; las pruebas usan un servidor falso que sigue esa lectura y esas observaciones |
 | Cualquier otro servicio (Ollama, LM Studio...) | Solo se reconoce (con las sondas de Julius, si está instalada) y recibe las comprobaciones comunes; no tiene perfil propio |
 | Trivy y `ssh-audit` | Solo con salidas simuladas: no se han ejecutado las herramientas reales |
 | Julius | Se probó a mano contra un servidor real. Dentro de MRRobotIA, que solo la invoca para lo que los perfiles no reconocen, se ha ejecutado contra un servicio que no era un LLM; el reconocimiento positivo está probado con salidas simuladas |

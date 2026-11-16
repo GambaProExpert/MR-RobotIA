@@ -6,8 +6,9 @@ POST se detecta con un GET (405 existe, 404 no) y el manejador nunca llega a eje
 únicamente se pide si `/version` ya tiene la forma de vLLM, para no tocar los indicadores de un
 llama.cpp que un proxy hubiera dejado sin reconocer.
 
-Nada de lo de este perfil se ha verificado contra un vLLM real: sale de leer su código y su
-documentación, y las pruebas usan un servidor falso que sigue esa misma lectura.
+Los datos salen de leer el código de la 0.33.0 y se contrastaron con un vLLM 0.33.0 real, solo en
+CPU y con peticiones de lectura (GET y OPTIONS). Sigue sin verificarse con una GPU ni con
+generación, y las pruebas usan un servidor falso que sigue esa lectura y esas observaciones.
 """
 from __future__ import annotations
 
@@ -46,8 +47,18 @@ PUERTOS_INTERNOS = {
 
 # Rutas que solo admiten POST. Quedan fuera de los prefijos que protege --api-key.
 RUTA_DESARROLLO = "/collective_rpc"     # solo existe con VLLM_SERVER_DEV_MODE=1
+# Con ese modo, `/pause` también pasa de 404 a 405 (observado en la 0.33.0 real).
+RUTAS_DESARROLLO = (RUTA_DESARROLLO, "/pause")
 RUTAS_INFERENCIA = ("/invocations", "/generative_scoring", "/pooling", "/classify", "/score", "/rerank")
-RUTAS_CONTROL = ("/scale_elastic_ep", "/abort_requests", "/start_profile", "/stop_profile", "/fault_tolerance/apply")
+# Rutas de control que solo existen con su opción de arranque: que respondan ya indica que está activa.
+RUTAS_CONTROL = ("/abort_requests", "/start_profile", "/stop_profile", "/fault_tolerance/apply")
+# `/scale_elastic_ep` se registra siempre (405 a GET en todos los modos) y queda fuera de los prefijos
+# que protege --api-key, pero su POST solo reescala si el motor se arrancó con data parallel elástico.
+RUTA_ESCALADO = "/scale_elastic_ep"
+# Rutas públicas siempre presentes: GET directo, 200 sin clave y sin efecto (`/ping` es la del módulo SageMaker).
+RUTAS_PUBLICAS = ("/health", "/ping", "/version", "/metrics", "/load", "/kv_event_sources")
+# Valores de `owned_by` en `/v1/models`: el frontend Python publica `vllm`; el Rust, `vllm-frontend-rs`.
+PROPIETARIOS_MODELO = ("vllm", "vllm-frontend-rs")
 
 
 def _bandera(clave):
@@ -275,16 +286,17 @@ def _hallazgo_metricas(cliente, expuesto):
 
 
 def _hallazgo_desarrollo(cliente, expuesto):
-    """Con el modo desarrollo, `/collective_rpc` existe y un POST ejecutaría métodos del motor."""
-    existentes, dudosas = _explorar(cliente, (RUTA_DESARROLLO,))
-    if dudosas:
+    """Con el modo desarrollo, `/collective_rpc` y `/pause` existen (405) y un POST ejecutaría métodos
+    del motor o pausaría la generación. Sin él, ambas son 404."""
+    existentes, dudosas = _explorar(cliente, RUTAS_DESARROLLO)
+    if not existentes and dudosas:
         return _sin_concluir("H2-DESARROLLO", "No se pudo comprobar el modo desarrollo",
-                             f"GET {RUTA_DESARROLLO} no responde ni 404 ni 405")
+                             f"GET {', '.join(dudosas)} no responde ni 404 ni 405")
     if not existentes:
         return _h("H2-DESARROLLO", "El modo desarrollo de vLLM está inactivo", _INFO,
-                  f"GET {RUTA_DESARROLLO}: 404", "", estado="informativo")
+                  f"GET {', '.join(RUTAS_DESARROLLO)}: 404", "", estado="informativo")
     return _h("H2-DESARROLLO", "El modo desarrollo de vLLM está activo", graduar(expuesto, _ALTA, _CRITICA),
-              f"GET {RUTA_DESARROLLO}: 405, la ruta existe y no pide clave",
+              f"GET {', '.join(existentes)}: 405, la ruta existe y no pide clave",
               "Retira VLLM_SERVER_DEV_MODE: abre sin clave rutas que ejecutan métodos del motor, vacían sus "
               "cachés, lo pausan o cambian los pesos, aunque haya --api-key (A5).")
 
@@ -306,17 +318,31 @@ def _hallazgo_inferencia(cliente, autenticacion, expuesto, proxy):
 
 
 def _hallazgo_control(cliente, desarrollo_activo, expuesto):
-    """Rutas que reescalan, abortan o perfilan sin clave. `/abort_requests` también existe en modo
-    desarrollo, y entonces su causa es esa: ya la cuenta H2-DESARROLLO."""
+    """Rutas que abortan o perfilan sin clave y solo existen con su opción de arranque. `/abort_requests`
+    también existe en modo desarrollo, y entonces su causa es esa: ya la cuenta H2-DESARROLLO.
+    `/scale_elastic_ep` existe siempre y queda fuera de los prefijos que protege --api-key, pero solo
+    reescala un motor con data parallel elástico: sola, no es un hallazgo con gravedad (INFO); junto
+    a una ruta de control activa, se añade a su evidencia."""
     rutas = [r for r in RUTAS_CONTROL if not (desarrollo_activo and r == "/abort_requests")]
     existentes, dudosas = _explorar(cliente, rutas)
+    escalado, dudosa_escalado = _explorar(cliente, (RUTA_ESCALADO,))
     if not existentes:
-        return _sin_concluir("H2-CONTROL-SIN-CLAVE", "No se pudieron comprobar las rutas de control sin clave",
-                             "no responden ni 404 ni 405: " + ", ".join(dudosas)) if dudosas else None
+        # Una ruta de control dudosa pesa más que el escalado: no se tapa con un INFO.
+        dudosas += dudosa_escalado
+        if dudosas:
+            return _sin_concluir("H2-CONTROL-SIN-CLAVE", "No se pudieron comprobar las rutas de control sin clave",
+                                 "no responden ni 404 ni 405: " + ", ".join(dudosas))
+        if escalado:
+            return _h("H2-CONTROL-SIN-CLAVE", "La ruta de escalado existe y no exige clave", _INFO,
+                      f"GET {RUTA_ESCALADO}: 405, la ruta existe aunque no se haya pedido el escalado elástico; "
+                      "--api-key no la protege, pero solo actúa si el motor usa data parallel elástico",
+                      "Si no usas el escalado elástico no hay nada que hacer; si lo usas, restringe la ruta en un proxy (A5).",
+                      estado="informativo")
+        return None
     return _h("H2-CONTROL-SIN-CLAVE", "Hay rutas de control que no exigen clave", graduar(expuesto, _BAJA, _ALTA),
-              "GET responde 405, la ruta existe y no pide clave: " + ", ".join(existentes),
-              "Restríngelas en un proxy: --api-key no las protege y permiten reescalar el motor, abortar peticiones "
-              "o controlar el perfilador (A5).")
+              "GET responde 405, la ruta existe y no pide clave: " + ", ".join(existentes + escalado),
+              "Restríngelas en un proxy: --api-key no las protege y permiten abortar peticiones, controlar el "
+              "perfilador o disparar una recuperación (A5).")
 
 
 def _hallazgo_openapi(cliente, expuesto):
@@ -575,6 +601,15 @@ class Vllm(Perfil):
         return (_es_python(_ejecutable(argv[0])) and len(argv) > 2 and argv[1] == "-m"
                 and argv[2].startswith(_MODULOS_API))
 
+    def es_hijo(self, argv) -> bool:
+        return bool(argv) and str(argv[0]).startswith(_TITULOS_HIJOS)
+
+    def version_local(self, argv):
+        """`vllm-X.Y.Z.dist-info/METADATA` del entorno virtual del intérprete del proceso."""
+        if not argv or self.es_hijo(argv):
+            return None
+        return version_segura(procesos.version_de_paquete(str(argv[0]), "vllm"))
+
     def analizar_argv(self, argv) -> dict:
         opciones = super().analizar_argv(argv)
         modelo = nombre_modelo(opciones.get("model") or self._posicional_serve(argv))
@@ -626,12 +661,12 @@ class Vllm(Perfil):
 
     @staticmethod
     def _filas_propias(modelos):
-        """Filas de `/v1/models` con `owned_by: vllm`."""
+        """Filas de `/v1/models` con `owned_by` de vLLM (Python o frontend Rust)."""
         datos = modelos.json() if modelos.estado == 200 else None
         lista = datos.get("data") if isinstance(datos, dict) else None
         if not isinstance(lista, list):
             return []
-        return [d for d in lista if isinstance(d, dict) and d.get("owned_by") == "vllm"]
+        return [d for d in lista if isinstance(d, dict) and d.get("owned_by") in PROPIETARIOS_MODELO]
 
     def identificar_http(self, cliente) -> Identificacion | None:
         respuesta_version = cliente.get("/version")
@@ -654,7 +689,7 @@ class Vllm(Perfil):
         if rust:
             senales.append("frontend Rust")
         if ids:
-            senales.append("/v1/models con owned_by vllm")
+            senales.append("/v1/models con owned_by de vllm")
 
         if series or rust or ids:
             confianza = "alta"

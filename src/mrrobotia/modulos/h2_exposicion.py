@@ -80,7 +80,7 @@ def _servidor_declarado(servidores, destino):
 
 
 # ---------------------------------------------------- funciones puras: evaluación
-def _evaluar_bind(enlace, bind_esperado, proxy):
+def _evaluar_bind(enlace, bind_esperado, proxy, escucha=()):
     """Enlace real frente al esperado. Fuera de loopback: ALTA, o MEDIA si es lo declarado;
     en loopback cuando se esperaba otra cosa: MEDIA; desconocido: no se afirma nada."""
     if enlace is None:
@@ -88,11 +88,12 @@ def _evaluar_bind(enlace, bind_esperado, proxy):
                              "sin fila en escucha en la tabla de puertos ni opción de arranque que lo indique",
                              "Comprueba a mano con 'netstat -ano' (Windows) o 'ss -ltnp' (Linux) a qué interfaz enlaza.")
     esperado = red.clasificar_direccion(bind_esperado)
+    real = f" (escucha en {', '.join(limpiar(d, 60) for d in escucha)})" if escucha else ""
     if enlace == "loopback":
         if esperado == "loopback":
-            return _info("H2-BIND", "El servidor LLM escucha solo en loopback", "enlace a loopback (127.0.0.1/::1)")
+            return _info("H2-BIND", "El servidor LLM escucha solo en loopback", "enlace a loopback (127.0.0.1/::1)" + real)
         return _h("H2-BIND", "El enlace del servidor no coincide con el esperado", Severidad.MEDIA,
-                  f"enlace a loopback; expected_bind declarado = {limpiar(bind_esperado)}",
+                  f"enlace a loopback{real}; expected_bind declarado = {limpiar(bind_esperado)}",
                   "Revisa el arranque del servidor: el enlace real no coincide con el declarado en el objetivo.")
     pista_proxy = "" if proxy else " (no se declaró proxy autenticador)"
     if enlace == "todas":
@@ -101,6 +102,7 @@ def _evaluar_bind(enlace, bind_esperado, proxy):
     else:
         titulo = "El servidor LLM escucha en una interfaz no local"
         evidencia = f"enlace a {limpiar(enlace[1])} (no es loopback)"
+    evidencia += real
     if enlace == esperado:
         return _h("H2-BIND", titulo, Severidad.MEDIA, evidencia + "; coincide con expected_bind",
                   "La exposición es la declarada: confirma que está protegida (autenticación, TLS, cortafuegos) (A5)."
@@ -123,6 +125,13 @@ def _evaluar_owner(info, pid):
                   "Ejecuta el servidor con una cuenta sin privilegios: si se ve comprometido, limita el impacto (A3).")
     return _info("H2-OWNER", "El servidor LLM se ejecuta con una cuenta sin privilegios",
                  f"proceso ({referencia}) con cuenta sin privilegios")
+
+
+def _rechazo_cors(respuesta):
+    """¿Es el rechazo explícito de un origen? El middleware de CORS de Starlette (el de vLLM) responde
+    a una comprobación previa de un origen no permitido con 400 y ese cuerpo: es una respuesta
+    concluyente, no un fallo del servidor."""
+    return respuesta.estado == 400 and "disallowed cors origin" in respuesta.texto().lower()
 
 
 def _evaluar_cors(externo, local, autenticacion, proxy):
@@ -155,13 +164,16 @@ def _evaluar_cors(externo, local, autenticacion, proxy):
                   "Ningún navegador acepta una lista en esa cabecera: usa un único origen.")
     if permitido:
         return _info("H2-CORS", "CORS limitado a un origen fijo", f"Access-Control-Allow-Origin: {limpiar(permitido, 60)}")
-    if not 200 <= externo.estado < 300:
+    rechazo = _rechazo_cors(externo)
+    if not (200 <= externo.estado < 300 or rechazo):
         return _sin_concluir("H2-CORS", "CORS sin concluir", f"OPTIONS respondió {externo.estado}",
                              "Comprueba a mano qué orígenes admite: esto no demuestra que esté restringido.")
     if str(local.cabeceras.get("access-control-allow-origin", "")).strip() == ORIGEN_LOCAL:
         return _info("H2-CORS", "CORS solo admite orígenes locales",
                      "se acepta un origen localhost y se rechaza uno externo")
-    return _info("H2-CORS", "CORS no admite orígenes externos", "sin Access-Control-Allow-Origin para un origen externo")
+    return _info("H2-CORS", "CORS no admite orígenes externos",
+                 "comprobación previa rechazada con 400 «Disallowed CORS origin»" if rechazo
+                 else "sin Access-Control-Allow-Origin para un origen externo")
 
 
 def _evaluar_host(normal, falso, autenticacion, proxy):
@@ -287,7 +299,7 @@ class H2Exposicion(Modulo):
 
     def _auditar(self, s, esperado, omision, h):
         """Acumula en `h` para conservar lo parcial si algo falla a mitad."""
-        h.append(_evaluar_bind(s.enlace, esperado.bind, esperado.proxy))
+        h.append(_evaluar_bind(s.enlace, esperado.bind, esperado.proxy, s.escucha))
         h.append(_evaluar_owner(red.owner_proceso(s.pid), s.pid))
         if s.puerto is None:
             h.append(_info("H2-SIN-PUERTO", "Servidor sin puerto TCP",

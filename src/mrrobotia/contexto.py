@@ -51,6 +51,8 @@ class ServidorDetectado:
     autenticacion: str | None = None  # "activa" | "abierta" | "indeterminada"
     modelos: list[str] = field(default_factory=list)  # nombre de fichero o alias, nunca ruta absoluta
     senales: list[str] = field(default_factory=list)  # evidencia corta y sin secretos
+    pids_hijos: list[int] = field(default_factory=list)  # procesos que cuelgan del suyo: sus puertos son internos
+    escucha: list[str] = field(default_factory=list)  # direcciones locales en las que escucha según la tabla de puertos
     observado: list[str] = field(default_factory=list)  # identificadores de lo que H2 ha podido concluir
 
     @property

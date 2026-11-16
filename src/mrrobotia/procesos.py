@@ -22,11 +22,12 @@ from mrrobotia.red import decodificar
 
 TIMEOUT_POWERSHELL = 30     # s; Get-CimInstance puede tardar en equipos cargados
 MAX_FICHERO_PROC = 1_000_000
+MAX_METADATA = 20_000        # la versión está en las primeras líneas de METADATA
 
 # La codificación se fija porque, si no, PowerShell escribe en la página OEM de la consola.
 _ORDEN_WINDOWS = ("[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);"
                   "Get-CimInstance Win32_Process"
-                  " | Select-Object ProcessId,Name,CommandLine | ConvertTo-Json -Compress")
+                  " | Select-Object ProcessId,ParentProcessId,Name,CommandLine | ConvertTo-Json -Compress")
 
 
 @dataclass
@@ -34,6 +35,7 @@ class Proceso:
     pid: int
     nombre: str
     argv: list[str] = field(default_factory=list, repr=False)
+    ppid: int | None = None     # proceso padre, para agrupar un servidor con sus hijos
 
 
 def trocear_linea_windows(linea):
@@ -119,7 +121,9 @@ def procesos_desde_json(salida):
         nombre = str(d.get("Name") or "")
         linea = d.get("CommandLine")
         argv = trocear_linea_windows(linea) if isinstance(linea, str) else []
-        lista.append(Proceso(d["ProcessId"], nombre, argv or ([nombre] if nombre else [])))
+        padre = d.get("ParentProcessId")
+        lista.append(Proceso(d["ProcessId"], nombre, argv or ([nombre] if nombre else []),
+                             padre if isinstance(padre, int) and not isinstance(padre, bool) else None))
     return lista
 
 
@@ -155,8 +159,62 @@ def enumerar_linux(raiz="/proc"):
         argv = [decodificar(a) for a in datos.rstrip(b"\0").split(b"\0") if a]
         if argv:
             argv[0] = argv[0].strip()   # los títulos de setproctitle dejan relleno
-            lista.append(Proceso(int(entrada), os.path.basename(argv[0]), argv))
+            lista.append(Proceso(int(entrada), os.path.basename(argv[0]), argv, _padre_linux(raiz, entrada)))
     return lista
+
+
+def _padre_linux(raiz, entrada):
+    """PPID de `<raiz>/<pid>/stat`, o None. El nombre del proceso va entre paréntesis y puede
+    llevar espacios y paréntesis: se busca el último «)»."""
+    try:
+        with open(os.path.join(raiz, entrada, "stat"), "rb") as f:
+            datos = f.read(4096)
+        campos = datos[datos.rindex(b")") + 1:].split()
+        return int(campos[1])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def descendientes(lista, pid):
+    """PIDs de todos los procesos de `lista` que cuelgan de `pid` (hijos, nietos...). Se recorre
+    desde los hijos y no desde los padres, así un ciclo en una tabla corrupta no cuelga el programa."""
+    hijos = {}
+    for p in lista:
+        if p.ppid is not None:
+            hijos.setdefault(p.ppid, []).append(p.pid)
+    vistos, pendientes = set(), list(hijos.get(pid, ()))
+    while pendientes:
+        actual = pendientes.pop()
+        if actual in vistos or actual == pid:
+            continue
+        vistos.add(actual)
+        pendientes.extend(hijos.get(actual, ()))
+    return vistos
+
+
+def version_de_paquete(argv0, paquete):
+    """Versión instalada de `paquete` en el entorno virtual del ejecutable `argv0`, leída del
+    `METADATA` de su `*.dist-info`. Solo lectura de ficheros locales; nada de red ni de importar
+    código. None si `argv0` no es una ruta absoluta dentro de un entorno virtual o no hay metadatos."""
+    try:
+        ruta = Path(argv0)
+        if not ruta.is_absolute():
+            return None
+        for raiz in ruta.parents:
+            if (raiz / "pyvenv.cfg").is_file():
+                break
+        else:
+            return None
+        nombre = paquete.lower().replace("-", "_")
+        for lib in (*raiz.glob("lib/python*/site-packages"), raiz / "Lib" / "site-packages"):
+            for info in sorted(lib.glob(f"{nombre}-*.dist-info")):
+                with open(info / "METADATA", "rb") as f:
+                    for linea in f.read(MAX_METADATA).splitlines():
+                        if linea.startswith(b"Version:"):
+                            return decodificar(linea[8:]).strip()
+    except (OSError, ValueError):
+        pass
+    return None
 
 
 def enumerar():
