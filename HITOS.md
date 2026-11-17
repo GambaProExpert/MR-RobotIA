@@ -34,6 +34,23 @@ ya consolidadas** contra un servidor LLM local y **normaliza sus datos** a un in
 | **H7 · Simulación de ataques con verificación** | 2 | código propio + **Schemathesis** y **vegeta** opcionales | ataques inocuos y acotados contra el servidor (o la pasarela o aplicación de delante) y, por cada uno: ¿se bloqueó?, ¿quedó constancia (logs, métricas, auditoría)?, ¿se recuperó el servidor? Remedio y repetición de lo que falló | por hacer (diseño hecho; ver abajo) |
 | Capa 3 · agentes, MCP, herramientas | 3 | agentic-radar, etc. | superficie de agentes/MCP | **más adelante** (fuera de alcance ahora) |
 
+### Alias de los hitos
+
+Cada hito tiene un alias inspirado en las personalidades (*alters*) de la serie *Mr. Robot*, que da
+nombre a la herramienta. Es solo una forma de recordar el papel de cada hito; los identificadores
+del código y del informe siguen siendo `H0`…`H7`.
+
+| Hito | Alias | Personaje | Por qué |
+|---|---|---|---|
+| H0 · Núcleo orquestador | `Mastermind` | El Cerebro (el Vigilante) | Toma el control operativo: dirige las herramientas, organiza las rutas y ejecuta las órdenes sin comprometer el sistema (nunca con `shell=True`). Es el arquitecto que mueve los hilos |
+| H1 · Integridad SHA-256 | `Real_Elliot` (o `Host`) | El verdadero Elliot | La verdad original e inalterable: comprueba que modelos, adaptadores e índices siguen siendo exactamente lo que eran, sin manipular |
+| H2 · Identificación, exposición, arranque y avisos | `The_Voyeur` (o `Hello_Friend`) | El espectador | El observador silencioso: antes de actuar mira desde fuera qué servidor corre, sus puertos y su configuración (`0.0.0.0`, TLS, CORS) y la compara con los avisos conocidos (CVE) |
+| H3 · Seguridad del host | `Magda` (o `Persecutor`) | La madre | La figura estricta y severa: audita la máquina con mano dura (CIS, ssh-audit, Trivy) buscando malas configuraciones, secretos expuestos o puertas mal cerradas |
+| H4 · Barrido del endpoint | `fsociety` (o `Darlene`, `Fuzz_Mask`) | La máscara, el colectivo | El ataque masivo, ruidoso y sistemático: con garak lanza muchas sondas de inyección para probar la resistencia del endpoint desde distintos ángulos |
+| H5 · Prompt injection y evals | `White_Rose` (o `Dark_Army`) | Whiterose (la manipulación) | La mente maestra de la manipulación: inyección directa e indirecta, fuga entre sesiones y abuso de privilegios (BOLA/BFLA) como *gate* de CI |
+| H6 · Datos no salen de la red | `Young_Elliot` (o `Safe_Room`) | El Elliot niño | La necesidad absoluta de aislamiento: que prompts y salidas nunca salgan del entorno local (juez offline con Ollama) |
+| H7 · Simulación de ataques con verificación | `Mr_Robot` | El protector | Entra en acción en los momentos críticos: lanza ataques controlados y comprueba si el sistema resiste, si deja rastro y si se recupera |
+
 ## Orden propuesto
 
 `H0 → H2 → H3 → H4 → H5 → H6 → H7`
