@@ -660,3 +660,16 @@ def test_los_ejemplos_del_repositorio_son_validos():
     assert error is None
     info, id_error, _ = h4_garak.construir_generador(cfg, None)
     assert info["target_type"] == "rest" and info["usa_clave"] and id_error is None
+
+
+def test_salida_relativa_se_resuelve_a_absoluta(tmp_path, monkeypatch):
+    """Con `-o` relativo, las rutas que recibe garak (XDG_*, report_dir) deben ser absolutas: garak
+    ignora XDG_* relativos y entonces escribe en ~/.local/share/garak."""
+    monkeypatch.chdir(tmp_path)
+    m = H4Garak()
+    m.directorio_salida = Path("informes") / "x_garak"
+    carpeta = m._carpeta()
+    assert carpeta.is_absolute() and carpeta == (tmp_path / "informes" / "x_garak").resolve()
+    env = m._env_deteccion({})
+    for k in ("XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"):
+        assert Path(env[k]).is_absolute() and Path(env[k]).is_relative_to(carpeta)

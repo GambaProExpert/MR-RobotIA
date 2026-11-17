@@ -3,6 +3,14 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.11.1] - 2026-11-17
+
+### Corregido
+- **H4 con `-o` relativo:** la carpeta de salida de garak se pasaba relativa, garak ignoraba los
+  `XDG_*` relativos (como manda la especificación XDG) y escribía su informe y su registro en
+  `~/.local/share/garak`; MRRobotIA decía entonces que «garak terminó sin completar el barrido» aunque
+  había acabado bien. Ahora la carpeta se resuelve siempre a ruta absoluta.
+
 ## [0.11.0] - 2026-11-17
 
 ### Añadido: `--check-tools` y guía de instalación de las herramientas externas

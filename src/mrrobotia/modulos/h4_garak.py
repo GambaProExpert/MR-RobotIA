@@ -751,7 +751,9 @@ class H4Garak(ModuloHerramienta):
         if self.directorio_salida is None:
             import tempfile
             return Path(tempfile.mkdtemp(prefix="mrrobotia_garak_"))
-        return Path(self.directorio_salida)
+        # Absoluta siempre: garak ignora XDG_* relativos (como manda la especificación XDG) y entonces
+        # escribe en ~/.local/share/garak, fuera de la carpeta de salida.
+        return Path(self.directorio_salida).resolve()
 
     def _crear(self, carpeta, *subcarpetas):
         carpeta.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -765,7 +767,7 @@ class H4Garak(ModuloHerramienta):
     def _env_deteccion(self, objetivo):
         if self.directorio_salida is None:
             return None
-        carpeta = Path(self.directorio_salida)
+        carpeta = self._carpeta()
         self._crear(carpeta, "home/data", "home/config", "home/cache")
         return {**os.environ, **self._entorno_xdg(carpeta)}
 
