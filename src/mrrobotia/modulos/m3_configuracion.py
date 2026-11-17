@@ -169,7 +169,7 @@ class M3Configuracion(Modulo):
                 "Declara la ruta correcta en 'users' si este objetivo tiene login.", REFS)]
         h = list(_hallazgos_permisos(ruta, "USUARIOS", "usuarios.json"))
         try:
-            datos = json.loads(ruta.read_text(encoding="utf-8"))
+            datos = json.loads(ruta.read_text(encoding="utf-8-sig"))
         except Exception as e:
             h.append(Hallazgo(
                 "M3", "M3-USUARIOS-ILEGIBLE", "No se puede leer usuarios.json como JSON",

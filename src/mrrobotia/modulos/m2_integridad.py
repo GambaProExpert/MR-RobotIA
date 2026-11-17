@@ -40,7 +40,7 @@ class M2Integridad(Modulo):
         ruta_manif = objetivo.get("manifest")
         if ruta_manif:
             if Path(ruta_manif).exists():
-                manifiesto = json.loads(Path(ruta_manif).read_text(encoding="utf-8"))
+                manifiesto = json.loads(Path(ruta_manif).read_text(encoding="utf-8-sig"))
                 if not objetivo.get("manifest_signed"):
                     hallazgos.append(Hallazgo(
                         "M2", "M2-MANIF-SIN-FIRMA", "El manifiesto de integridad no está firmado",
@@ -64,7 +64,11 @@ class M2Integridad(Modulo):
         for art in artefactos:
             ruta = Path(art["path"])
             nombre = ruta.name
-            esperado = art.get("sha256") or (manifiesto.get(nombre) or {}).get("sha256")
+            esperado = art.get("sha256")
+            fuente = "el hash declarado en el objetivo"
+            if not esperado:
+                esperado = (manifiesto.get(nombre) or {}).get("sha256")
+                fuente = "el manifiesto"
             if not ruta.exists():
                 hallazgos.append(Hallazgo(
                     "M2", f"M2-FALTA-{nombre}", f"Artefacto ausente: {nombre}",
@@ -90,8 +94,9 @@ class M2Integridad(Modulo):
                     "Registra este hash en el manifiesto firmado para poder detectar alteraciones.", REFS))
             elif real.lower() != esperado.lower():
                 hallazgos.append(Hallazgo(
-                    "M2", f"M2-ALTERADO-{nombre}", f"El artefacto NO coincide con el manifiesto: {nombre}",
-                    Severidad.CRITICA, "confirmado", f"esperado {esperado[:16]}…, real {real[:16]}…",
+                    "M2", f"M2-ALTERADO-{nombre}", f"El artefacto NO coincide con el hash esperado: {nombre}",
+                    Severidad.CRITICA, "confirmado",
+                    f"esperado {esperado[:16]}… (según {fuente}), real {real[:16]}…",
                     "No cargues el artefacto; investiga la alteración (posible compromiso de cadena de suministro).",
                     {"owasp": "LLM03", "atlas": "AML.T0018.000", "nist": "2.12"}))
             else:

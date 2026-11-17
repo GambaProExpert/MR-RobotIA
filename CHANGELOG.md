@@ -3,6 +3,17 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.9.1] - 2026-11-17
+
+### Corregido (rarezas al probar en Windows con un llama-server real)
+- **BOM en el objetivo:** el JSON del objetivo, el manifiesto de M2 y los JSON de configuración de M3 se leen con
+  `utf-8-sig`; un fichero escrito con `Set-Content -Encoding UTF8` de PowerShell 5.1 ya no da «not valid JSON».
+- **llama.cpp sin versión:** si ni `/props` ni `/build.json` dan la build (p. ej. `--api-key` con `--no-webui`),
+  H2-BUILD ya no se titula «detectada»: pasa a «No se ha podido determinar la build» y queda «sin concluir».
+- **`--server` forzado:** el hallazgo dice «Servidor forzado con --server» en lugar de «identificado»; si lo detectado lo contradice sigue saliendo H2-ID-CONFLICTO.
+- **M2:** el hallazgo de hash distinto ya no dice «no coincide con el manifiesto» si el hash esperado venía en
+  línea en el objetivo: «no coincide con el hash esperado» y la evidencia nombra su fuente.
+
 ## [0.9.0] - 2026-11-16
 
 ### Corregido (tras contrastar el perfil de vLLM con un vLLM 0.33.0 real en CPU)

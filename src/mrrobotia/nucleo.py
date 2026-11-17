@@ -58,7 +58,7 @@ class Hallazgo:
 
 def cargar_objetivo(ruta):
     """Carga el fichero de alcance y verifica la autorización. Deniega por defecto."""
-    objetivo = json.loads(Path(ruta).read_text(encoding="utf-8"))
+    objetivo = json.loads(Path(ruta).read_text(encoding="utf-8-sig"))
     aut = objetivo.get("authorization", {})
     if aut.get("authorized") is not True:
         raise ErrorAutorizacion(

@@ -93,3 +93,23 @@ def test_m2_sha256_valido_en_mayusculas_sigue_comparando(tmp_path):
         == ["M2-OK-modelo.gguf"]
     assert [h.id for h in M2Integridad().ejecutar({"artifacts": [{"path": str(art), "sha256": "0" * 64}]})] \
         == ["M2-ALTERADO-modelo.gguf"]
+
+
+def test_m2_el_mensaje_nombra_la_fuente_del_hash(tmp_path):
+    art = _crear(tmp_path / "a.gguf", b"contenido")
+    manif = tmp_path / "m.json"
+    manif.write_text(json.dumps({"a.gguf": {"sha256": "1" * 64}}), encoding="utf-8")
+    en_linea = M2Integridad().ejecutar({"artifacts": [{"path": str(art), "sha256": "0" * 64}]})
+    h = [x for x in en_linea if x.id == "M2-ALTERADO-a.gguf"][0]
+    assert "manifiesto" not in h.titulo and "objetivo" in h.evidencia
+    del_manif = M2Integridad().ejecutar({"manifest": str(manif), "artifacts": [{"path": str(art)}]})
+    h = [x for x in del_manif if x.id == "M2-ALTERADO-a.gguf"][0]
+    assert "manifiesto" in h.evidencia
+
+
+def test_m2_manifiesto_con_bom(tmp_path):
+    art = _crear(tmp_path / "a.gguf", b"contenido")
+    manif = tmp_path / "m.json"
+    manif.write_text(json.dumps({"a.gguf": {"sha256": sha256_fichero(art)}}), encoding="utf-8-sig")
+    hs = M2Integridad().ejecutar({"manifest": str(manif), "artifacts": [{"path": str(art)}]})
+    assert "M2-OK-a.gguf" in [h.id for h in hs]

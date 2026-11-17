@@ -122,3 +122,10 @@ def test_informe_marca_lo_potencial():
                     Hallazgo("H", "B", "Observado", Severidad.ALTA, "confirmado", "e")])
     md = informe.to_markdown()
     assert "Coincide por versión *(potencial)*" in md and "Observado *(potencial)*" not in md
+
+
+def test_cargar_objetivo_acepta_bom_de_powershell(tmp_path):
+    ruta = tmp_path / "t.json"
+    ruta.write_text(json.dumps({"authorization": {"authorized": True, "authorized_by": "x",
+                                                  "scope": "x", "date": "2026-01-01"}}), encoding="utf-8-sig")
+    assert nucleo.cargar_objetivo(ruta)["authorization"]["authorized"] is True

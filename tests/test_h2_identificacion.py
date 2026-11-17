@@ -831,3 +831,13 @@ def test_la_evidencia_del_enlace_dice_donde_escucha_de_verdad(entorno, tmp_path)
     m, h = ejecutar(objetivo())
     assert m.contexto.servidores[0].escucha == ["0.0.0.0:8010"]
     assert "enlace: todas (0.0.0.0:8010)" in uno(h, "H2-ID-SERVIDOR").evidencia
+
+
+def test_forzado_se_titula_forzado_no_identificado(entorno):
+    with ServidorFalso(llamacpp()) as s:
+        entorno.abiertos = {s.puerto}
+        _, h = ejecutar(objetivo(endpoint=s.url), activos=True, forzado="vllm")
+    titulo = uno(h, "H2-ID-SERVIDOR").titulo
+    assert "forzado" in titulo and "identificado" not in titulo
+    assert "H2-ID-CONFLICTO" in ids(h)
+

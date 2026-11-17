@@ -753,8 +753,13 @@ class LlamaCpp(Perfil):
             publica = version is not None
         servidor.version = version or servidor.version
         evidencia = f"build = {servidor.version or 'desconocida'}"
-        return _h("H2-BUILD", "Build de llama.cpp/llama-server detectada", Severidad.INFO,
-                  evidencia + ("; /build.json la publica sin clave" if publica else ""), "", REFS_SUPPLY, "informativo")
+        if servidor.version:
+            return _h("H2-BUILD", "Build de llama.cpp/llama-server detectada", Severidad.INFO,
+                      evidencia + ("; /build.json la publica sin clave" if publica else ""), "", REFS_SUPPLY,
+                      "informativo")
+        return _h("H2-BUILD", "No se ha podido determinar la build de llama.cpp/llama-server", Severidad.INFO,
+                  evidencia + "; ni /props ni /build.json la han dado (con --api-key y --no-webui no hay ruta "
+                  "pública que la publique)", "", REFS_SUPPLY, "sin_concluir")
 
     def evaluar_arranque(self, servidor, expuesto) -> list:
         """Riesgos de cómo se arrancó (`llamacpp.md` §7). Lo que falta en la línea de órdenes

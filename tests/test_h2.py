@@ -395,7 +395,7 @@ def test_sondear_con_clave():
 
 def test_sondear_con_clave_y_sin_webui():
     h, _, s = sondear(llamacpp(clave="k", webui=False))
-    assert uno(h, "H2-BUILD").evidencia == "build = desconocida" and "H2-WEBUI" not in ids(h) and s.version is None
+    assert uno(h, "H2-BUILD").evidencia.startswith("build = desconocida") and "H2-WEBUI" not in ids(h) and s.version is None
 
 
 def test_version_del_contexto_se_conserva_si_no_hay_otra():
@@ -904,3 +904,11 @@ def test_objetivo_malformado_no_llega_al_llamador():
     m = H2Exposicion()
     m.contexto = Contexto("linux", servidores=[servidor()])
     assert "H2-ERROR" in ids(m.ejecutar({"exposure": ["no es un objeto"]}))
+
+
+def test_build_desconocida_no_se_titula_detectada():
+    """Con --api-key y --no-webui no hay ruta pública con la versión: no se dice «detectada»."""
+    h, _, s = sondear(llamacpp(clave="k", webui=False))
+    build = uno(h, "H2-BUILD")
+    assert s.version is None and build.estado == "sin_concluir"
+    assert "detectada" not in build.titulo and "desconocida" in build.evidencia

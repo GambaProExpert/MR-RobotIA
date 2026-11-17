@@ -358,8 +358,12 @@ def _hallazgo_servidor(s):
             Severidad.INFO, "informativo", _evidencia_servidor(s),
             "MRRobotIA solo tiene perfil propio para llama.cpp y vLLM: sobre este servicio solo se "
             "aplicarán las comprobaciones comunes.", REFS)
-    titulo = ("Servidor compatible con OpenAI, sin más información" if s.tipo == GENERICO.id
-              else f"Servidor identificado: {s.tipo}")
+    if s.tipo == GENERICO.id:
+        titulo = "Servidor compatible con OpenAI, sin más información"
+    elif "forzado" in s.fuentes:
+        titulo = f"Servidor forzado con --server: {s.tipo}"      # lo dice el usuario, no se ha identificado
+    else:
+        titulo = f"Servidor identificado: {s.tipo}"
     return Hallazgo(MODULO, "H2-ID-SERVIDOR", titulo, Severidad.INFO, "informativo",
                     _evidencia_servidor(s), "", REFS)
 
