@@ -50,7 +50,8 @@ _RUTA_SSHD_POSIX = "/etc/ssh/sshd_config"
 # Tope de hallazgos de la parte activa (algoritmos/CVE); el resto se resume en un INFO.
 MAX_ACTIVOS = 20
 SSH_AUDIT = herramientas.Herramienta(
-    "ssh-audit", "ssh-audit", instalar_con="pip install ssh-audit", refs=REFS)
+    # ssh-audit no acepta --version: su cabecera «# ssh-audit vX.Y.Z» sale con -h (comprobado con la 3.9.0).
+    "ssh-audit", "ssh-audit", version_args=("-h",), fijada="3.9.0", refs=REFS)
 
 # CVE que ssh-audit puede señalar en el texto de las notas aunque su campo `cves` esté
 # vacío (la asociación CVE↔versión se retiró en ssh-audit 3.3.0).
@@ -503,7 +504,7 @@ class H3Ssh(Modulo):
             return [Hallazgo(
                 "H3-SSH", "H3-SSH-NO-AUDIT", "ssh-audit no está instalada",
                 Severidad.INFO, "informativo", det.error or "",
-                "Instálala para el análisis activo de SSH: pip install ssh-audit", REFS)]
+                f"Instálala para el análisis activo de SSH: {herramientas.como_instalar(SSH_AUDIT)}", REFS)]
 
         res = herramientas.ejecutar(
             [det.ruta, "-j", "--skip-rate-test", "-n", "-p", str(puerto_ssh), host],

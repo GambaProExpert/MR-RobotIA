@@ -5,6 +5,7 @@ MRRobotIA: defensive posture auditor for self-hosted LLM deployments (bachelor's
 Usage:
   mrrobotia -t target.json [-a] [-o report_prefix] [-s SCANS] [-x SCANS]
   mrrobotia -l
+  mrrobotia --check-tools [-t target.json] [--os windows|linux|macos]
   python -m mrrobotia -t target.json
 
 Environment variables (alternative to the options):
@@ -27,12 +28,13 @@ vLLM server. With -l/--list you can see all the scans and groups.
 The audit report is in Spanish for now; the keys of the target file are in English.
 """
 import argparse
+import json
 import os
 import sys
 import tempfile
 from pathlib import Path
 
-from mrrobotia import herramientas, nucleo
+from mrrobotia import herramientas, instalacion, nucleo
 from mrrobotia.modulos.m2_integridad import M2Integridad
 from mrrobotia.modulos.m3_configuracion import M3Configuracion
 from mrrobotia.modulos.h2_identificacion import H2Identificacion, destino_declarado
@@ -175,6 +177,96 @@ def _listar():
         print(f"  {g}: {texto}{miembros}")
 
 
+def _inventario():
+    """Herramientas externas distintas que usan los escaneos, con quién las usa: lista de
+    (Herramienta, [(módulo, etiqueta del escaneo), ...]) en el orden del registro."""
+    vistas = {}
+    for m in [IDENTIFICACION, *MODULOS]:
+        if m.externa is not None:
+            vistas.setdefault(m.externa.nombre, (m.externa, []))[1].append((m.nombre, m.etiqueta_escaneo))
+    return list(vistas.values())
+
+
+def _overrides_de(ruta):
+    """`tools` del fichero objetivo, sin exigir la autorización (--check-tools no escanea nada)."""
+    if not ruta:
+        return {}
+    try:
+        datos = json.loads(Path(ruta).read_text(encoding="utf-8"))
+    except OSError as e:
+        sys.exit(f"Cannot read the target file ({type(e).__name__}): {ruta}")
+    except ValueError:
+        sys.exit(f"The target file is not valid JSON: {ruta}")
+    tools = datos.get("tools") if isinstance(datos, dict) else None
+    return tools if isinstance(tools, dict) else {}
+
+
+def _estado_herramienta(herramienta, overrides):
+    """(estado, detección, origen) de una herramienta. Estados: ok, missing, old, unreadable."""
+    conf = overrides.get(herramienta.nombre) or {}
+    ruta_decl = conf.get("path") if isinstance(conf, dict) else None
+    if ruta_decl and not Path(ruta_decl).is_file():
+        det = herramientas.Deteccion(False, None, None, "tools.%s.path does not point to a file" % herramienta.nombre)
+        return "missing", det, "target file"
+    det = herramientas.detectar(herramienta, overrides)
+    origen = "target file (tools.%s.path)" % herramienta.nombre if ruta_decl else "PATH"
+    if not det.disponible:
+        return "missing", det, origen
+    minima = herramienta.exigida or herramienta.min_version
+    if minima and det.version is None:
+        return "unreadable", det, origen
+    if minima and herramientas._version_menor(det.version, minima):
+        return "old", det, origen
+    return "ok", det, origen
+
+
+_ROTULO = {"ok": "OK", "missing": "NOT INSTALLED", "old": "VERSION TOO OLD", "unreadable": "VERSION UNREADABLE"}
+
+
+def _comprobar_herramientas(ruta_objetivo=None, sistema=None):
+    """Imprime el estado de cada herramienta externa y cómo instalarla. No necesita objetivo ni toca red;
+    con un objetivo (-t) solo lee `tools` para respetar las rutas declaradas. Devuelve el nº de listas."""
+    sistema = sistema or instalacion.sistema_actual()
+    overrides = _overrides_de(ruta_objetivo)
+    print(f"MRRobotIA external tools (instructions for: {sistema})")
+    print("MRRobotIA never installs anything by itself; this only checks and tells you how.")
+    listas = 0
+    inventario = _inventario()
+    for h, usos in inventario:
+        estado, det, origen = _estado_herramienta(h, overrides)
+        listas += estado == "ok"
+        ins = instalacion.descripcion(h.nombre)
+        print("\n" + f"{h.nombre}: {_ROTULO[estado]}")
+        if ins:
+            print(f"  what for : {ins.para_que}")
+        print("  used by  : " + ", ".join(f"{n} (scan '{e}')" for n, e in usos))
+        if det.disponible:
+            print(f"  found    : {det.ruta} (from {origen})")
+        else:
+            print("  found    : no (" + ("not found in PATH" if det.error == "no encontrada en PATH" else det.error) + ")")
+        minima = h.exigida or h.min_version
+        ver = det.version or ("not reported by the tool" if h.version_args is None else "unknown")
+        print(f"  version  : {ver}; minimum: {minima or 'none'}; pinned in the guide: {h.fijada or 'n/a'}")
+        pasos = instalacion.pasos(h, sistema)
+        for p in pasos:
+            print(f"  {'install' if p.recomendada else 'or'} ({sistema}): {p.titulo}")
+            print(f"      source: {p.fuente}")
+            if p.recomendada or len(p.ordenes) <= 3:
+                for o in p.ordenes:
+                    print(f"      {o}")
+                if p.binario:
+                    print(f"      -> executable: {p.binario}")
+        if ins:
+            print(f"  integrity: {ins.verificacion.replace('{version}', h.fijada or '')}")
+            nota_cache = ins.cache.get(sistema, "") + ("; " if ins.cache.get(sistema) else "") + ins.cache.get("*", "")
+            print(f"  data     : {nota_cache}")
+            if ins.nota:
+                print(f"  note     : {ins.nota}")
+        print(f"  not in PATH? put in the target file: {instalacion.como_apuntar(h)}")
+    print("\n" + f"{listas} of {len(inventario)} tools ready. Full guide: {instalacion.GUIA}")
+    return listas
+
+
 def _preparar_salida(prefijo):
     """Crea la carpeta de --out si falta y comprueba que se puede escribir en ella.
     Se hace ANTES de escanear: fallar al final perdería toda la auditoría."""
@@ -224,6 +316,14 @@ def main():
     ap.add_argument("-l", "--list", action="store_true",
                     help="Show the scans and the groups (what they do, whether they are passive or hybrid, "
                          "which external tool they use and whether it is installed) and exit")
+    ap.add_argument("--check-tools", action="store_true",
+                    help="Check the external tools (Julius, ssh-audit, Trivy, garak): which scans use each, "
+                         "whether it is installed (path and version), the minimum version, and the exact way to "
+                         "install it on this system. Needs no target; with -t it respects tools.<name>.path. "
+                         "It installs nothing")
+    ap.add_argument("--os", choices=instalacion.SISTEMAS, default=None,
+                    help="With --check-tools: show the install instructions of this system instead of the "
+                         "current one")
     ap.add_argument("--server", choices=["auto", "llama.cpp", "vllm"], default="auto",
                     help="Force the type of server to audit instead of detecting it (default: auto). "
                          "If the detected one differs, a warning is issued and the forced one is used")
@@ -235,6 +335,11 @@ def main():
     if args.list:
         _listar()
         return
+    if args.check_tools:
+        _comprobar_herramientas(args.target or os.environ.get("MRROBOTIA_TARGET"), args.os)
+        return
+    if args.os:
+        sys.exit("--os only makes sense with --check-tools")
 
     ruta_objetivo = args.target or os.environ.get("MRROBOTIA_TARGET")
     if not ruta_objetivo:

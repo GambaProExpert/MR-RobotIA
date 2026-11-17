@@ -2,7 +2,7 @@
 
 > Operativiza [Guia_agentes.md](Guia_agentes.md). Alcance elegido: **LLM + RAG + host**.
 > Estado de este documento: versión 0.10.0 (2026-11-17). H0-H4 hechos; H5-H7 por hacer (H7 con el diseño hecho). vLLM está validado contra un
-> vLLM 0.33.0 real en CPU; quedan por validar GPU, generación, Trivy y ssh-audit reales (ver más abajo).
+> vLLM 0.33.0 real en CPU; quedan por validar GPU, generación y el escaneo real de ssh-audit (ver más abajo). Trivy ya está validado en real (0.11.0).
 
 ## Qué es ahora MRRobotIA
 
@@ -27,7 +27,7 @@ ya consolidadas** contra un servidor LLM local y **normaliza sus datos** a un in
 | **H0 · Núcleo orquestador** | — | código propio | `Herramienta`/`ModuloHerramienta`: detectar (`which`/versión), ejecutar con *timeout* y sin `shell=True`, parsear salida a `Hallazgo`, mapear marcos; rutas de herramientas por objetivo | **hecho** |
 | **H1 · Integridad SHA-256** | 1 | código propio (M2) | hashes de modelos/adaptadores/índices frente a manifiesto o `sha256` en línea; un `sha256` mal formado no cuenta como alteración | **hecho** |
 | **H2 · Identificación, exposición, arranque y avisos** | 1 | código propio (+ Julius opcional) | **H2-ID** identifica antes de auditar el servidor (llama.cpp o vLLM), versión, arranque y SO; **H2** evalúa por servidor *bind* (loopback vs `0.0.0.0`), autenticación, CORS, `Host`, TLS y los endpoints propios del perfil; **H2-ARRANQUE** revisa opciones y entorno; **H2-CVE** compara la versión con 48 avisos de llama.cpp y 140 de vLLM. Puertos por defecto de llama.cpp: **9931** (builds recientes) y **8080**; de vLLM, 8000 | **hecho** · llama.cpp validado contra un servidor real; **vLLM implementado desde el código de la 0.33.0 y validado contra un vLLM 0.33.0 real en CPU (peticiones de lectura)** |
-| **H3 · Seguridad del host** | 1 | código propio + **Trivy** + ssh-audit | SSH (`sshd_config` CIS + `ssh-audit`), puertos abiertos innecesarios/inseguros (los puertos esperados salen de lo identificado) y vulnerabilidades/secretos/config con Trivy. Solo se ejecuta en máquinas con un servidor llama.cpp o vLLM. | **hecho** · Trivy y ssh-audit solo con salidas simuladas |
+| **H3 · Seguridad del host** | 1 | código propio + **Trivy** + ssh-audit | SSH (`sshd_config` CIS + `ssh-audit`), puertos abiertos innecesarios/inseguros (los puertos esperados salen de lo identificado) y vulnerabilidades/secretos/config con Trivy. Solo se ejecuta en máquinas con un servidor llama.cpp o vLLM. | **hecho** · Trivy validado en real (0.11.0); ssh-audit instalado y detectado, escaneo real pendiente (sin sshd) |
 | **H4 · Barrido del endpoint** | 2 | **garak** (NVIDIA) | barrido amplio del endpoint REST/llama.cpp (sondas de inyección y más) → informe JSONL normalizado | **hecho** (0.10.0) · **sustituye al *prober* propio anterior** (fuera del repositorio). Validado contra un llama.cpp real (7B) con configuración automática, `garak-config.json` REST pegado y tiempo agotado con informe parcial; **vLLM sin validar en real** (solo pruebas herméticas). Duración medida solo para `quick` (unos 4-6 min); `standard` y `full` son estimaciones |
 | **H5 · Prompt injection / evals** | 2 | **promptfoo** | red team + evals en YAML como *gate* de CI: inyección directa e indirecta, fuga entre sesiones, agencia excesiva, BOLA/BFLA | por hacer |
 | **H6 · Datos no salen de la red** | 2 | **DeepEval / DeepTeam** | **MUY IMPORTANTE**: comprobar que prompts y salidas no salen de la red; juez local (`deepeval set-ollama`), red teaming offline | por hacer |
@@ -125,8 +125,15 @@ contra un endpoint **llama.cpp**; formato de salida y su parseo; mapeo a severid
   configuración (se integra en H2 para aplicaciones con login), H2 completo y H3.
 - Selector del comando: `--scan`, `--skip`, `--list`, `--server` y `--declared-only` (opciones cortas e inglesas desde la 0.7.0).
 - **Validado:** vLLM 0.33.0 real en CPU, solo con peticiones de lectura (GET y OPTIONS).
-- **Sigue sin validar:** vLLM en GPU y con generación, y Trivy y ssh-audit instalados de verdad
-  (hoy solo con salidas simuladas).
+- **Sigue sin validar:** vLLM en GPU y con generación, y el **escaneo real de ssh-audit** (instalado y
+  detectado con su versión, pero sin ningún `sshd` local contra el que probarlo; no se escanea ningún
+  servidor ajeno).
+- **Trivy (0.11.0):** validado en real con la 0.76.2 (instalada con la guía y la suma SHA-256 comprobada)
+  en H3 `vulns` sobre carpetas reales de solo lectura, incluidos hallazgos reales; solo el modo sin red,
+  con la base descargada antes (134 MB de descarga, 1,7 GB descomprimida).
+- **Herramientas externas (0.11.0):** MRRobotIA no las instala; `--check-tools` y `docs/TOOLS.md` /
+  `docs/HERRAMIENTAS.md` dicen cómo, desde un catálogo único (`instalacion.py`). Las órdenes de
+  Windows están ejecutadas; las de Linux y macOS, sin ejecutar.
 - **H4 (0.10.0):** garak sustituye por completo al *prober* propio anterior, que sigue fuera del
   repositorio y no se recupera. Etiqueta `garak`, fuera de `all`, con doble consentimiento. Validado
   contra un llama.cpp real; la configuración automática para vLLM solo tiene pruebas herméticas

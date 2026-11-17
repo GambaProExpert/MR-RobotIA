@@ -741,9 +741,8 @@ class H4Garak(ModuloHerramienta):
 
     herramienta = Herramienta(
         "garak", "garak", version_args=("--version",),
-        instalar_con=(f"pip install garak=={VERSION_PROBADA} en un entorno propio (Python >=3.11); torch solo CPU: "
-                      "--extra-index-url https://download.pytorch.org/whl/cpu"),
         min_version=None,       # la versión mínima la comprueba el propio módulo (no se ejecuta con una anterior)
+        exigida=VERSION_MINIMA, fijada=VERSION_PROBADA,
         refs=REFS_GARAK_INFO, aislar_xdg=True)
     externa = herramienta
 
@@ -792,7 +791,7 @@ class H4Garak(ModuloHerramienta):
         if det.version is None or _version_menor(det.version, VERSION_MINIMA):
             return [self._h("VERSION-NO-SOPORTADA", "Versión de garak no soportada", Severidad.INFO, "informativo",
                             f"versión {det.version or 'ilegible'}; se necesita {VERSION_MINIMA} o superior",
-                            f"Instala garak {VERSION_PROBADA}: {self.herramienta.instalar_con}")]
+                            f"Instala garak {VERSION_PROBADA}: {herramientas.como_instalar(self.herramienta)}")]
         cfg, error = leer_config(objetivo)
         if error:
             return self._config_invalida(error)

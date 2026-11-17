@@ -18,7 +18,8 @@ sí los saca». La hoja de ruta está en [HITOS.md](HITOS.md).
 | **vLLM** (mismo perfil) | Implementado a partir del código de la versión 0.33.0 y **validado contra un vLLM 0.33.0 real en CPU** (solo peticiones de lectura): aún sin validar en GPU ni con generación; las pruebas usan un servidor falso que sigue esa lectura y esas observaciones |
 | Cualquier otro servicio (Ollama, LM Studio...) | Solo se reconoce (con las sondas de Julius, si está instalada) y recibe las comprobaciones comunes; no tiene perfil propio |
 | garak (H4) | Ejecutado de punta a punta contra un `llama-server` real (garak 0.17.1): configuración automática, configuración REST pegada y tiempo agotado con informe parcial. **vLLM: la configuración automática solo está en pruebas herméticas, sin validar en real.** Los presets `standard` y `full` no se han cronometrado |
-| Trivy y `ssh-audit` | Solo con salidas simuladas: no se han ejecutado las herramientas reales |
+| Trivy (H3 `vulns`) | Instalado con [la guía](docs/HERRAMIENTAS.md) (0.76.2, con la suma SHA-256 comprobada) y ejecutado de punta a punta por MRRobotIA sobre carpetas reales (solo lectura), con hallazgos reales (dependencias vulnerables). Solo el modo sin red, con la base descargada antes |
+| `ssh-audit` | Instalado con la guía (3.9.0) y detectado con su versión; **su escaneo real sigue pendiente** (no hay `sshd` local y no se escanea ningún servidor ajeno): hasta entonces solo tiene salidas simuladas |
 | Julius | Se probó a mano contra un servidor real. Dentro de MRRobotIA, que solo la invoca para lo que los perfiles no reconocen, se ha ejecutado contra un servicio que no era un LLM; el reconocimiento positivo está probado con salidas simuladas |
 | Sistemas operativos | Windows 11 y Ubuntu 24.04 (WSL2); en Linux, sin `sshd` ni servidor reales |
 | Pruebas automáticas | `pytest`, herméticas (servidor falso, tabla de puertos y procesos simulados) |
@@ -36,7 +37,11 @@ pytest
 ```
 El paquete solo usa la biblioteca estándar: no añade dependencias en tiempo de ejecución.
 Las herramientas externas (Julius, ssh-audit, Trivy, garak) son opcionales y se instalan aparte; si
-falta una, el informe lo dice y explica cómo instalarla. Para garak, ver
+falta una, el informe lo dice y explica cómo instalarla. MRRobotIA nunca instala nada por su cuenta.
+`mrrobotia --check-tools` muestra, para cada herramienta, qué escaneos la usan, si está (ruta y
+versión) y la forma exacta de instalarla en tu sistema; la guía completa, con versiones fijadas,
+verificación de sumas y ubicación de cachés, es [docs/HERRAMIENTAS.md](docs/HERRAMIENTAS.md)
+(promptfoo y DeepEval se sumarán con H5 y H6). Para garak, ver
 [H4: barrido con garak](#h4-barrido-con-garak--s-garak).
 
 ## Inicio rápido
@@ -125,11 +130,14 @@ en `.gitignore`, igual que la carpeta `informes/`).
 | `-x`, `--skip` | Etiquetas o grupos que quitar de la selección. El escaneo `id` no se puede excluir |
 | `-l`, `--list` | Muestra los escaneos y los grupos (qué hace cada uno, si es pasivo o híbrido, qué herramienta externa usa y si está instalada) y termina; no necesita `--target` |
 | `--server {auto,llama.cpp,vllm}` | Fuerza el tipo de servidor en lugar de detectarlo. Si lo detectado difiere, el informe avisa del conflicto y se usa lo forzado |
+| `--check-tools` | Comprueba las herramientas externas (Julius, ssh-audit, Trivy, garak): qué escaneos usa cada una, si está instalada (ruta y versión), la versión mínima y cómo instalarla en este sistema. No necesita objetivo ni instala nada; con `-t` respeta `tools.<nombre>.path`. Guía: [docs/HERRAMIENTAS.md](docs/HERRAMIENTAS.md) |
+| `--os {windows,linux,macos}` | Con `--check-tools`: enseña las instrucciones de instalación de otro sistema |
 | `--declared-only` | Audita solo el servidor del `endpoint` o del puerto declarado: no se prueban otros candidatos ni se auditan los demás servidores del host. Falla si el objetivo no declara ninguno |
 
 Ejemplos:
 ```
 mrrobotia -l
+mrrobotia --check-tools
 mrrobotia -t target.json -s server -x cve
 mrrobotia -t target.json -s passive -o informes/hoy
 mrrobotia -t target.json -a --declared-only
@@ -343,6 +351,7 @@ MRRobotIA/
 │   ├── nucleo.py           # hallazgos, autorización, informe y clase base de módulo
 │   ├── contexto.py         # qué se ha identificado (servidores, versión, enlace...)
 │   ├── herramientas.py     # núcleo orquestador de herramientas externas
+│   ├── instalacion.py      # catálogo único de cómo instalar cada herramienta (INFO del informe, --check-tools, guía)
 │   ├── red.py              # utilidades de red/SO (puertos, enlace, sondeo, cliente HTTP)
 │   ├── procesos.py         # lectura de procesos locales (línea de órdenes, entorno)
 │   ├── cve.py              # comparación de versiones con los avisos de seguridad
@@ -374,7 +383,7 @@ El detalle, el orden y qué extrae cada hito están en [HITOS.md](HITOS.md).
 | H0 Núcleo orquestador | — | Hecho |
 | H1 Integridad de artefactos (SHA-256) | 1 | Hecho |
 | H2 Identificación, exposición, arranque y avisos | 1 | Hecho; llama.cpp validado con un servidor real, **vLLM pendiente de validar** |
-| H3 Seguridad del host (SSH, puertos, Trivy) | 1 | Hecho; Trivy y ssh-audit solo con salidas simuladas |
+| H3 Seguridad del host (SSH, puertos, Trivy) | 1 | Hecho; Trivy validado en real; ssh-audit instalado y detectado, escaneo real pendiente |
 | H4 Barrido del endpoint | 2 | Hecho (garak); validado contra un llama.cpp real, **vLLM sin validar en real** |
 | H5 Prompt injection y evals | 2 | Pendiente (promptfoo) |
 | H6 Prompts y salidas no salen de la red | 2 | Pendiente (DeepEval) |

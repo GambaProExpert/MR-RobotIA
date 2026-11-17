@@ -27,6 +27,7 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 
+from mrrobotia import instalacion
 from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
 
 # Primer número de versión tipo "x.y" o "x.y.z" que aparezca en la salida de --version.
@@ -42,8 +43,12 @@ class Herramienta:
     - `binario`: nombre del ejecutable que se buscará en el PATH (p. ej. "garak").
     - `version_args`: argumentos para preguntar la versión (p. ej. ("--version",)), o
       None si la herramienta no tiene forma de darla y no hay que consultarla.
-    - `instalar_con`: orden sugerida de instalación offline para el hallazgo.
-    - `min_version`: versión mínima recomendada ("x.y[.z]") o None.
+    - `instalar_con`: texto de instalación de reserva; la fuente de verdad es `instalacion.CATALOGO`
+      (ver `como_instalar`), que solo recurre a este campo si la herramienta no está en el catálogo.
+    - `min_version`: versión mínima recomendada ("x.y[.z]") o None; por debajo se emite un aviso.
+    - `exigida`: versión mínima obligatoria ("x.y[.z]") o None; el módulo se niega a ejecutarse por
+      debajo (solo informativo aquí: la comprobación la hace el propio módulo).
+    - `fijada`: versión con la que se ha probado y que la guía de instalación fija ("x.y[.z]") o None.
     - `refs`: marcos asociados (OWASP/ATLAS/NIST) para los hallazgos del módulo.
     - `aislar_xdg`: la herramienta escribe en las carpetas XDG del usuario (en `~`) aunque solo
       se le pida la versión (garak crea `~/.cache/garak` y `~/.config/garak`). Con True, la
@@ -54,6 +59,8 @@ class Herramienta:
     version_args: tuple | None = ("--version",)
     instalar_con: str = ""
     min_version: str | None = None
+    exigida: str | None = None
+    fijada: str | None = None
     refs: dict = field(default_factory=dict)
     aislar_xdg: bool = False
 
@@ -75,6 +82,13 @@ class Resultado:
     stderr: str
     expiro: bool
     error: str | None
+
+
+def como_instalar(herramienta, sistema=None):
+    """Cómo instalar la herramienta en el sistema (por defecto el actual), en una línea, más cómo apuntar
+    MRRobotIA a ella si ya está fuera del PATH. Misma fuente que `mrrobotia --check-tools`."""
+    return (f"{instalacion.resumen(herramienta, sistema)}. Si ya la tienes fuera del PATH, indica su ruta en "
+            f"tools.{herramienta.nombre}.path del objetivo. Detalle por sistema: mrrobotia --check-tools")
 
 
 def _extraer_version(texto):
@@ -241,7 +255,7 @@ class ModuloHerramienta(Modulo):
                 self.nombre, f"{self.nombre}-NO-INSTALADA",
                 f"{self.herramienta.nombre} no está instalada",
                 Severidad.INFO, "informativo", det.error or "",
-                f"Instálala para este análisis: {self.herramienta.instalar_con}",
+                f"Instálala para este análisis: {como_instalar(self.herramienta)}",
                 self.herramienta.refs)]
 
         h = list(self._auditar(objetivo, det))

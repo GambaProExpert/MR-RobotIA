@@ -21,7 +21,8 @@ roadmap is in [HITOS.md](HITOS.md) (in Spanish).
 | **vLLM** (same profile) | Implemented from the code of version 0.33.0 and **validated against a real vLLM 0.33.0 on CPU** (read-only requests): not yet validated on a GPU or with generation; the tests use a fake server that follows that reading and those observations |
 | Any other service (Ollama, LM Studio...) | Only recognized (with the Julius probes, if installed) and given the common checks; it has no profile of its own |
 | garak (H4) | Run end to end against a real `llama-server` (garak 0.17.1): automatic configuration, pasted REST configuration and time-out with a partial report. **vLLM: automatic configuration only in hermetic tests, not validated for real.** The `standard` and `full` presets have not been timed |
-| Trivy and `ssh-audit` | Only with simulated output: the real tools have not been run |
+| Trivy (H3 `vulns`) | Installed with [the guide](docs/TOOLS.md) (0.76.2, SHA-256 checked) and run end to end through MRRobotIA on real folders (read-only), including real findings (vulnerable dependencies). Only the offline mode, with the database downloaded beforehand |
+| `ssh-audit` | Installed with the guide (3.9.0) and detected with its version; **its real scan is still pending** (no local `sshd`, and no foreign server is scanned): until then it has only simulated output |
 | Julius | Tried by hand against a real server. Inside MRRobotIA, which only calls it for what the profiles do not recognize, it has been run against a non-LLM service; positive recognition is tested with simulated output |
 | Operating systems | Windows 11 and Ubuntu 24.04 (WSL2); on Linux, without a real `sshd` or server |
 | Automated tests | `pytest`, hermetic (fake server, simulated port table and processes) |
@@ -39,7 +40,11 @@ pytest
 ```
 The package only uses the standard library: no runtime dependencies. The external tools
 (Julius, ssh-audit, Trivy, garak) are optional and installed separately; if one is missing, the
-report says so and explains how to install it. To install garak, see
+report says so and explains how to install it. MRRobotIA never installs anything by itself.
+`mrrobotia --check-tools` shows, for each tool, which scans use it, whether it is installed (path and
+version) and the exact way to install it on your system; the full guide, with pinned versions,
+checksum verification and cache locations, is [docs/TOOLS.md](docs/TOOLS.md) (promptfoo and DeepEval
+will join it with H5 and H6). To install garak, see
 [H4: sweep with garak](#h4-sweep-with-garak--s-garak).
 
 ## Quick start
@@ -125,12 +130,15 @@ python -m mrrobotia -t target.json
 | `-s`, `--scan` | Which scans to run, by label or group, comma-separated. Default: all (`all`) |
 | `-x`, `--skip` | Labels or groups to remove from the selection. The `id` scan cannot be skipped |
 | `-l`, `--list` | Shows the scans and groups (what each does, whether it is passive or hybrid, which external tool it uses and whether it is installed) and exits; it does not need `--target` |
+| `--check-tools` | Checks the external tools (Julius, ssh-audit, Trivy, garak): which scans use each one, whether it is installed (path and version), the minimum version and how to install it on this system. It needs no target and installs nothing; with `-t` it respects `tools.<name>.path`. Guide: [docs/TOOLS.md](docs/TOOLS.md) |
+| `--os {windows,linux,macos}` | With `--check-tools`: shows the install instructions of another system |
 | `--server {auto,llama.cpp,vllm}` | Forces the server type instead of detecting it. If the detected one differs, the report warns about the conflict and the forced one is used |
 | `--declared-only` | Audits only the server of the declared `endpoint` or port: no other candidates are probed and the host's other servers are not audited. Fails if the target file declares none |
 
 Examples:
 ```
 mrrobotia -l
+mrrobotia --check-tools
 mrrobotia -t target.json -s server -x cve
 mrrobotia -t target.json -s passive -o informes/hoy
 mrrobotia -t target.json -a --declared-only
@@ -344,6 +352,7 @@ MRRobotIA/
 │   ├── nucleo.py           # findings, authorization, report and module base class
 │   ├── contexto.py         # what has been identified (servers, version, binding...)
 │   ├── herramientas.py     # orchestration core for external tools
+│   ├── instalacion.py      # single catalog of how to install each tool (report INFO, --check-tools, docs)
 │   ├── red.py              # network/OS utilities (ports, binding, probing, HTTP client)
 │   ├── procesos.py         # reading of local processes (command line, environment)
 │   ├── cve.py              # comparison of versions with the security advisories
@@ -375,7 +384,7 @@ Details, order and what each milestone extracts are in [HITOS.md](HITOS.md) (in 
 | H0 Orchestration core | none | Done |
 | H1 Artifact integrity (SHA-256) | 1 | Done |
 | H2 Identification, exposure, startup and advisories | 1 | Done; llama.cpp validated with a real server, **vLLM pending validation** |
-| H3 Host security (SSH, ports, Trivy) | 1 | Done; Trivy and ssh-audit only with simulated output |
+| H3 Host security (SSH, ports, Trivy) | 1 | Done; Trivy validated for real; ssh-audit installed and detected, real scan pending |
 | H4 Endpoint sweep | 2 | Done (garak); validated against a real llama.cpp, **vLLM not validated for real** |
 | H5 Prompt injection and evals | 2 | Pending (promptfoo) |
 | H6 Prompts and outputs do not leave the network | 2 | Pending (DeepEval) |

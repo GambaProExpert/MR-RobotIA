@@ -47,7 +47,7 @@ TIMEOUT_CONEXION_LOCAL = 0.5
 
 JULIUS = Herramienta(
     nombre="julius", binario="julius", version_args=None,
-    instalar_con="go install github.com/praetorian-inc/julius/cmd/julius@v1.6.0", refs=REFS)
+    fijada="1.6.0", refs=REFS)
 DIR_SONDAS = Path(__file__).resolve().parent.parent / "datos" / "julius_sondas"
 SERVICIOS_JULIUS = {"llama-cpp": "llama.cpp", "vllm": "vllm"}
 
@@ -481,7 +481,7 @@ class H2Identificacion(Modulo):
                 h.append(Hallazgo(
                     MODULO, "H2-ID-JULIUS-NO-INSTALADA", "Julius no está instalada", Severidad.INFO,
                     "informativo", det.error or "",
-                    f"Instálala para reconocer más servicios: {JULIUS.instalar_con}", REFS))
+                    f"Instálala para reconocer más servicios: {herramientas.como_instalar(JULIUS)}", REFS))
             return None
         # Julius sigue las redirecciones y no tiene opción para evitarlo: podría salir del host
         # autorizado. Mirar solo `/` es una mitigación parcial, porque sus sondas piden otras

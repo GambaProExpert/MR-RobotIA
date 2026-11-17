@@ -3,6 +3,46 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.11.0] - 2026-11-17
+
+### Añadido: `--check-tools` y guía de instalación de las herramientas externas
+- **Decisión:** MRRobotIA **no instala nada por su cuenta** (es una herramienta de seguridad y descargar
+  binarios sola sería un riesgo de cadena de suministro; además, «orquestar, no reinventar»). Lo que hace
+  es comprobar y decir cómo.
+- **`mrrobotia --check-tools [-t objetivo.json] [--os windows|linux|macos]`**: no necesita objetivo ni
+  red. Para cada herramienta (Julius, ssh-audit, Trivy, garak) muestra los escaneos que la usan, si está
+  (ruta, de dónde sale y versión), la versión mínima y la fijada, la forma exacta de instalarla en el
+  sistema (versión fijada y suma SHA-256 comprobada cuando el proyecto la publica), dónde deja datos o
+  cachés y cómo apuntar MRRobotIA a ella. Con `-t` respeta `tools.<nombre>.path` (mecanismo que ya
+  existía); `--os` enseña las instrucciones de otro sistema.
+- **Una sola fuente de verdad:** nuevo `instalacion.py` con el catálogo de instalación. El hallazgo INFO
+  de herramienta ausente (`*-NO-INSTALADA`, `H2-ID-JULIUS-NO-INSTALADA`, `H3-SSH-NO-AUDIT`) y
+  `--check-tools` salen de él, y `docs/TOOLS.md` y `docs/HERRAMIENTAS.md` se generan de él (una prueba
+  comprueba que cada orden del catálogo está en las dos guías). Los módulos ya no llevan su propio
+  texto de instalación (`Herramienta.instalar_con` queda solo como reserva); la versión fijada y la
+  mínima exigida viven en la `Herramienta` (`fijada`, `exigida`).
+- **El INFO de herramienta ausente** ahora da la forma recomendada del sistema actual y recuerda
+  `tools.<nombre>.path` y `--check-tools`.
+- **Guía pública** `docs/TOOLS.md` (inglés) y `docs/HERRAMIENTAS.md` (español), enlazadas desde los README:
+  una sección por herramienta con para qué se usa, instalación aislada por sistema operativo,
+  verificación, cachés (la base de Trivy pesa unos 134 MB de descarga y 1,7 GB descomprimida) y cómo
+  apuntar MRRobotIA. promptfoo (H5) y DeepEval (H6) figuran como «próximamente».
+
+### Corregido
+- **ssh-audit: la versión no se leía.** ssh-audit no acepta `--version`, así que la traza
+  `H3-SSH-AUDIT` salía siempre con versión «desconocida». Ahora se consulta con `-h`, cuya cabecera
+  lleva la versión (comprobado con la 3.9.0 real).
+
+### Validado en real (Windows 11)
+- **Trivy 0.76.2** instalado siguiendo la guía (con la suma SHA-256 comprobada) y **H3 `vulns` ejecutado
+  de punta a punta** contra carpetas reales de solo lectura (este repositorio y otro del laboratorio: sin
+  hallazgos) y contra una carpeta de prueba con dependencias antiguas (18 hallazgos reales, 2 críticos y
+  2 altos, interpretados correctamente). Hasta ahora solo había salidas simuladas.
+- **ssh-audit 3.9.0** instalado en un entorno virtual propio y detectado con su versión. **El escaneo real
+  de ssh-audit sigue pendiente:** no hay `sshd` local ni se escanea ningún servidor ajeno.
+- Las órdenes de Windows de la guía se han ejecutado de verdad. Las de Linux y macOS están escritas a partir
+  de la documentación oficial y de las páginas de versiones de cada proyecto, **sin ejecutar** en esos sistemas.
+
 ## [0.10.0] - 2026-11-17
 
 ### Añadido: H4, barrido del endpoint con garak (etiqueta `garak`)

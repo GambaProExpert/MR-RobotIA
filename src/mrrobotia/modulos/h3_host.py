@@ -31,6 +31,9 @@ from mrrobotia.herramientas import Herramienta, ModuloHerramienta
 from mrrobotia.modulos.h2_identificacion import destino_declarado
 from mrrobotia.nucleo import Hallazgo, Severidad
 
+# Versión de Trivy con la que se validó el módulo y que fija la guía de instalación.
+VERSION_PROBADA = "0.76.2"
+
 # Vulnerabilidades y malas configuraciones: cadena de suministro / integridad.
 REFS_SUPPLY = {"owasp": "LLM03", "atlas": "AML.T0010", "nist": "2.12"}
 # Secretos expuestos: fuga de información sensible.
@@ -160,9 +163,7 @@ class H3Host(ModuloHerramienta):
     herramienta = Herramienta(
         "trivy", "trivy",
         version_args=("--version",),
-        instalar_con=(
-            "https://trivy.dev/latest/getting-started/installation/ "
-            "(winget install AquaSecurity.Trivy | brew install trivy | apt install trivy)"),
+        fijada=VERSION_PROBADA,
         refs=REFS_SUPPLY)
     externa = herramienta
 
