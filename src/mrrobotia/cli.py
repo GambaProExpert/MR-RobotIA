@@ -161,7 +161,7 @@ def _listar():
         if m.externa is not None:
             det = herramientas.detectar(m.externa)
             externa = f"{m.externa.nombre} ({'installed' if det.disponible else 'not installed'})"
-        print(f"  {m.etiqueta_escaneo}  [{m.nombre}]")
+        print(f"  {m.etiqueta_escaneo}  {nucleo.rotulo_hito(m.hito)}  [{m.nombre}]")
         print(f"      {m.descripcion}")
         extra = [f"type: {_NOMBRE_TIPO.get(m.tipo, m.tipo)}", f"external tool: {externa}"]
         if m.requiere_servidor:

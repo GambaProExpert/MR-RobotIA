@@ -156,6 +156,7 @@ class H3Host(ModuloHerramienta):
     titulo = "Vulnerabilidades, secretos y configuración del host (Trivy)"
     activo = False               # Trivy solo lee disco local: PASIVO, no gated.
     etiqueta_escaneo = "vulns"
+    hito = "H3"
     descripcion = "Vulnerabilidades, malas configuraciones y secretos del disco local con Trivy"
     tipo = "pasivo"
     requiere_servidor = True

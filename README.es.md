@@ -378,15 +378,23 @@ MRRobotIA/
 ## Hitos (resumen)
 El detalle, el orden y qué extrae cada hito están en [HITOS.md](HITOS.md).
 
-| Hito | Capa | Estado |
-|---|---|---|
-| H0 Núcleo orquestador | — | Hecho |
-| H1 Integridad de artefactos (SHA-256) | 1 | Hecho |
-| H2 Identificación, exposición, arranque y avisos | 1 | Hecho; llama.cpp validado con un servidor real, **vLLM pendiente de validar** |
-| H3 Seguridad del host (SSH, puertos, Trivy) | 1 | Hecho; Trivy validado en real; ssh-audit instalado y detectado, escaneo real pendiente |
-| H4 Barrido del endpoint | 2 | Hecho (garak); validado contra un llama.cpp real, **vLLM sin validar en real** |
-| H5 Prompt injection y evals | 2 | Pendiente (promptfoo) |
-| H6 Prompts y salidas no salen de la red | 2 | Pendiente (DeepEval) |
+| Hito | Alias | Capa | Estado |
+|---|---|---|---|
+| H0 Núcleo orquestador | `Mastermind` | — | Hecho |
+| H1 Integridad de artefactos (SHA-256) | `Real_Elliot` | 1 | Hecho |
+| H2 Identificación, exposición, arranque y avisos | `The_Voyeur` | 1 | Hecho; llama.cpp validado con un servidor real, **vLLM pendiente de validar** |
+| H3 Seguridad del host (SSH, puertos, Trivy) | `Magda` | 1 | Hecho; Trivy validado en real; ssh-audit instalado y detectado, escaneo real pendiente |
+| H4 Barrido del endpoint | `fsociety` | 2 | Hecho (garak); validado contra un llama.cpp real, **vLLM sin validar en real** |
+| H5 Prompt injection y evals | `White_Rose` | 2 | Pendiente (promptfoo) |
+| H6 Prompts y salidas no salen de la red | `Young_Elliot` | 2 | Pendiente (DeepEval) |
+| H7 Simulación de ataques con verificación de detección y recuperación | `Mr_Robot` | 2 | Pendiente (diseño hecho) |
+
+### Alias de los hitos
+Cada hito tiene un alias inspirado en los *alters* (personalidades) de la serie *Mr. Robot*, que también
+da nombre a la herramienta. Es solo una regla mnemotécnica del papel de cada hito: los identificadores del
+código y del informe siguen siendo `H0`…`H7`, y `mrrobotia --list` muestra el alias junto a cada escaneo
+(por ejemplo `garak  H4 · fsociety`). Algunos hitos tienen un alias alternativo y el porqué de cada uno
+está en [HITOS.md](HITOS.md). Solo se usan los nombres; el proyecto no tiene relación con la serie.
 
 ## No incluye
 - Extracción de secretos de la memoria de procesos.

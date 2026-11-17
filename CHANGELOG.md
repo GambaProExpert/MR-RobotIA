@@ -3,6 +3,17 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.12.0] - 2026-11-17
+
+### Añadido: alias de los hitos
+- Cada hito tiene un alias inspirado en los *alters* de la serie *Mr. Robot* (H0 `Mastermind`, H1
+  `Real_Elliot`, H2 `The_Voyeur`, H3 `Magda`, H4 `fsociety`, H5 `White_Rose`, H6 `Young_Elliot`, H7
+  `Mr_Robot`). Los identificadores del código y del informe **no cambian**: el alias es solo una etiqueta.
+- `mrrobotia --list` muestra el hito y el alias de cada escaneo (`garak  H4 · fsociety  [H4-GARAK]`).
+  Fuente única: `nucleo.ALIAS_HITOS`; cada módulo declara su `hito` (integridad = H1; configuración, que se
+  integra en H2, = H2). El informe no cambia.
+- `README.md`, `README.es.md` (tabla de hitos con alias y H7, y apartado de origen) y el manual Word.
+
 ## [0.11.1] - 2026-11-17
 
 ### Corregido

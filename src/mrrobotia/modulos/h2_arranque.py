@@ -87,6 +87,7 @@ class H2Arranque(Modulo):
     titulo = "Opciones de arranque y entorno del servidor LLM"
     activo = False
     etiqueta_escaneo = "startup"
+    hito = "H2"
     descripcion = "Opciones de arranque y entorno del proceso del servidor (clave en la línea de órdenes, CORS, TLS...)"
     tipo = "pasivo"
 

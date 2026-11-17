@@ -31,6 +31,7 @@ class M2Integridad(Modulo):
     titulo = "Integridad de artefactos (.gguf, ChromaDB)"
     activo = False
     etiqueta_escaneo = "integrity"
+    hito = "H1"
     descripcion = "SHA-256 de los artefactos (.gguf, bases vectoriales) frente a un hash declarado o un manifiesto"
     tipo = "pasivo"
 

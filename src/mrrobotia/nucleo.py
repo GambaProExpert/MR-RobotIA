@@ -25,6 +25,27 @@ from pathlib import Path
 from mrrobotia.contexto import texto_enlace
 
 
+# Alias de los hitos (inspirados en los alters de la serie Mr. Robot; ver HITOS.md). Es solo una
+# etiqueta para --list y la documentación: los identificadores del código y del informe siguen
+# siendo H0..H7. Fuente única: cada módulo declara su `hito` y de aquí sale el alias.
+ALIAS_HITOS = {
+    "H0": "Mastermind",
+    "H1": "Real_Elliot",
+    "H2": "The_Voyeur",
+    "H3": "Magda",
+    "H4": "fsociety",
+    "H5": "White_Rose",
+    "H6": "Young_Elliot",
+    "H7": "Mr_Robot",
+}
+
+
+def rotulo_hito(hito):
+    """«H4 · fsociety» para un hito conocido; el propio identificador si no tiene alias."""
+    alias = ALIAS_HITOS.get(hito)
+    return f"{hito} · {alias}" if alias else hito
+
+
 class Severidad(IntEnum):
     INFO = 0
     BAJA = 1
@@ -128,6 +149,7 @@ class Modulo:
     # lo leen para decidir si hacen comprobaciones activas.
     activos_ok = False
     etiqueta_escaneo = ""      # etiqueta para el selector --scan del CLI (la fija cada módulo)
+    hito = ""                  # hito de HITOS.md al que pertenece el escaneo (H1, H2...); ver ALIAS_HITOS
     # Para --list: qué hace, si es "pasivo", "hibrido" o "activo", y qué herramienta externa
     # usa (una `herramientas.Herramienta`, o None).
     descripcion = ""

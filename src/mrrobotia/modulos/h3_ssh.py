@@ -409,6 +409,7 @@ class H3Ssh(Modulo):
     titulo = "Endurecimiento de SSH del host"
     activo = False          # HÍBRIDO: se ejecuta siempre y autogatea la parte activa con self.activos_ok
     etiqueta_escaneo = "ssh"
+    hito = "H3"
     descripcion = "Endurecimiento de SSH: sshd_config (pasivo) y ssh-audit contra el servicio (activo)"
     tipo = "hibrido"
     externa = SSH_AUDIT

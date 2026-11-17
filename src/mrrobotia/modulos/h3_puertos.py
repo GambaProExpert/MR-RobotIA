@@ -240,6 +240,7 @@ class H3Puertos(Modulo):
     titulo = "Puertos abiertos innecesarios o inseguros del host"
     activo = False               # HÍBRIDO: se ejecuta siempre y autogatea con self.activos_ok
     etiqueta_escaneo = "ports"
+    hito = "H3"
     descripcion = "Puertos en escucha inesperados o peligrosos del host, y barrido de conexión simple (activo)"
     tipo = "hibrido"
     requiere_servidor = True

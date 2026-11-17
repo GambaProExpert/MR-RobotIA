@@ -163,7 +163,13 @@ def test_listar_no_necesita_objetivo(entorno, monkeypatch, capsys):
     cli.main()
     salida = capsys.readouterr().out
     for etiqueta in ETIQUETAS:
-        assert f"  {etiqueta}  [" in salida
+        assert f"  {etiqueta}  " in salida
+    for modulo in [cli.IDENTIFICACION, *cli.MODULOS]:
+        assert (f"  {modulo.etiqueta_escaneo}  {nucleo.rotulo_hito(modulo.hito)}  [{modulo.nombre}]"
+                in salida)
+    assert "  garak  H4 · fsociety  [H4-GARAK]" in salida
+    assert "  integrity  H1 · Real_Elliot  [M2]" in salida
+    assert "  config  H2 · The_Voyeur  [M3]" in salida
     for modulo in [cli.IDENTIFICACION, *cli.MODULOS]:
         assert f"[{modulo.nombre}]" in salida and modulo.descripcion in salida
     assert "type: hybrid" in salida and "type: passive" in salida
@@ -172,6 +178,16 @@ def test_listar_no_necesita_objetivo(entorno, monkeypatch, capsys):
     assert "server: the LLM server" in salida and "= cve, exposure, startup" in salida
     assert "host: " in salida and "active: " in salida and "passive: " in salida
     assert "cannot be skipped" in salida
+
+
+def test_cada_escaneo_tiene_hito_y_alias():
+    assert nucleo.ALIAS_HITOS == {
+        "H0": "Mastermind", "H1": "Real_Elliot", "H2": "The_Voyeur", "H3": "Magda",
+        "H4": "fsociety", "H5": "White_Rose", "H6": "Young_Elliot", "H7": "Mr_Robot"}
+    for modulo in [cli.IDENTIFICACION, *cli.MODULOS]:
+        assert modulo.hito in nucleo.ALIAS_HITOS, modulo.etiqueta_escaneo
+        assert nucleo.rotulo_hito(modulo.hito) == f"{modulo.hito} · {nucleo.ALIAS_HITOS[modulo.hito]}"
+    assert nucleo.rotulo_hito("H9") == "H9"
 
 
 def test_cada_modulo_declara_su_descripcion_y_tipo():

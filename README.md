@@ -379,15 +379,23 @@ MRRobotIA/
 ## Milestones (summary)
 Details, order and what each milestone extracts are in [HITOS.md](HITOS.md) (in Spanish).
 
-| Milestone | Layer | Status |
-|---|---|---|
-| H0 Orchestration core | none | Done |
-| H1 Artifact integrity (SHA-256) | 1 | Done |
-| H2 Identification, exposure, startup and advisories | 1 | Done; llama.cpp validated with a real server, **vLLM pending validation** |
-| H3 Host security (SSH, ports, Trivy) | 1 | Done; Trivy validated for real; ssh-audit installed and detected, real scan pending |
-| H4 Endpoint sweep | 2 | Done (garak); validated against a real llama.cpp, **vLLM not validated for real** |
-| H5 Prompt injection and evals | 2 | Pending (promptfoo) |
-| H6 Prompts and outputs do not leave the network | 2 | Pending (DeepEval) |
+| Milestone | Alias | Layer | Status |
+|---|---|---|---|
+| H0 Orchestration core | `Mastermind` | none | Done |
+| H1 Artifact integrity (SHA-256) | `Real_Elliot` | 1 | Done |
+| H2 Identification, exposure, startup and advisories | `The_Voyeur` | 1 | Done; llama.cpp validated with a real server, **vLLM pending validation** |
+| H3 Host security (SSH, ports, Trivy) | `Magda` | 1 | Done; Trivy validated for real; ssh-audit installed and detected, real scan pending |
+| H4 Endpoint sweep | `fsociety` | 2 | Done (garak); validated against a real llama.cpp, **vLLM not validated for real** |
+| H5 Prompt injection and evals | `White_Rose` | 2 | Pending (promptfoo) |
+| H6 Prompts and outputs do not leave the network | `Young_Elliot` | 2 | Pending (DeepEval) |
+| H7 Attack simulation with verification of detection and recovery | `Mr_Robot` | 2 | Pending (design done) |
+
+### Milestone aliases
+Each milestone has an alias inspired by the alters (personalities) of the TV series *Mr. Robot*, which
+also gives the tool its name. It is only a mnemonic for the role of each milestone: the identifiers in the
+code and in the report stay `H0`...`H7`, and `mrrobotia --list` shows the alias next to each scan (for
+example `garak  H4 · fsociety`). Some milestones have an alternative alias, and the reason for each one
+is in [HITOS.md](HITOS.md) (in Spanish). Only the names are used; the project has no relation to the series.
 
 ## Out of scope
 - Extraction of secrets from process memory.

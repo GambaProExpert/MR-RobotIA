@@ -138,6 +138,7 @@ class M3Configuracion(Modulo):
     titulo = "Auditoría de configuración (credenciales, auditoría, TLS/red)"
     activo = False
     etiqueta_escaneo = "config"
+    hito = "H2"
     descripcion = "Credenciales, registro de auditoría y enlace/TLS de la aplicación (usuarios.json, auditoria.jsonl)"
     tipo = "pasivo"
 

@@ -382,6 +382,7 @@ class H2Identificacion(Modulo):
     titulo = "Identificación del servidor LLM y del sistema"
     activo = False               # HÍBRIDO: se ejecuta siempre y autogatea con self.activos_ok
     etiqueta_escaneo = "id"
+    hito = "H2"
     descripcion = "Qué servidor LLM hay (llama.cpp, vLLM...), su versión, cómo se arrancó y en qué sistema (corre siempre, primero)"
     tipo = "hibrido"
     externa = JULIUS

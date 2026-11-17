@@ -645,7 +645,7 @@ def test_list_menciona_que_garak_no_entra_en_all(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["mrrobotia", "--list"])
     cli.main()
     salida = capsys.readouterr().out
-    assert "garak  [H4-GARAK]" in salida and "not part of 'all'" in salida
+    assert "garak  H4 · fsociety  [H4-GARAK]" in salida and "not part of 'all'" in salida
 
 
 # ------------------------------------------------------------------------------ ejemplos del repositorio

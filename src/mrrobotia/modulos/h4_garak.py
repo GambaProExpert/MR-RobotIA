@@ -733,6 +733,7 @@ class H4Garak(ModuloHerramienta):
     nombre = MODULO
     titulo = "Barrido del endpoint con garak"
     etiqueta_escaneo = "garak"
+    hito = "H4"
     descripcion = ("Barrido del modelo con garak (jailbreak, inyección de prompt, fuga del system prompt...); "
                    "sintetiza sus fallos en el informe. Puede tardar horas; no entra en all")
     activo = True

@@ -64,6 +64,7 @@ class H2Cve(Modulo):
     titulo = "Versión del servidor LLM frente a avisos de seguridad"
     activo = False
     etiqueta_escaneo = "cve"
+    hito = "H2"
     descripcion = "Versión del servidor frente a los avisos de seguridad incluidos (llama.cpp y vLLM)"
     tipo = "pasivo"
 

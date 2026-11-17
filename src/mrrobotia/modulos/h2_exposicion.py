@@ -262,6 +262,7 @@ class H2Exposicion(Modulo):
     titulo = "Inventario y exposición del servidor LLM"
     activo = False      # HÍBRIDO: se ejecuta siempre y autogatea las partes activas
     etiqueta_escaneo = "exposure"
+    hito = "H2"
     descripcion = "Enlace de red, propietario del proceso y sondeo HTTP de cada servidor (autenticación, /props, CORS, TLS...)"
     tipo = "hibrido"
 
