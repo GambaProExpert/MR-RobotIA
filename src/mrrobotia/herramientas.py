@@ -18,9 +18,13 @@ Principios (ver HITOS.md):
 """
 from __future__ import annotations
 
+import os
 import re
 import shutil
+import signal
 import subprocess
+import tempfile
+import time
 from dataclasses import dataclass, field
 
 from mrrobotia.nucleo import Modulo, Hallazgo, Severidad
@@ -41,6 +45,9 @@ class Herramienta:
     - `instalar_con`: orden sugerida de instalación offline para el hallazgo.
     - `min_version`: versión mínima recomendada ("x.y[.z]") o None.
     - `refs`: marcos asociados (OWASP/ATLAS/NIST) para los hallazgos del módulo.
+    - `aislar_xdg`: la herramienta escribe en las carpetas XDG del usuario (en `~`) aunque solo
+      se le pida la versión (garak crea `~/.cache/garak` y `~/.config/garak`). Con True, la
+      consulta de versión se hace con `XDG_*` apuntando a una carpeta temporal que se borra.
     """
     nombre: str
     binario: str
@@ -48,6 +55,7 @@ class Herramienta:
     instalar_con: str = ""
     min_version: str | None = None
     refs: dict = field(default_factory=dict)
+    aislar_xdg: bool = False
 
 
 @dataclass
@@ -75,13 +83,23 @@ def _extraer_version(texto):
     return m.group(0) if m else None
 
 
-def detectar(herramienta, overrides=None):
+def _consultar_version(herramienta, ruta, env):
+    proc = subprocess.run(
+        [ruta, *herramienta.version_args],
+        capture_output=True, text=True, errors="replace", timeout=30, env=env)
+    return _extraer_version((proc.stdout or "") + "\n" + (proc.stderr or ""))
+
+
+def detectar(herramienta, overrides=None, env=None):
     """Busca la herramienta y, si está, consulta su versión.
 
     La ruta efectiva es `overrides[nombre]["path"]` si existe; si no, lo que
     devuelva `shutil.which(binario)`. Nunca lanza: si el binario está en disco
     pero falla la consulta de versión, sigue considerándose DISPONIBLE (con
     `version=None` y el tipo de error), porque existe y podrá ejecutarse.
+
+    `env` es el entorno del proceso que consulta la versión (por defecto, el actual). Si no se da
+    y la herramienta tiene `aislar_xdg`, se usa una carpeta temporal para las rutas XDG.
     """
     overrides = overrides or {}
     conf = overrides.get(herramienta.nombre) or {}
@@ -91,24 +109,78 @@ def detectar(herramienta, overrides=None):
     if herramienta.version_args is None:
         return Deteccion(True, None, ruta, None)
     try:
-        proc = subprocess.run(
-            [ruta, *herramienta.version_args],
-            capture_output=True, text=True, errors="replace", timeout=10)
-        version = _extraer_version((proc.stdout or "") + "\n" + (proc.stderr or ""))
-        return Deteccion(True, version, ruta, None)
+        if env is None and herramienta.aislar_xdg:
+            with tempfile.TemporaryDirectory(prefix="mrrobotia_xdg_") as tmp:
+                env = {**os.environ, "XDG_DATA_HOME": tmp, "XDG_CONFIG_HOME": tmp, "XDG_CACHE_HOME": tmp}
+                return Deteccion(True, _consultar_version(herramienta, ruta, env), ruta, None)
+        return Deteccion(True, _consultar_version(herramienta, ruta, env), ruta, None)
     except (OSError, subprocess.SubprocessError) as e:
         # Está en disco aunque falle la versión: disponible, pero sin versión.
         return Deteccion(True, None, ruta, type(e).__name__)
 
 
-def ejecutar(args, *, timeout=600, cwd=None, env=None, entrada=None):
+def _matar_arbol(proc):
+    """Mata el proceso y todos sus descendientes (garak lanza procesos hijo con
+    --parallel_attempts). En Windows, taskkill /T; en POSIX, el grupo de procesos."""
+    try:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                           capture_output=True, timeout=30)
+        else:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        proc.kill()
+        proc.wait(timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def _ejecutar_a_fichero(args, timeout, cwd, env, salida):
+    """Ejecución larga: stdout y stderr van al fichero `salida` (no se acumulan en memoria), el
+    proceso corre en su propio grupo y, si se agota `timeout` o se pulsa Ctrl-C, se mata todo el
+    árbol de procesos. Ctrl-C no propaga la excepción: devuelve `error="interrumpido"` para que
+    el llamador pueda dar un resultado parcial."""
+    kw = ({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt"
+          else {"start_new_session": True})
+    try:
+        with open(salida, "wb") as f:
+            proc = subprocess.Popen(list(args), stdout=f, stderr=subprocess.STDOUT,
+                                    stdin=subprocess.DEVNULL, cwd=cwd, env=env, **kw)
+            fin = time.monotonic() + timeout
+            try:
+                while True:
+                    # Tramos cortos: en Windows una espera larga no se interrumpe con Ctrl-C.
+                    restante = fin - time.monotonic()
+                    if restante <= 0:
+                        _matar_arbol(proc)
+                        return Resultado(None, "", "", True, "timeout")
+                    try:
+                        return Resultado(proc.wait(timeout=min(0.5, restante)), "", "", False, None)
+                    except subprocess.TimeoutExpired:
+                        continue
+            except KeyboardInterrupt:
+                _matar_arbol(proc)
+                return Resultado(None, "", "", False, "interrumpido")
+    except OSError as e:
+        return Resultado(None, "", "", False, f"{type(e).__name__}: {str(e)[:120]}")
+
+
+def ejecutar(args, *, timeout=600, cwd=None, env=None, entrada=None, salida=None):
     """Ejecuta un proceso externo de forma segura y captura su salida.
 
     `args` es una lista (orden + argumentos); NUNCA se usa `shell=True`. Captura
     stdout/stderr como texto UTF-8, sustituyendo lo que no decodifique. Marca
     `expiro=True` si se agota `timeout`, y nunca propaga la excepción: los errores de
     arranque (OSError) vuelven en `error`.
+
+    Con `salida` (ruta de un fichero) es una ejecución larga: la salida (stdout y stderr
+    juntos) se escribe en ese fichero en lugar de capturarse, `Resultado.stdout` queda vacío,
+    y al agotarse `timeout` o con Ctrl-C se mata el árbol de procesos entero.
     """
+    if salida is not None:
+        return _ejecutar_a_fichero(args, timeout, cwd, env, salida)
     try:
         proc = subprocess.run(
             list(args), capture_output=True, text=True, encoding="utf-8", errors="replace",
@@ -154,9 +226,15 @@ class ModuloHerramienta(Modulo):
     herramienta: Herramienta = None
     activo = False
 
+    def _env_deteccion(self, objetivo):
+        """Entorno con el que se consulta la versión de la herramienta, o None = el actual."""
+        return None
+
     def ejecutar(self, objetivo):
         overrides = objetivo.get("tools", {}) or {}
-        det = detectar(self.herramienta, overrides)
+        env = self._env_deteccion(objetivo)
+        det = (detectar(self.herramienta, overrides, env=env) if env is not None
+               else detectar(self.herramienta, overrides))
         if not det.disponible:
             # Orquestar, no reinventar: se informa, no se revienta.
             return [Hallazgo(

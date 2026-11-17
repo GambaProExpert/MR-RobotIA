@@ -17,6 +17,9 @@ enabled with -a/--active (or MRROBOTIA_ACTIVE) AND allow_active=true in the targ
 file. HYBRID modules (H2, H3...) always do their passive part (network binding, processes,
 files) and their active part (network probing) only when active probing is enabled.
 
+The garak sweep (H4, label 'garak') is active, long and NOT part of 'all': ask for it with
+'-s garak -a' (or '-s all,garak -a'); see the README for its 'garak' block in the target file.
+
 Before any module, H2-ID identifies what it is dealing with (server, version, startup
 and OS); it always runs. Host analysis (H3) is only done on machines with a llama.cpp or
 vLLM server. With -l/--list you can see all the scans and groups.
@@ -39,16 +42,17 @@ from mrrobotia.modulos.h2_cve import H2Cve
 from mrrobotia.modulos.h3_ssh import H3Ssh
 from mrrobotia.modulos.h3_puertos import H3Puertos
 from mrrobotia.modulos.h3_host import H3Host
+from mrrobotia.modulos.h4_garak import H4Garak
 
 # La identificación no es un módulo más: corre siempre y primero, y su Contexto lo reciben
 # los demás, sea cual sea la selección de --scan.
 IDENTIFICACION = H2Identificacion()
 
 # Registro de módulos. H2 va antes de los otros porque su sondeo concreta la autenticación
-# y la versión. El prober propio M1 queda sin cablear: su cometido (barrido del endpoint) lo
-# asumirá garak en H4.
+# y la versión. El barrido del endpoint lo hace garak (H4), que sustituye al prober propio
+# anterior (M1, retirado). H4 no entra en `all`: se pide con -s garak.
 MODULOS = [M2Integridad(), M3Configuracion(), H2Exposicion(), H2Arranque(), H2Cve(),
-           H3Ssh(), H3Puertos(), H3Host()]
+           H3Ssh(), H3Puertos(), H3Host(), H4Garak()]
 
 # Grupos del selector --scan y --skip (además de las etiquetas individuales de cada
 # módulo), con su descripción para --list y --help.
@@ -58,7 +62,7 @@ GRUPOS = {
     "server": {"exposure", "startup", "cve"},              # el servidor LLM en sí
 }
 DESCRIPCION_GRUPOS = {
-    "all": "all scans (default)",
+    "all": "all scans (default), except the long ones that must be asked for by label (garak)",
     "host": "host security (H3)",
     "active": "the ones with an active part; they do not enable it",
     "server": "the LLM server: exposure, startup and security advisories",
@@ -71,6 +75,12 @@ _NOMBRE_TIPO = {"pasivo": "passive", "hibrido": "hybrid", "activo": "active"}
 def _etiquetas():
     """Etiquetas de todos los escaneos registrados, identificación incluida."""
     return {m.etiqueta_escaneo for m in [IDENTIFICACION, *MODULOS] if m.etiqueta_escaneo}
+
+
+def _etiquetas_en_all():
+    """Etiquetas que entran en `all`: las de los módulos con `en_all` (la identificación siempre)."""
+    return {m.etiqueta_escaneo for m in [IDENTIFICACION, *MODULOS]
+            if m.etiqueta_escaneo and (m is IDENTIFICACION or m.en_all)}
 
 
 def _ayuda_escaneo():
@@ -121,8 +131,11 @@ def _resolver_escaneo(valor, excluir=None):
     if desconocidos:
         validos = ", ".join(sorted(etiquetas | set(GRUPOS) | {"all", "passive"}))
         sys.exit(f"--scan: unknown value '{sorted(desconocidos)[0]}'. Valid: {validos}")
+    fuera_de_all = etiquetas - _etiquetas_en_all()
     if todo:
-        seleccion = None
+        # `-s all,garak`: all más lo que se pida por su etiqueta aunque no entre en all.
+        pedidos_aparte = seleccion & fuera_de_all
+        seleccion = (_etiquetas_en_all() | pedidos_aparte) if pedidos_aparte else None
     if excluir:
         quitar, desconocidos = _expandir(excluir)
         if desconocidos:
@@ -134,7 +147,7 @@ def _resolver_escaneo(valor, excluir=None):
         if IDENTIFICACION.etiqueta_escaneo in quitar:
             sys.exit("--skip: the id scan cannot be skipped: it always runs first, "
                      "because the other scans depend on what it identifies.")
-        seleccion = (set(etiquetas) if seleccion is None else seleccion) - quitar
+        seleccion = (_etiquetas_en_all() if seleccion is None else seleccion) - quitar
     return seleccion, forzar_pasivo
 
 
@@ -151,6 +164,8 @@ def _listar():
         extra = [f"type: {_NOMBRE_TIPO.get(m.tipo, m.tipo)}", f"external tool: {externa}"]
         if m.requiere_servidor:
             extra.append("only with a llama.cpp or vLLM server")
+        if not m.en_all:
+            extra.append(f"not part of 'all': it can take hours; ask for it with -s {m.etiqueta_escaneo}")
         if m is IDENTIFICACION:
             extra.append("always runs, first; cannot be skipped")
         print("      " + "; ".join(extra))
@@ -247,7 +262,8 @@ def main():
     if forzar_pasivo:
         activos_ok = False
     informe.pedidos = [m.etiqueta_escaneo for m in [IDENTIFICACION, *MODULOS]
-                       if seleccion is None or m is IDENTIFICACION or m.etiqueta_escaneo in seleccion]
+                       if m is IDENTIFICACION or m.etiqueta_escaneo in (seleccion or ())
+                       or (seleccion is None and m.en_all)]
     excluidos = _expandir(args.skip)[0] if args.skip else set()
     if args.declared_only:
         informe.notas.append("Se ha auditado solo el servidor del endpoint o puerto declarado (--declared-only): "
@@ -262,12 +278,16 @@ def main():
     hay_servidor = _hay_servidor_llm(IDENTIFICACION.contexto)
 
     for m in MODULOS:
+        if (not m.en_all and m.etiqueta_escaneo not in excluidos
+                and (seleccion is None or m.etiqueta_escaneo not in seleccion)):
+            continue   # fuera de `all`: solo corre si se pide por su etiqueta
         if seleccion is not None and m.etiqueta_escaneo not in seleccion:
             informe.omitir(m, "excluido con --skip" if m.etiqueta_escaneo in excluidos
                            else "no seleccionado con --scan")
             continue
         m.activos_ok = activos_ok   # los módulos híbridos (p. ej. H2, H3) autogatean su parte activa
         m.contexto = IDENTIFICACION.contexto
+        m.directorio_salida = Path(f"{args.out}_{m.etiqueta_escaneo}")
         if m.activo and not activos_ok:
             motivo = "módulo activo; requiere --active y allow_active=true"
             informe.notas.append(f"{m.nombre} ({m.titulo}) omitido: {motivo}.")

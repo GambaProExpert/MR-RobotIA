@@ -11,8 +11,10 @@ Principios de diseño (citar en la memoria del TFG):
 """
 from __future__ import annotations
 
+import copy
 import json
 import platform
+import re
 import socket
 from collections import Counter
 from dataclasses import dataclass, field, asdict
@@ -49,11 +51,52 @@ class Hallazgo:
     evidencia: str
     recomendacion: str = ""
     refs: dict = field(default_factory=dict)   # {"owasp": "...", "atlas": "...", "nist": "..."}
+    # Datos estructurados opcionales para un informe detallado (p. ej. el barrido de H4). Se omite
+    # del JSON si es None, de modo que los demás módulos no cambian.
+    detalle: dict | None = None
 
     def dict(self):
         d = asdict(self)
         d["severidad"] = self.severidad.name
+        if d["detalle"] is None:
+            del d["detalle"]
         return d
+
+
+# Claves cuyo valor es un secreto: se enmascaran en cualquier nivel del objetivo antes de volcarlo
+# al informe. Las cabeceras (`headers`) se enmascaran enteras y las plantillas de petición
+# (`req_template*`) no se muestran. El nombre de una variable de entorno (`api_key_env`) no es un
+# secreto y se conserva.
+_CLAVES_SECRETAS = {"api_key", "key", "token", "secret", "password", "passphrase"}
+_RE_USUARIO_URL = re.compile(r"(?<=://)[^/\s:@]+:[^/\s@]+@")
+
+
+def _es_clave_secreta(clave):
+    k = str(clave).lower()
+    return k in _CLAVES_SECRETAS or k.startswith("client_key")
+
+
+def redactar(valor):
+    """Copia de `valor` (el objetivo, por ejemplo) con los secretos enmascarados con '***'. No
+    modifica el original. Es la única vía por la que el objetivo llega al informe."""
+    if isinstance(valor, dict):
+        salida = {}
+        for k, v in valor.items():
+            kl = str(k).lower()
+            if _es_clave_secreta(k) and v is not None:
+                salida[k] = "***"
+            elif kl == "headers":
+                salida[k] = {h: "***" for h in v} if isinstance(v, dict) else "***"
+            elif kl.startswith("req_template") and v is not None:
+                salida[k] = "<plantilla>"
+            else:
+                salida[k] = redactar(v)
+        return salida
+    if isinstance(valor, list):
+        return [redactar(v) for v in valor]
+    if isinstance(valor, str):
+        return _RE_USUARIO_URL.sub("***@", valor)
+    return copy.deepcopy(valor)
 
 
 def cargar_objetivo(ruta):
@@ -95,6 +138,12 @@ class Modulo:
     requiere_servidor = False
     # Qué se ha identificado antes de auditar (contexto.Contexto); lo fija el CLI.
     contexto = None
+    # False: el módulo no entra en `all` y solo corre si se pide por su etiqueta (p. ej. -s garak),
+    # por ser largo o intrusivo.
+    en_all = True
+    # Carpeta (pathlib.Path) donde el módulo puede dejar sus ficheros; la fija el CLI a partir del
+    # prefijo de -o (`<prefijo>_<etiqueta>`). None si el módulo se usa suelto.
+    directorio_salida = None
 
     def ejecutar(self, objetivo) -> list[Hallazgo]:
         raise NotImplementedError
@@ -123,6 +172,17 @@ _MARCA_ESTADO = {"potencial": " *(potencial)*", "sin_concluir": " *(sin concluir
 def _celda(valor):
     """Texto apto para una celda de Markdown: una línea y sin separadores de columna."""
     return " ".join(str(valor).split()).replace("|", "\\|")
+
+
+def _en_linea(valor):
+    """Texto para un código en línea de Markdown: una línea y sin comillas inversas."""
+    return " ".join(str(valor or "").split()).replace("`", "'")
+
+
+def _pct(tasa):
+    """Porcentaje legible de una tasa 0..1 (sin decimales salvo por debajo del 1 %)."""
+    p = tasa * 100
+    return f"{p:.0f}" if p >= 1 or p == 0 else f"{p:.1f}"
 
 
 def _valores(mapa):
@@ -178,13 +238,58 @@ class Informe:
             L += ["", "Cómo se arrancó:", ""] + arranques
         return L
 
+    def _seccion_garak(self):
+        """Líneas de Markdown de «Barrido garak (H4)»: solo si algún hallazgo trae `detalle` de garak.
+        Los textos de ejemplo ya vienen truncados y saneados del módulo; aquí solo se evita que
+        rompan la tabla o los códigos en línea."""
+        sondas = [h for h in self.hallazgos if (h.detalle or {}).get("seccion") == "garak"
+                  and h.detalle.get("tipo") == "sonda"]
+        resumen = [h for h in self.hallazgos if (h.detalle or {}).get("seccion") == "garak"
+                   and h.detalle.get("tipo") == "resumen"]
+        if not sondas and not resumen:
+            return []
+        L = ["", "## Barrido garak (H4)", ""]
+        for h in resumen:
+            d = h.detalle
+            L.append(_celda(d.get("cabecera", "")))
+            L.append("")
+        if sondas:
+            orden = sorted(sondas, key=lambda h: (-h.severidad, -h.detalle.get("tasa", 0)))
+            L += ["| Sonda | Fallos | Tasa | OWASP 2025 | Severidad |", "|---|---|---|---|---|"]
+            for h in orden:
+                d = h.detalle
+                L.append(f"| {_celda(d['sonda'])} | {d['fallos']}/{d['total']} | {_pct(d['tasa'])} % | "
+                         f"{_celda(d.get('owasp') or '—')} | {h.severidad.name} |")
+            L.append("")
+        for h in resumen:
+            superadas = h.detalle.get("superadas") or []
+            if superadas:
+                L += [f"Superadas sin fallos: {_celda(', '.join(superadas))}", ""]
+            if h.detalle.get("aviso_raw"):
+                L += [f"> {_celda(h.detalle['aviso_raw'])}", ""]
+        for h in (orden if sondas else []):
+            d = h.detalle
+            L.append(f"### {_celda(d['sonda'])} — {_pct(d['tasa'])} % ({d['fallos']}/{d['total']})")
+            if d.get("objetivo_sonda"):
+                L.append(f"Objetivo de la sonda: {_celda(d['objetivo_sonda'])}")
+            if d.get("ejemplos"):
+                L += ["> Aviso: ejemplos reales de ataque y respuesta del modelo; pueden contener contenido "
+                      "ofensivo o peligroso."]
+                for i, e in enumerate(d["ejemplos"], 1):
+                    L.append(f"{i}. Entrada: `{_en_linea(e.get('entrada'))}`")
+                    L.append(f"   Respuesta: `{_en_linea(e.get('salida'))}`")
+            if d.get("ruta_hitlog"):
+                L.append(f"Registro completo: `{_en_linea(d['ruta_hitlog'])}`")
+            L.append("")
+        return L
+
     def to_json(self):
         return json.dumps({
             "herramienta": "MRRobotIA",
             "generado": self.generado,
             "host_auditor": socket.gethostname(),
             "so": platform.platform(),
-            "objetivo": {k: v for k, v in self.objetivo.items() if k != "authorization"},
+            "objetivo": redactar({k: v for k, v in self.objetivo.items() if k != "authorization"}),
             "autorizado_por": self.objetivo["authorization"]["authorized_by"],
             "modulos": self.modulos_ejecutados,
             "notas": self.notas,
@@ -221,4 +326,5 @@ class Informe:
         if recs:
             L += ["", "## Recomendaciones", ""]
             L += [f"- **[{h.severidad.name}] {h.titulo}** — {h.recomendacion}" for h in recs]
+        L += self._seccion_garak()
         return "\n".join(L) + "\n"

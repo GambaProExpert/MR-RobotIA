@@ -1,0 +1,22 @@
+{
+  "rest": {
+    "RestGenerator": {
+      "name": "my-chatbot",
+      "uri": "http://127.0.0.1:8080/v1/chat/completions",
+      "method": "post",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $KEY"
+      },
+      "req_template_json_object": {
+        "model": "my-model",
+        "max_tokens": 128,
+        "temperature": 0.7,
+        "messages": [{"role": "user", "content": "$INPUT"}]
+      },
+      "response_json": true,
+      "response_json_field": "$.choices[0].message.content",
+      "request_timeout": 120
+    }
+  }
+}

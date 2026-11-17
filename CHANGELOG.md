@@ -3,6 +3,38 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.10.0] - 2026-11-17
+
+### Añadido: H4, barrido del endpoint con garak (etiqueta `garak`)
+- **Módulo `H4-GARAK`** (`-s garak -a`, con `allow_active`): ejecuta garak (>= 0.17.0, probado con la
+  0.17.1) por `subprocess`, sin shell y sin nada del objetivo en la línea de órdenes, y **sintetiza su
+  `report.jsonl` y su `hitlog.jsonl` en el informe**: una fila por sonda con fallos (tasa de éxito del
+  ataque, severidad, marcos OWASP 2025 / ATLAS / NIST) y la sección `## Barrido garak (H4)` con hasta
+  dos ejemplos truncados y saneados por sonda. Sustituye al *prober* propio anterior.
+- **Fuera de `all`:** se pide con `-s garak` (o `-s all,garak`). `-x` y `-l` lo respetan.
+- **Cualquier chatbot:** el contenido de un `garak-config.json` (generador REST, OpenAI-compatible...,
+  o una configuración completa con `plugins`) se pega en `garak.generator_options`. Con un servidor
+  llama.cpp o vLLM identificado y sin `generator_options`, la configuración se construye sola
+  (`<url>/v1/`, `stop: []`, `suppressed_params: ["n"]`). Presets `quick` (medido, unos 4-6 min con un
+  7B), `standard` y `full` (duración estimada, sin medir) o sondas propias con `probes`.
+- **Claves:** solo por variable de entorno (`api_key_env`); llegan a garak en el entorno de su proceso.
+  Una clave en claro en `generator_options` se rechaza sin ejecutar (`H4-GARAK-CLAVE-EN-CLARO`).
+- **Núcleo (todo con valores por defecto que no cambian a los demás módulos):** `Modulo.en_all`,
+  `Modulo.directorio_salida` (`<prefijo de -o>_<etiqueta>`), `Hallazgo.detalle` (opcional, fuera del
+  JSON si es `None`), `nucleo.redactar()` (el informe JSON enmascara `api_key`, `key`, `token`,
+  `secret`, `password`, `passphrase`, `client_key*`, los valores de `headers` y oculta las plantillas
+  `req_template*`), `herramientas.detectar(env=)` y `Herramienta.aislar_xdg` (la consulta de versión de
+  garak no crea carpetas en `~`), y `herramientas.ejecutar(salida=)`: ejecución larga con la salida a
+  fichero que, al agotarse el tiempo o con Ctrl-C, mata el árbol de procesos.
+- **Privacidad:** garak escribe en las carpetas XDG con la salida de MRRobotIA (`<prefijo>_garak/home/`),
+  nunca en el directorio personal; `offline` (por defecto) impide las descargas de Hugging Face y deja
+  fuera, avisándolo, las sondas cuyo detector las necesita. `keep_raw` (por defecto `true`) conserva
+  `raw/`, que contiene ataques y respuestas **sin filtrar**: el informe lo avisa.
+- **Pruebas:** hermético (`tests/garak_falso.py` y capturas reales saneadas en `tests/fixtures/garak/`).
+  Validado contra un `llama-server` real (7B): configuración automática, `garak-config.json` REST pegado
+  y tiempo agotado con informe parcial y muerte del árbol de procesos. **vLLM: solo pruebas herméticas,
+  sin validar en real.**
+
 ## [0.9.1] - 2026-11-17
 
 ### Corregido (rarezas al probar en Windows con un llama-server real)

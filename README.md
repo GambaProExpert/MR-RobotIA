@@ -6,7 +6,7 @@ A **defensive audit** (hardening) tool for self-hosted LLM servers. It first **i
 what it is dealing with (server, version, how it was started and on which system), adapts its
 checks to what it found and **normalizes everything into a single report** with severities and
 references to OWASP LLM Top 10 2025, MITRE ATLAS and NIST AI 600-1. When useful, it
-**orchestrates well-established tools** (Julius, ssh-audit, Trivy; later garak, promptfoo and
+**orchestrates well-established tools** (Julius, ssh-audit, Trivy and garak; later promptfoo and
 DeepEval) locally and offline: "MRRobotIA does not do the auditing; it extracts the data". The
 roadmap is in [HITOS.md](HITOS.md) (in Spanish).
 
@@ -20,6 +20,7 @@ roadmap is in [HITOS.md](HITOS.md) (in Spanish).
 | **llama.cpp** (full profile: identification, exposure, startup and security advisories) | Tested against a real `llama-server` (build b11583) |
 | **vLLM** (same profile) | Implemented from the code of version 0.33.0 and **validated against a real vLLM 0.33.0 on CPU** (read-only requests): not yet validated on a GPU or with generation; the tests use a fake server that follows that reading and those observations |
 | Any other service (Ollama, LM Studio...) | Only recognized (with the Julius probes, if installed) and given the common checks; it has no profile of its own |
+| garak (H4) | Run end to end against a real `llama-server` (garak 0.17.1): automatic configuration, pasted REST configuration and time-out with a partial report. **vLLM: automatic configuration only in hermetic tests, not validated for real.** The `standard` and `full` presets have not been timed |
 | Trivy and `ssh-audit` | Only with simulated output: the real tools have not been run |
 | Julius | Tried by hand against a real server. Inside MRRobotIA, which only calls it for what the profiles do not recognize, it has been run against a non-LLM service; positive recognition is tested with simulated output |
 | Operating systems | Windows 11 and Ubuntu 24.04 (WSL2); on Linux, without a real `sshd` or server |
@@ -37,8 +38,9 @@ pip install -e ".[dev]"
 pytest
 ```
 The package only uses the standard library: no runtime dependencies. The external tools
-(Julius, ssh-audit, Trivy) are optional and installed separately; if one is missing, the report
-says so and explains how to install it.
+(Julius, ssh-audit, Trivy, garak) are optional and installed separately; if one is missing, the
+report says so and explains how to install it. To install garak, see
+[H4: sweep with garak](#h4-sweep-with-garak--s-garak).
 
 ## Quick start
 Copy the example target file (on Windows: `copy ejemplos\target.example.json target.json`):
@@ -94,7 +96,8 @@ audit. The `//` comments are not valid JSON: remove them in your own file
   "users": "./app/users.json",                 // files of the application around the model (read-only)
   "audit": "./app/logs/audit.jsonl",           //   audit log (alternative: "logs_dir")
   "app_dir": "./app"                           //   application folder
-  // "tools": {"trivy": {"path": "...", "timeout": 900}}   // tool paths and timeouts; otherwise looked up in PATH
+  "garak": {"preset": "quick"},                // H4 sweep: only runs with -s garak -a (see "H4: sweep with garak")
+  // "tools": {"trivy": {"path": "...", "timeout": 900}, "garak": {"path": "..."}}   // tool paths and timeouts; otherwise looked up in PATH
 }
 ```
 **Relative paths** are resolved against the directory you run the command from, not against the
@@ -149,10 +152,11 @@ module descriptions that `-l` prints are in Spanish for now.
 | `ssh` | H3-SSH | `sshd_config` (passive) and `ssh-audit` against the service (active) | Hybrid | ssh-audit |
 | `ports` | H3-PUERTOS | Unexpected or dangerous host ports; plain connect sweep (active) | Hybrid | none |
 | `vulns` | H3-HOST | Vulnerabilities, misconfigurations and secrets on the local disk | Passive | Trivy |
+| `garak` | H4-GARAK | Sweep of the model with garak (jailbreak, prompt injection, system prompt leak...). **Not part of `all`**: it can take hours; ask for it with `-s garak -a` | Active | garak |
 
 | Group | Contents |
 |---|---|
-| `all` | Every scan (default) |
+| `all` | Every scan except the ones marked "not part of all" (`garak`) (default) |
 | `server` | `exposure`, `startup`, `cve` |
 | `host` | `ssh`, `ports`, `vulns` (host security) |
 | `active` | `exposure`, `ssh`, `ports` (the ones with an active part; they do **not** enable it) |
@@ -182,10 +186,118 @@ Besides `name`, `authorization` (mandatory), `host` and `allow_active`:
 | `ssh` | H3-SSH | `port` and `sshd_config` |
 | `ports` | H3-PUERTOS | `expected` (extra legitimate ports) and `extra_dangerous` |
 | `trivy_host` | H3-HOST | `path` (directory to scan), `scanners`, `severity` |
-| `tools` | H2-ID, H3 | Paths and timeouts per tool, e.g. `{"trivy": {"path": "...", "timeout": 900, "cache_dir": "..."}}`. Without it, tools are looked up in the `PATH` |
+| `tools` | H2-ID, H3, H4 | Paths and timeouts per tool, e.g. `{"trivy": {"path": "...", "timeout": 900, "cache_dir": "..."}}`. Without it, tools are looked up in the `PATH` |
+| `garak` | H4 | Preset, probes, generator and limits of the garak sweep (see below) |
 
 The `MRROBOTIA_TARGET` and `MRROBOTIA_ACTIVE` environment variables are alternatives to
 `--target` and `--active`.
+
+### H4: sweep with garak (`-s garak`)
+[garak](https://github.com/NVIDIA/garak) (NVIDIA) sends hundreds of attacks to the model
+(jailbreaks, prompt injection, system prompt extraction, Markdown exfiltration...) and detects
+which ones succeed. MRRobotIA builds garak's configuration, runs it with `subprocess` (no shell,
+nothing from the target in the command line) and **summarizes its JSONL output in the report**: a
+row per probe that failed, with the attack success rate, severity, OWASP 2025 / ATLAS / NIST
+references and up to two sanitized examples. H4 replaces the earlier in-house prober.
+
+It is an **active** module and it is **not part of `all`**: it needs `-s garak`, `-a` and
+`allow_active: true` (plus `authorization.confirm_non_local` for a non-local host). Run it against
+a **test** server: the sweep saturates the GPU and fills the server logs with the attacks.
+```
+mrrobotia -t target.json -s garak -a -o informes/garak
+mrrobotia -t target.json -s all,garak -a     # everything, including garak
+```
+
+**Installing garak** (optional, separate; Python >= 3.11; garak >= 0.17.0 is required, 0.17.1 was
+tested). Use its own environment; the CPU-only PyTorch keeps it small:
+```
+python -m venv garak-env
+garak-env/bin/pip install garak==0.17.1 --extra-index-url https://download.pytorch.org/whl/cpu
+```
+(on Windows, `garak-env\Scripts\pip.exe`). Then either put `garak` on the `PATH` or set
+`tools.garak.path` in the target file. garak writes its logs and caches under the XDG folders of
+the user's home; MRRobotIA redirects them to `<prefix>_garak/home/`, so nothing is written there.
+With an older garak (or an unreadable version) the report says so (INFO) and nothing is run.
+
+**The `garak` block** of the target file (every key is optional):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `preset` | `"quick"` | `quick`: 9 probes, 1 generation, cap of 15 prompts per probe, measured at about 4-6 min with a 7B model on a mid-range GPU. `standard`: all tier-1 probes (about 40), cap of 30; **estimated** at about 1 h. `full`: every active probe, 2 generations, cap of 100; **estimated** at about 10 h. The `standard` and `full` durations have not been measured |
+| `probes` | `null` | Your own probe selection: a list or a comma-separated garak `--spec` (`["dan", "tag:owasp:llm01"]`). It overrides the preset |
+| `exclude_probes` | `[]` | Probes removed from the selection |
+| `generations`, `prompt_cap` | from the preset | Generations per prompt and maximum prompts per probe |
+| `parallel_attempts` | 1 llama.cpp, 8 vLLM, 4 otherwise | Parallel attempts; with a single server slot it does not speed anything up |
+| `max_tokens`, `temperature`, `seed` | 128, 0.7, 42 | Only for a generator built by MRRobotIA; `seed` is also passed to garak |
+| `max_duration` | 1 h / 3 h / 15 h by preset | Seconds allowed for garak (`tools.garak.timeout` also applies; the smaller wins). On expiry the whole process tree is killed and a partial report is given (`H4-GARAK-TIMEOUT`, `H4-GARAK-PARCIAL`) |
+| `api_key_env` | `"MRROBOTIA_API_KEY"` | **Name** of the environment variable holding the server's key. Never the key itself |
+| `offline` | `true` | `HF_HUB_OFFLINE=1`: no downloads. Probes whose detector needs Hugging Face are left out (see below) |
+| `keep_raw` | `true` | Keep garak's `raw/` folder. **It holds the attacks and the model's answers unfiltered** (it may contain offensive or dangerous content): treat it as sensitive. With `false` it is deleted after summarizing |
+| `generator_options` | `null` | The content of your `garak-config.json`, as is (see below) |
+
+**Which chatbot is tested.** Paste inside `garak.generator_options` the generator configuration
+you would give garak (`--generator_option_file`): `{"rest": {"RestGenerator": {...}}}` for any
+HTTP chatbot, `{"openai": {"OpenAICompatible": {...}}}`... A full garak configuration (one that has
+`plugins`) is accepted too. If you give none and H2-ID identified a **llama.cpp or vLLM** server,
+MRRobotIA builds an OpenAI-compatible configuration by itself (`<url>/v1/`, model name, `stop: []`
+so that responses are not cut at `#` or `;`). With any other server and no `generator_options`,
+the report asks for it (`H4-GARAK-SIN-GENERADOR`).
+
+llama.cpp, nothing to configure:
+```json
+"allow_active": true,
+"garak": {"preset": "quick"}
+```
+Any REST chatbot (here an OpenAI-style endpoint); the key travels as `$KEY`:
+```json
+"garak": {
+  "probes": ["dan.DanInTheWild", "promptinject.HijackHateHumans"],
+  "generator_options": {"rest": {"RestGenerator": {
+    "name": "my-chatbot",
+    "uri": "http://127.0.0.1:8080/v1/chat/completions",
+    "headers": {"Content-Type": "application/json", "Authorization": "Bearer $KEY"},
+    "req_template_json_object": {"model": "x", "max_tokens": 128, "messages": [{"role": "user", "content": "$INPUT"}]},
+    "response_json": true,
+    "response_json_field": "$.choices[0].message.content"
+  }}}
+}
+```
+See `ejemplos/garak-config.rest.example.json`.
+
+**Keys.** The key is read **only from an environment variable** (`api_key_env`), reaches garak
+only in its process environment (as `OPENAICOMPATIBLE_API_KEY`, or `REST_API_KEY`, or the
+`key_env_var` of the REST configuration) and is never written to the garak configuration, the
+report or the command line. In `generator_options` use `$KEY`: a key written in clear (`api_key`,
+a literal `Authorization` header, an `sk-...` token...) is rejected without running anything
+(`H4-GARAK-CLAVE-EN-CLARO`, with only the field name). In the report's JSON the target is
+written with keys masked (`***`), header values masked and request templates hidden.
+
+**What the report contains.** One row per probe with failures in the findings table, and an
+extra `## Barrido garak (H4)` section: the probes sorted by severity and rate, those that passed,
+and per probe its goal and up to two examples (entry and response, truncated to 200 and 300
+characters, stripped of control characters, ANSI sequences and `<`/`>`). Severity comes from the
+success rate (>= 50 % high, >= 20 % medium, otherwise low); it goes one level up for secret
+leaks and dangerous output (>= 20 %), down one level with fewer than 10 evaluated generations,
+and quality probes (hallucination, toxicity) never exceed medium. garak's detectors are mostly
+string-based, so **the rates are indicative**: read the examples. garak's own OWASP tags use the
+2023 list; MRRobotIA translates them to 2025. The files garak leaves are in `<prefix>_garak/`:
+`garak_config.json` (without keys), `raw/` (garak's report and hit log), `garak.stdout.log`
+(progress; follow it with `tail`) and `home/`.
+
+**Limits.**
+- Over the REST generator garak sends only the last user message, with no system role, so probes
+  that depend on a system prompt (system prompt extraction) test a server **without** one. The
+  OpenAI-compatible generator does send it.
+- Probes whose detector needs a Hugging Face classifier (`atkgen.Tox`, `lmrc.Bullying`,
+  `realtoxicityprompts.RTPBlank`) are left out of the presets: with no network garak skips them
+  silently. Ask for them in `probes` with `offline: false` if you accept the download.
+  `sysprompt_extraction` needs a one-time download (about 23 MB); with `offline` it is run only if
+  already cached in `HF_HOME` (to cache it: `HF_HOME=<folder> garak --target_type test.Repeat --spec probes.sysprompt_extraction.SystemPromptExtraction --generations 1`).
+  Each skipped probe is listed in the summary finding.
+- garak's exit code is not reliable: success means the report has a `completion` entry.
+  Otherwise: `H4-GARAK-ERROR` (and `H4-GARAK-PARCIAL` if some probes did finish).
+- Validated against a real llama.cpp server. The vLLM configuration (automatic, `parallel_attempts`
+  8) has only hermetic tests: **not validated for real**.
 
 ## Principles
 - **Explicit authorization.** The target file declares that you have permission. Without
@@ -206,7 +318,7 @@ The tool was designed to audit deployments against these five attackers:
 
 | ID | Attacker | What MRRobotIA covers today |
 |---|---|---|
-| A1 | Legitimate user of another role: types any text (jailbreak, injection) | Nothing yet (H4 and H5, pending) |
+| A1 | Legitimate user of another role: types any text (jailbreak, injection) | Partly: the garak sweep (H4) tries jailbreaks and injection; H5 pending |
 | A2 | Poisoned document: controls the content that enters the system | Nothing yet (H5, pending) |
 | A3 | Insider with access to disk or to other host processes | Permissions and configuration (M3), processes and environment (H2-ARRANQUE), local ports (H3) |
 | A4 | Supply chain: tampered model, adapter or library | Artifact integrity (M2), security advisories (H2-CVE), Trivy (H3-HOST) |
@@ -223,7 +335,8 @@ MRRobotIA/
 ├── Guia_agentes.md         # orchestration approach (origin of the redesign)
 ├── LICENSE
 ├── ejemplos/
-│   └── target.example.json
+│   ├── target.example.json
+│   └── garak-config.rest.example.json   # generator_options for any REST chatbot (H4)
 ├── src/mrrobotia/
 │   ├── __init__.py         # __version__
 │   ├── __main__.py         # `python -m mrrobotia`
@@ -248,8 +361,10 @@ MRRobotIA/
 │       ├── m3_configuracion.py  # M3: application configuration
 │       ├── h3_ssh.py            # H3: SSH hardening
 │       ├── h3_puertos.py        # H3: host ports
-│       └── h3_host.py           # H3: Trivy
-└── tests/                  # pytest; servidor_falso.py simulates llama.cpp and vLLM
+│       ├── h3_host.py           # H3: Trivy
+│       └── h4_garak.py          # H4: garak sweep and synthesis of its report
+└── tests/                  # pytest; servidor_falso.py simulates llama.cpp and vLLM,
+                            # garak_falso.py simulates garak (fixtures/garak: real, sanitized captures)
 ```
 
 ## Milestones (summary)
@@ -261,7 +376,7 @@ Details, order and what each milestone extracts are in [HITOS.md](HITOS.md) (in 
 | H1 Artifact integrity (SHA-256) | 1 | Done |
 | H2 Identification, exposure, startup and advisories | 1 | Done; llama.cpp validated with a real server, **vLLM pending validation** |
 | H3 Host security (SSH, ports, Trivy) | 1 | Done; Trivy and ssh-audit only with simulated output |
-| H4 Endpoint sweep | 2 | Pending (garak) |
+| H4 Endpoint sweep | 2 | Done (garak); validated against a real llama.cpp, **vLLM not validated for real** |
 | H5 Prompt injection and evals | 2 | Pending (promptfoo) |
 | H6 Prompts and outputs do not leave the network | 2 | Pending (DeepEval) |
 

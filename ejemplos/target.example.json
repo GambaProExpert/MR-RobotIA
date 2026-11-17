@@ -27,5 +27,11 @@
   ],
   "users": "./app/users.json",
   "audit": "./app/logs/audit.jsonl",
-  "app_dir": "./app"
+  "app_dir": "./app",
+  "garak": {
+    "preset": "quick",
+    "api_key_env": "MRROBOTIA_API_KEY",
+    "offline": true,
+    "keep_raw": true
+  }
 }
