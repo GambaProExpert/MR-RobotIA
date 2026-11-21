@@ -111,6 +111,56 @@ _J_REL = "https://github.com/praetorian-inc/julius/releases/tag/v{version}"
 _S_REL = "https://github.com/jtesta/ssh-audit/releases/tag/v{version}"
 _S_DOC = "https://github.com/jtesta/ssh-audit#readme"
 _G_DOC = "https://github.com/NVIDIA/garak#installation"
+_N_DIST = "https://nodejs.org/dist/v{version}"
+_N_DOC = "https://nodejs.org/en/download"
+_P_DOC = "https://www.promptfoo.dev/docs/installation/"
+
+
+def _node_windows():
+    return (
+        _W_DESTINO,
+        'New-Item -ItemType Directory -Force "$Destino\\dl", "$Destino\\node" | Out-Null',
+        f'$Base = "{_N_DIST}"',
+        '$Zip = "node-v{version}-win-x64.zip"',
+        'Invoke-WebRequest "$Base/$Zip" -OutFile "$Destino\\dl\\$Zip"',
+        'Invoke-WebRequest "$Base/SHASUMS256.txt" -OutFile "$Destino\\dl\\node_SHASUMS256.txt"',
+        '$Esperado = ((Select-String -Path "$Destino\\dl\\node_SHASUMS256.txt" -Pattern ([regex]::Escape($Zip))).Line '
+        '-split "\\s+")[0]',
+        'if ((Get-FileHash "$Destino\\dl\\$Zip" -Algorithm SHA256).Hash -ne $Esperado.ToUpper()) '
+        '{ throw "SHA-256 mismatch: download discarded" }',
+        'Expand-Archive "$Destino\\dl\\$Zip" -DestinationPath "$Destino\\node" -Force',
+    )
+
+
+def _node_posix(sistema, hash_cmd):
+    paquete = {"linux": "linux-x64.tar.xz", "macos": "darwin-x64.tar.gz"}[sistema]
+    return (
+        _L_DESTINO,
+        'mkdir -p "$DESTINO/node" "$DESTINO/dl"',
+        f'BASE="{_N_DIST}"',
+        f'FICHERO="node-v{{version}}-{paquete}"',
+        'curl -fsSL -o "$DESTINO/dl/$FICHERO" "$BASE/$FICHERO"',
+        'curl -fsSL -o "$DESTINO/dl/node_SHASUMS256.txt" "$BASE/SHASUMS256.txt"',
+        f'(cd "$DESTINO/dl" && grep " $FICHERO$" node_SHASUMS256.txt | {hash_cmd})',
+        'tar -xf "$DESTINO/dl/$FICHERO" -C "$DESTINO/node"',
+    )
+
+
+def _promptfoo_windows():
+    return (
+        _W_DESTINO,
+        'New-Item -ItemType Directory -Force "$Destino\\promptfoo" | Out-Null',
+        'npm install promptfoo@{version} --prefix "$Destino\\promptfoo" --no-audit --no-fund',
+    )
+
+
+def _promptfoo_posix():
+    return (
+        _L_DESTINO,
+        'mkdir -p "$DESTINO/promptfoo"',
+        'npm install promptfoo@{version} --prefix "$DESTINO/promptfoo" --no-audit --no-fund',
+    )
+
 
 def _bd_trivy_windows():
     return ('& "$Destino\\bin\\trivy.exe" image --download-db-only --no-progress --cache-dir "$Destino\\cache\\trivy"',)
@@ -224,6 +274,63 @@ CATALOGO = {
                     "nothing in the home directory. With garak.offline (the default) it downloads no models"},
         nota="Needs Python 3.11 or later (garak's documentation says 3.11 to 3.14). It can take hours: "
              "it is not part of 'all'."),
+
+    "node": Instalable(
+        "node",
+        "runs promptfoo in H5 'promptfoo' (promptfoo needs Node.js 22.22 or later, or 20.20 or later)",
+        (
+            Paso("windows", "Official portable zip with SHA-256 verification (no administrator rights)",
+                 _node_windows(), _N_DOC,
+                 "%LOCALAPPDATA%\\MRRobotIA\\tools\\node\\node-v{version}-win-x64\\node.exe", True,
+                 resumen="descarga node-v{version}-win-x64.zip de " + _N_DOC + ", comprueba su SHA-256 con "
+                         "SHASUMS256.txt y descomprímelo (o instala Node 22.22 o posterior con tu gestor de paquetes)"),
+            Paso("windows", "winget (version not pinned; it must be 22.22 or later)",
+                 ("winget install OpenJS.NodeJS.LTS",), _N_DOC, "", False),
+            Paso("linux", "Official binary with SHA-256 verification (x86-64; on ARM use linux-arm64)",
+                 _node_posix("linux", "sha256sum -c -"), _N_DOC,
+                 "$HOME/.local/mrrobotia-tools/node/node-v{version}-linux-x64/bin/node", True,
+                 resumen="descarga node-v{version}-linux-x64.tar.xz de " + _N_DOC + ", comprueba su SHA-256 con "
+                         "SHASUMS256.txt y descomprímelo (o instala Node 22.22 o posterior con tu gestor de paquetes)"),
+            Paso("macos", "Official binary with SHA-256 verification (Intel; on Apple Silicon use darwin-arm64)",
+                 _node_posix("macos", "shasum -a 256 -c -"), _N_DOC,
+                 "$HOME/.local/mrrobotia-tools/node/node-v{version}-darwin-x64/bin/node", True,
+                 resumen="descarga node-v{version}-darwin-x64.tar.gz (o darwin-arm64) de " + _N_DOC + ", comprueba su "
+                         "SHA-256 con SHASUMS256.txt y descomprímelo (o instala Node 22.22 o posterior con Homebrew)"),
+            Paso("macos", "Homebrew (version not pinned; it must be 22.22 or later)",
+                 ("brew install node",), _N_DOC, "", False),
+        ),
+        "SHA-256 of the archive against SHASUMS256.txt (published next to it on nodejs.org). The file is also "
+        "signed (SHASUMS256.txt.sig) for whoever wants to verify it with the Node.js release keys.",
+        cache={"*": "stores no data of its own"},
+        nota="Put the unzipped folder (node.exe) or its bin folder first in the PATH, or point to it with "
+             "tools.node.path. The Node commands have not been run (the validation installed Node with the 'node' npm "
+             "package). Whichever Node comes first in the PATH is the one promptfoo uses."),
+
+    "promptfoo": Instalable(
+        "promptfoo",
+        "evaluates the behaviour of the chatbot (system-prompt leak, prompt injection, BOLA/BFLA...) in H5 'promptfoo'",
+        (
+            Paso("windows", "npm with the version pinned (needs Node.js 22.22 or later)",
+                 _promptfoo_windows(), _P_DOC,
+                 "%LOCALAPPDATA%\\MRRobotIA\\tools\\promptfoo\\node_modules\\.bin\\promptfoo.cmd",
+                 resumen="con Node >= 22.22: npm install promptfoo@{version} --prefix <carpeta> (pon "
+                         "<carpeta>/node_modules/.bin/promptfoo en tools.promptfoo.path)"),
+            Paso("linux", "npm with the version pinned (needs Node.js 22.22 or later)",
+                 _promptfoo_posix(), _P_DOC, "$HOME/.local/mrrobotia-tools/promptfoo/node_modules/.bin/promptfoo",
+                 resumen="con Node >= 22.22: npm install promptfoo@{version} --prefix <carpeta> (pon "
+                         "<carpeta>/node_modules/.bin/promptfoo en tools.promptfoo.path)"),
+            Paso("macos", "npm with the version pinned (needs Node.js 22.22 or later)",
+                 _promptfoo_posix(), _P_DOC, "$HOME/.local/mrrobotia-tools/promptfoo/node_modules/.bin/promptfoo",
+                 resumen="con Node >= 22.22: npm install promptfoo@{version} --prefix <carpeta> (pon "
+                         "<carpeta>/node_modules/.bin/promptfoo en tools.promptfoo.path)"),
+        ),
+        "npm checks every package against the SHA-512 integrity hash of the registry; promptfoo publishes no separate "
+        "checksum. Pin the exact version (as above); `npm audit signatures` verifies the registry signatures.",
+        cache={"*": "MRRobotIA runs it with PROMPTFOO_CONFIG_DIR inside <-o prefix>_promptfoo/home/ and the network "
+                    "blocked (telemetry, update check, sharing and remote generation off, dead proxy): it writes nothing "
+                    "in ~/.promptfoo and downloads nothing. npm's own cache (~/.npm) is only used by the installation"},
+        nota="Needs Node.js 22.22 or later (see the 'node' entry): with an older Node it refuses to start. It sends "
+             "hundreds of attack requests to the chatbot and to a judge model, so it is active and not part of 'all'."),
 
     "julius": Instalable(
         "julius",

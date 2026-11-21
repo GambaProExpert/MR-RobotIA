@@ -3,6 +3,59 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.13.0] - 2026-11-21
+
+### Añadido: H5 `White_Rose` — evaluación del chatbot con promptfoo
+- **Nuevo escaneo `promptfoo`** (módulo `H5-PROMPTFOO`, `modulos/h5_promptfoo.py`): evalúa el *comportamiento del
+  chatbot* con su system prompt, propósito y límites (fuga del system prompt, sustitución de instrucciones,
+  inyección indirecta en el documento recuperado, fuga entre sesiones, RBAC, BOLA/BFLA, agencia excesiva...).
+  Es **activo** y **no entra en `all`**: exige `-s promptfoo`, `-a`, `allow_active` y, si el host no es local,
+  `authorization.confirm_non_local`. Complementa a H4: garak barre el endpoint; promptfoo evalúa el chatbot y
+  su configuración sirve de *gate* de CI.
+- **Todo local, requisito duro y no configurable.** En **cada** subproceso de promptfoo, también la consulta de
+  versión, se fuerzan la telemetría, la comprobación de versión, el compartir y la generación remota
+  desactivados, un proxy muerto (`HTTPS_PROXY=http://127.0.0.1:9`) con `NO_PROXY` solo para el chatbot y el juez,
+  y `PROMPTFOO_CONFIG_DIR` dentro de `<prefijo>_promptfoo/home/` (nada en `~/.promptfoo`). Medido:
+  `PROMPTFOO_DISABLE_TELEMETRY=1` por sí sola no basta (sigue enviando un evento a `r.promptfoo.app`).
+  **Falla cerrado**: solo plugins y estrategias verificados como locales; lo demás no se ejecuta y sale como INFO
+  `H5-PROMPTFOO-REMOTO-OMITIDO`. Una clave real de OpenAI del entorno nunca se reenvía.
+- **Juez local y poco fiable si es el mismo modelo.** El juez es un servidor local (`judge.url`; por defecto el
+  del propio chatbot; uno no local se rechaza con `H5-PROMPTFOO-JUEZ-NO-LOCAL`). Un 7B que se juzga a sí mismo
+  aprobó un volcado completo del system prompt, así que: **`canaries`** (aserciones deterministas, sin juez, que
+  nunca se imprimen: `[canario nº k]`), **calibración del juez** antes de ejecutar (`H5-PROMPTFOO-JUEZ-NO-FIABLE`),
+  `H5-PROMPTFOO-JUEZ-MISMO-MODELO` y una frase fija en el informe: un resultado limpio con un juez del mismo
+  modelo no demuestra seguridad.
+- **Construcción automática** para llama.cpp y vLLM, o **configuración de promptfoo pegada** (`promptfoo.config`,
+  objeto JSON) o `promptfoo.config_file`. Se revisa antes de ejecutar: clave en claro
+  (`H5-PROMPTFOO-CLAVE-EN-CLARO`, ALTA, sin ejecutar), código (`extensions`, scripts, aserciones
+  `javascript`/`python`: `H5-PROMPTFOO-CODIGO-EN-CONFIG`, salvo `allow_code`), juez o atacante no locales,
+  pruebas descargadas de la red, plugins remotos (se quitan de una copia). Un `config_file` se usa sin modificar.
+- **Presets** `quick`, `standard`, `gate` y `full` (`gate`: solo el paquete de pruebas fijas más `custom_tests`;
+  determinista, de 1 a 4 min). **Paquete de pruebas fijas** que sustituye lo que promptfoo no puede generar sin
+  red (sustitución de instrucciones con un token, inyección indirecta con el texto malicioso en `vars.contexto`,
+  exfiltración por Markdown, fuga entre sesiones, extracción del system prompt); BOLA y BFLA van en
+  `custom_tests`.
+- **Síntesis** por plugin (`H5-PROMPTFOO-<plugin>`): tasa de fallos, severidad (escalera de H4 con muestra mínima 3,
+  suben fugas, autorización y salida peligrosa; suelo MEDIA para un fallo determinista de fuga o autorización),
+  estado `potencial` si solo falló el juez, campo `juez` (determinista, LLM local o mixto), OWASP 2025 (ATLAS y
+  NIST solo donde coinciden con H4), hasta dos ejemplos saneados, las pruebas con error aparte y una sección
+  `## Evaluación del comportamiento del chatbot (promptfoo)` en el informe. `H5-PROMPTFOO-RESUMEN`,
+  `-PARCIAL`, `-TIMEOUT`, `-INTERRUMPIDO`, `-ERROR`, `-SIN-RESPUESTA`.
+- **Node.js y promptfoo** en el catálogo de instalación, `--check-tools` y `docs/TOOLS.md` /
+  `docs/HERRAMIENTAS.md`: promptfoo 0.126.0 necesita **Node.js >= 22.22** (con uno anterior sale
+  `H5-PROMPTFOO-NODE-ANTIGUO`, INFO, y no se ejecuta nada). `Herramienta.version_patron` evita tomar la versión
+  de Node por la de promptfoo.
+- `redactar` oculta, en el bloque `promptfoo` del objetivo que va al informe, los canarios, el system prompt, la
+  configuración pegada y las pruebas propias; `apikey` se trata como clave. `h4_garak.severidad` admite
+  `muestra_minima` y `clases_suben` para que H5 reutilice la escalera.
+- `ejemplos/target.example.json` con el bloque `promptfoo` y `ejemplos/promptfoo.config.example.json`.
+- Pruebas herméticas con un promptfoo falso (`tests/promptfoo_falso.py`) y capturas reales saneadas
+  (`tests/fixtures/promptfoo/`). Validado de punta a punta contra un llama.cpp real (Qwen2.5-7B): `gate`,
+  `quick`, configuración pegada y servidor caído; ningún destino externo salió de la máquina.
+- **Límites:** estrategias iterativas, `{{env.X}}` en cabeceras, `--safe-mode` con aserciones `javascript` y
+  `::1` en `NO_PROXY` sin probar; vLLM, `standard`, `full` y un juez mayor sin validar; sin PyYAML la
+  configuración pegada debe ser JSON.
+
 ## [0.12.1] - 2026-11-21
 
 ### Corregido

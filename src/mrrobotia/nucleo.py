@@ -88,13 +88,32 @@ class Hallazgo:
 # al informe. Las cabeceras (`headers`) se enmascaran enteras y las plantillas de petición
 # (`req_template*`) no se muestran. El nombre de una variable de entorno (`api_key_env`) no es un
 # secreto y se conserva.
-_CLAVES_SECRETAS = {"api_key", "key", "token", "secret", "password", "passphrase"}
+_CLAVES_SECRETAS = {"api_key", "apikey", "key", "token", "secret", "password", "passphrase"}
 _RE_USUARIO_URL = re.compile(r"(?<=://)[^/\s:@]+:[^/\s@]+@")
 
 
 def _es_clave_secreta(clave):
     k = str(clave).lower()
     return k in _CLAVES_SECRETAS or k.startswith("client_key")
+
+
+def _redactar_promptfoo(bloque):
+    """El bloque `promptfoo` del objetivo, sin lo que puede ser confidencial: los canarios (secretos que NUNCA deben
+    salir en una respuesta), el system prompt, la configuración pegada y las pruebas propias."""
+    salida = {}
+    for k, v in bloque.items():
+        kl = str(k).lower()
+        if kl == "canaries" and isinstance(v, list):
+            salida[k] = ["***"] * len(v)
+        elif kl == "system_prompt" and v is not None:
+            salida[k] = "<system prompt>"
+        elif kl == "config" and v is not None:
+            salida[k] = "<configuración pegada>"
+        elif kl == "custom_tests" and isinstance(v, list):
+            salida[k] = f"<{len(v)} pruebas>"
+        else:
+            salida[k] = redactar(v)
+    return salida
 
 
 def redactar(valor):
@@ -104,7 +123,9 @@ def redactar(valor):
         salida = {}
         for k, v in valor.items():
             kl = str(k).lower()
-            if _es_clave_secreta(k) and v is not None:
+            if kl == "promptfoo" and isinstance(v, dict):
+                salida[k] = _redactar_promptfoo(v)
+            elif _es_clave_secreta(k) and v is not None:
                 salida[k] = "***"
             elif kl == "headers":
                 salida[k] = {h: "***" for h in v} if isinstance(v, dict) else "***"
@@ -305,6 +326,63 @@ class Informe:
             L.append("")
         return L
 
+    def _seccion_promptfoo(self):
+        """Líneas de Markdown de «Evaluación del comportamiento del chatbot (promptfoo)» (H5): solo si algún
+        hallazgo trae `detalle` de promptfoo. Los textos de ejemplo ya vienen truncados y saneados; los
+        canarios salen como «[canario nº k]»."""
+        plugins = [h for h in self.hallazgos if (h.detalle or {}).get("seccion") == "promptfoo"
+                   and h.detalle.get("tipo") == "plugin"]
+        resumen = [h for h in self.hallazgos if (h.detalle or {}).get("seccion") == "promptfoo"
+                   and h.detalle.get("tipo") == "resumen"]
+        if not plugins and not resumen:
+            return []
+        L = ["", "## Evaluación del comportamiento del chatbot (promptfoo)", ""]
+        for h in resumen:
+            d = h.detalle
+            L.append(_celda(d.get("cabecera", "")))
+            L.append("")
+            L += [f"> {_celda(d.get('aviso_fiabilidad') or '')}", ""]
+        estados = [h for h in self.hallazgos if h.id in ("H5-PROMPTFOO-JUEZ-NO-FIABLE", "H5-PROMPTFOO-PARCIAL")]
+        for h in estados:
+            L += [f"> **{_celda(h.titulo)}**: {_celda(h.evidencia)}", ""]
+        orden = sorted(plugins, key=lambda h: (-h.severidad, -h.detalle.get("tasa", 0)))
+        if orden:
+            L += ["| Plugin | Clase | Fallos | Tasa | Estrategias | Juez | OWASP / ATLAS / NIST | Severidad |",
+                  "|---|---|---|---|---|---|---|---|"]
+            for h in orden:
+                d = h.detalle
+                estr = ", ".join(f"{s} {f}/{t}" for s, (f, t) in (d.get("estrategias") or {}).items())
+                marcos = " / ".join(str(d.get(k) or "—") for k in ("owasp", "atlas", "nist"))
+                L.append(f"| {_celda(d['plugin'])} | {_celda(d.get('clase', ''))} | {d['fallos']}/{d['total']} | "
+                         f"{_pct(d['tasa'])} % | {_celda(estr)} | {_celda(d.get('juez', ''))} | {_celda(marcos)} | "
+                         f"{h.severidad.name} |")
+            L.append("")
+        for h in orden:
+            d = h.detalle
+            L.append(f"### {_celda(d['plugin'])} — {_pct(d['tasa'])} % ({d['fallos']}/{d['total']}) · {h.severidad.name}"
+                     f"{_MARCA_ESTADO.get(h.estado, '')}")
+            if h.recomendacion:
+                L.append(f"Recomendación: {_celda(h.recomendacion)}")
+            for i, e in enumerate(d.get("ejemplos") or [], 1):
+                L.append(f"{i}. Ataque: `{_en_linea(e.get('entrada'))}`")
+                if e.get("contexto"):
+                    L.append(f"   Contexto inyectado: `{_en_linea(e['contexto'])}`")
+                L.append(f"   Respuesta: `{_en_linea(e.get('salida'))}`")
+                L.append(f"   Razón del juez: `{_en_linea(e.get('razon'))}`")
+            if d.get("ruta_resultados"):
+                L.append(f"Resultados completos: `{_en_linea(d['ruta_resultados'])}`")
+            L.append("")
+        for h in resumen:
+            d = h.detalle
+            if d.get("superadas"):
+                L += [f"Sin fallos (sujeto al juez): {_celda(', '.join(d['superadas']))}", ""]
+            if d.get("no_disponibles"):
+                L += ["No disponibles sin generación remota (no ejecutados; se cubren con las pruebas escritas a mano "
+                      f"y promptfoo.custom_tests): {_celda(', '.join(d['no_disponibles']))}", ""]
+            if d.get("aviso_raw"):
+                L += [f"> {_celda(d['aviso_raw'])}", ""]
+        return L
+
     def to_json(self):
         return json.dumps({
             "herramienta": "MRRobotIA",
@@ -349,4 +427,5 @@ class Informe:
             L += ["", "## Recomendaciones", ""]
             L += [f"- **[{h.severidad.name}] {h.titulo}** — {h.recomendacion}" for h in recs]
         L += self._seccion_garak()
+        L += self._seccion_promptfoo()
         return "\n".join(L) + "\n"

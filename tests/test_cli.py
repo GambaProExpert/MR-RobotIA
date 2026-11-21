@@ -17,7 +17,7 @@ from mrrobotia.modulos.h3_puertos import H3Puertos
 from mrrobotia.modulos.h3_ssh import H3Ssh
 from mrrobotia.procesos import Proceso
 
-ETIQUETAS = {"id", "integrity", "config", "exposure", "startup", "cve", "ssh", "ports", "vulns", "garak"}
+ETIQUETAS = {"id", "integrity", "config", "exposure", "startup", "cve", "ssh", "ports", "vulns", "garak", "promptfoo"}
 
 
 def objetivo(**extra):
@@ -118,7 +118,7 @@ def test_escaneo_desconocido(valor):
 # ---------------------------------------------------------------------------- --skip
 def test_excluir_etiqueta_de_todo():
     seleccion, _ = cli._resolver_escaneo("all", "cve")
-    assert seleccion == ETIQUETAS - {"cve", "garak"}   # garak no entra en all
+    assert seleccion == ETIQUETAS - {"cve", "garak", "promptfoo"}   # garak no entra en all
 
 
 def test_excluir_un_grupo():
@@ -195,7 +195,7 @@ def test_cada_modulo_declara_su_descripcion_y_tipo():
         assert modulo.descripcion and modulo.tipo in ("pasivo", "hibrido", "activo")
     assert cli.IDENTIFICACION.externa.nombre == "julius"
     assert {m.etiqueta_escaneo: m.externa.nombre for m in cli.MODULOS if m.externa} == {
-        "ssh": "ssh-audit", "vulns": "trivy", "garak": "garak"}
+        "ssh": "ssh-audit", "vulns": "trivy", "garak": "garak", "promptfoo": "promptfoo"}
 
 
 # ---------------------------------------------------------------------------- --server

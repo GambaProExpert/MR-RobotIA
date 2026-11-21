@@ -18,8 +18,9 @@ enabled with -a/--active (or MRROBOTIA_ACTIVE) AND allow_active=true in the targ
 file. HYBRID modules (H2, H3...) always do their passive part (network binding, processes,
 files) and their active part (network probing) only when active probing is enabled.
 
-The garak sweep (H4, label 'garak') is active, long and NOT part of 'all': ask for it with
-'-s garak -a' (or '-s all,garak -a'); see the README for its 'garak' block in the target file.
+The garak sweep (H4, label 'garak') and the promptfoo evaluation (H5, label 'promptfoo') are active, long and
+NOT part of 'all': ask for them with '-s garak -a' or '-s promptfoo -a' (or '-s all,garak,promptfoo -a'); see the
+README for their 'garak' and 'promptfoo' blocks in the target file. promptfoo always runs with the network blocked.
 
 Before any module, H2-ID identifies what it is dealing with (server, version, startup
 and OS); it always runs. Host analysis (H3) is only done on machines with a llama.cpp or
@@ -45,6 +46,7 @@ from mrrobotia.modulos.h3_ssh import H3Ssh
 from mrrobotia.modulos.h3_puertos import H3Puertos
 from mrrobotia.modulos.h3_host import H3Host
 from mrrobotia.modulos.h4_garak import H4Garak
+from mrrobotia.modulos.h5_promptfoo import H5Promptfoo
 
 # La identificación no es un módulo más: corre siempre y primero, y su Contexto lo reciben
 # los demás, sea cual sea la selección de --scan.
@@ -52,9 +54,9 @@ IDENTIFICACION = H2Identificacion()
 
 # Registro de módulos. H2 va antes de los otros porque su sondeo concreta la autenticación
 # y la versión. El barrido del endpoint lo hace garak (H4), que sustituye al prober propio
-# anterior (M1, retirado). H4 no entra en `all`: se pide con -s garak.
+# anterior (M1, retirado). H4 y H5 no entran en `all`: se piden con -s garak y -s promptfoo.
 MODULOS = [M2Integridad(), M3Configuracion(), H2Exposicion(), H2Arranque(), H2Cve(),
-           H3Ssh(), H3Puertos(), H3Host(), H4Garak()]
+           H3Ssh(), H3Puertos(), H3Host(), H4Garak(), H5Promptfoo()]
 
 # Grupos del selector --scan y --skip (además de las etiquetas individuales de cada
 # módulo), con su descripción para --list y --help.
@@ -64,7 +66,7 @@ GRUPOS = {
     "server": {"exposure", "startup", "cve"},              # el servidor LLM en sí
 }
 DESCRIPCION_GRUPOS = {
-    "all": "all scans (default), except the long ones that must be asked for by label (garak)",
+    "all": "all scans (default), except the long ones that must be asked for by label (garak, promptfoo)",
     "host": "host security (H3)",
     "active": "the ones with an active part; they do not enable it",
     "server": "the LLM server: exposure, startup and security advisories",
@@ -184,8 +186,8 @@ def _inventario():
     (Herramienta, [(módulo, etiqueta del escaneo), ...]) en el orden del registro."""
     vistas = {}
     for m in [IDENTIFICACION, *MODULOS]:
-        if m.externa is not None:
-            vistas.setdefault(m.externa.nombre, (m.externa, []))[1].append((m.nombre, m.etiqueta_escaneo))
+        for h in ([m.externa] if m.externa is not None else []) + list(getattr(m, "externas_auxiliares", ())):
+            vistas.setdefault(h.nombre, (h, []))[1].append((m.nombre, m.etiqueta_escaneo))
     return list(vistas.values())
 
 
@@ -320,7 +322,7 @@ def main():
                          "which external tool they use and whether it is installed; with -t it respects tools.<name>.path) "
                          "and exit")
     ap.add_argument("--check-tools", action="store_true",
-                    help="Check the external tools (Julius, ssh-audit, Trivy, garak): which scans use each, "
+                    help="Check the external tools (Julius, ssh-audit, Trivy, garak, Node.js, promptfoo): which scans use each, "
                          "whether it is installed (path and version), the minimum version, and the exact way to "
                          "install it on this system. Needs no target; with -t it respects tools.<name>.path. "
                          "It installs nothing")

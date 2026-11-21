@@ -332,9 +332,142 @@ It stores no data or caches.
 
 `tools.julius.path` in the target file.
 
+## Node.js (pinned version: 22.23.5)
+
+**What MRRobotIA uses it for:** Runs promptfoo in H5 (scan `promptfoo`). **Only needed for H5**: promptfoo requires Node.js 22.22 or later (or 20.20 or later) and refuses to start with an older one; MRRobotIA then reports `H5-PROMPTFOO-NODE-ANTIGUO` (INFO) and runs nothing.
+
+### Installation
+
+**Windows (PowerShell 5.1 or later), recommended: Official portable zip with SHA-256 verification (no administrator rights)** ([source](https://nodejs.org/en/download))
+
+```powershell
+$Destino = "$env:LOCALAPPDATA\MRRobotIA\tools"
+New-Item -ItemType Directory -Force "$Destino\dl", "$Destino\node" | Out-Null
+$Base = "https://nodejs.org/dist/v22.23.5"
+$Zip = "node-v22.23.5-win-x64.zip"
+Invoke-WebRequest "$Base/$Zip" -OutFile "$Destino\dl\$Zip"
+Invoke-WebRequest "$Base/SHASUMS256.txt" -OutFile "$Destino\dl\node_SHASUMS256.txt"
+$Esperado = ((Select-String -Path "$Destino\dl\node_SHASUMS256.txt" -Pattern ([regex]::Escape($Zip))).Line -split "\s+")[0]
+if ((Get-FileHash "$Destino\dl\$Zip" -Algorithm SHA256).Hash -ne $Esperado.ToUpper()) { throw "SHA-256 mismatch: download discarded" }
+Expand-Archive "$Destino\dl\$Zip" -DestinationPath "$Destino\node" -Force
+```
+
+Resulting executable: `%LOCALAPPDATA%\MRRobotIA\tools\node\node-v22.23.5-win-x64\node.exe`
+
+**Windows (PowerShell 5.1 or later), alternative: winget (version not pinned; it must be 22.22 or later)** ([source](https://nodejs.org/en/download))
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+```
+
+**Linux, recommended: Official binary with SHA-256 verification (x86-64; on ARM use linux-arm64)** ([source](https://nodejs.org/en/download))
+
+```bash
+DESTINO="$HOME/.local/mrrobotia-tools"
+mkdir -p "$DESTINO/node" "$DESTINO/dl"
+BASE="https://nodejs.org/dist/v22.23.5"
+FICHERO="node-v22.23.5-linux-x64.tar.xz"
+curl -fsSL -o "$DESTINO/dl/$FICHERO" "$BASE/$FICHERO"
+curl -fsSL -o "$DESTINO/dl/node_SHASUMS256.txt" "$BASE/SHASUMS256.txt"
+(cd "$DESTINO/dl" && grep " $FICHERO$" node_SHASUMS256.txt | sha256sum -c -)
+tar -xf "$DESTINO/dl/$FICHERO" -C "$DESTINO/node"
+```
+
+Resulting executable: `$HOME/.local/mrrobotia-tools/node/node-v22.23.5-linux-x64/bin/node`
+
+**macOS, recommended: Official binary with SHA-256 verification (Intel; on Apple Silicon use darwin-arm64)** ([source](https://nodejs.org/en/download))
+
+```bash
+DESTINO="$HOME/.local/mrrobotia-tools"
+mkdir -p "$DESTINO/node" "$DESTINO/dl"
+BASE="https://nodejs.org/dist/v22.23.5"
+FICHERO="node-v22.23.5-darwin-x64.tar.gz"
+curl -fsSL -o "$DESTINO/dl/$FICHERO" "$BASE/$FICHERO"
+curl -fsSL -o "$DESTINO/dl/node_SHASUMS256.txt" "$BASE/SHASUMS256.txt"
+(cd "$DESTINO/dl" && grep " $FICHERO$" node_SHASUMS256.txt | shasum -a 256 -c -)
+tar -xf "$DESTINO/dl/$FICHERO" -C "$DESTINO/node"
+```
+
+Resulting executable: `$HOME/.local/mrrobotia-tools/node/node-v22.23.5-darwin-x64/bin/node`
+
+**macOS, alternative: Homebrew (version not pinned; it must be 22.22 or later)** ([source](https://nodejs.org/en/download))
+
+```bash
+brew install node
+```
+
+### Verification
+
+```
+node --version
+```
+
+The archive's SHA-256 is checked against `SHASUMS256.txt` (the block does it). The file is also signed (`SHASUMS256.txt.sig`). These commands have not been run: the validation installed Node with the `node` npm package.
+
+### Data and caches
+
+Stores no data of its own. Whichever `node` comes first in the `PATH` is the one promptfoo uses: put the unzipped folder (`node.exe` or `bin/`) first in the `PATH`.
+
+### Pointing MRRobotIA to it
+
+`tools.node.path` in the target file (only used by `--check-tools`; promptfoo itself uses the `PATH`, or the Node that its own launcher chooses).
+
+
+## promptfoo (pinned version: 0.126.0)
+
+**What MRRobotIA uses it for:** Evaluates the behaviour of the chatbot (system-prompt leak, direct and indirect prompt injection, cross-session leak, BOLA/BFLA...) in H5 (scan `promptfoo`, not part of `all`; it needs `-a` and `allow_active=true`). **Needs Node.js 22.22 or later** (see above) and MRRobotIA requires promptfoo 0.126.0 or later. It always runs with the network blocked (see the README).
+
+### Installation
+
+**Windows (PowerShell 5.1 or later), recommended: npm with the version pinned (needs Node.js 22.22 or later)** ([source](https://www.promptfoo.dev/docs/installation/))
+
+```powershell
+$Destino = "$env:LOCALAPPDATA\MRRobotIA\tools"
+New-Item -ItemType Directory -Force "$Destino\promptfoo" | Out-Null
+npm install promptfoo@0.126.0 --prefix "$Destino\promptfoo" --no-audit --no-fund
+```
+
+Resulting executable: `%LOCALAPPDATA%\MRRobotIA\tools\promptfoo\node_modules\.bin\promptfoo.cmd`
+
+**Linux, recommended: npm with the version pinned (needs Node.js 22.22 or later)** ([source](https://www.promptfoo.dev/docs/installation/))
+
+```bash
+DESTINO="$HOME/.local/mrrobotia-tools"
+mkdir -p "$DESTINO/promptfoo"
+npm install promptfoo@0.126.0 --prefix "$DESTINO/promptfoo" --no-audit --no-fund
+```
+
+Resulting executable: `$HOME/.local/mrrobotia-tools/promptfoo/node_modules/.bin/promptfoo`
+
+**macOS, recommended: npm with the version pinned (needs Node.js 22.22 or later)** ([source](https://www.promptfoo.dev/docs/installation/))
+
+```bash
+DESTINO="$HOME/.local/mrrobotia-tools"
+mkdir -p "$DESTINO/promptfoo"
+npm install promptfoo@0.126.0 --prefix "$DESTINO/promptfoo" --no-audit --no-fund
+```
+
+Resulting executable: `$HOME/.local/mrrobotia-tools/promptfoo/node_modules/.bin/promptfoo`
+
+### Verification
+
+```
+promptfoo --version
+```
+
+npm checks every package against the registry's SHA-512 integrity hash; promptfoo publishes no separate checksum, so the version is pinned. `npm audit signatures` verifies the registry signatures.
+
+### Data and caches
+
+MRRobotIA runs promptfoo with its state (`PROMPTFOO_CONFIG_DIR`: database, cache, debug logs) inside `<-o prefix>_promptfoo/home/`, with telemetry, update check, sharing and remote generation switched off and a dead proxy: it writes nothing in `~/.promptfoo` and downloads nothing. The installation itself uses npm's cache (`~/.npm`; change it with `npm_config_cache`) and takes about 600 MB.
+
+### Pointing MRRobotIA to it
+
+`tools.promptfoo.path` pointing to `node_modules/.bin/promptfoo` (Linux, macOS) or `node_modules\.bin\promptfoo.cmd` (Windows) of the install folder.
+
+
 ## Coming soon
 
-- **promptfoo** (H5): evaluation of prompts and of an application's own system prompt.
 - **DeepEval** (H6): quality and leak evaluation with metrics.
 
-They will be documented here when they are integrated.
+It will be documented here when it is integrated.

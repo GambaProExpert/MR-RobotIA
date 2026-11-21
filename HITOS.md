@@ -1,7 +1,7 @@
 # MRRobotIA — Hitos (roadmap por capas)
 
 > Operativiza [Guia_agentes.md](Guia_agentes.md). Alcance elegido: **LLM + RAG + host**.
-> Estado de este documento: versión 0.10.0 (2026-11-17). H0-H4 hechos; H5-H7 por hacer (H7 con el diseño hecho). vLLM está validado contra un
+> Estado de este documento: versión 0.13.0 (2026-11-21). H0-H5 hechos; H6-H7 por hacer (H7 con el diseño hecho). vLLM está validado contra un
 > vLLM 0.33.0 real en CPU; quedan por validar GPU, generación y el escaneo real de ssh-audit (ver más abajo). Trivy ya está validado en real (0.11.0).
 
 ## Qué es ahora MRRobotIA
@@ -29,7 +29,7 @@ ya consolidadas** contra un servidor LLM local y **normaliza sus datos** a un in
 | **H2 · Identificación, exposición, arranque y avisos** | 1 | código propio (+ Julius opcional) | **H2-ID** identifica antes de auditar el servidor (llama.cpp o vLLM), versión, arranque y SO; **H2** evalúa por servidor *bind* (loopback vs `0.0.0.0`), autenticación, CORS, `Host`, TLS y los endpoints propios del perfil; **H2-ARRANQUE** revisa opciones y entorno; **H2-CVE** compara la versión con 48 avisos de llama.cpp y 140 de vLLM. Puertos por defecto de llama.cpp: **9931** (builds recientes) y **8080**; de vLLM, 8000 | **hecho** · llama.cpp validado contra un servidor real; **vLLM implementado desde el código de la 0.33.0 y validado contra un vLLM 0.33.0 real en CPU (peticiones de lectura)** |
 | **H3 · Seguridad del host** | 1 | código propio + **Trivy** + ssh-audit | SSH (`sshd_config` CIS + `ssh-audit`), puertos abiertos innecesarios/inseguros (los puertos esperados salen de lo identificado) y vulnerabilidades/secretos/config con Trivy. Solo se ejecuta en máquinas con un servidor llama.cpp o vLLM. | **hecho** · Trivy validado en real (0.11.0); ssh-audit instalado y detectado, escaneo real pendiente (sin sshd) |
 | **H4 · Barrido del endpoint** | 2 | **garak** (NVIDIA) | barrido amplio del endpoint REST/llama.cpp (sondas de inyección y más) → informe JSONL normalizado | **hecho** (0.10.0) · **sustituye al *prober* propio anterior** (fuera del repositorio). Validado contra un llama.cpp real (7B) con configuración automática, `garak-config.json` REST pegado y tiempo agotado con informe parcial; **vLLM sin validar en real** (solo pruebas herméticas). Duración medida solo para `quick` (unos 4-6 min); `standard` y `full` son estimaciones |
-| **H5 · Prompt injection / evals** | 2 | **promptfoo** | red team + evals en YAML como *gate* de CI: inyección directa e indirecta, fuga entre sesiones, agencia excesiva, BOLA/BFLA | por hacer |
+| **H5 · Prompt injection / evals** | 2 | **promptfoo** | red team + evals en YAML como *gate* de CI: inyección directa e indirecta, fuga entre sesiones, agencia excesiva, BOLA/BFLA | **hecho** (0.13.0) · validado contra un llama.cpp real con Qwen2.5-7B (`gate`, `quick`, configuración de promptfoo pegada y servidor caído) y con la red bloqueada. Salvedades: **un juez del mismo modelo es poco fiable** (aprobó un volcado del system prompt; la señal de confianza son los canarios), los plugins generados necesitan un atacante mayor (un 7B escribe ataques flojos) y 18 plugins solo remotos (BOLA, BFLA, inyección indirecta...) se sustituyen por pruebas fijas y `custom_tests`. `standard`, `full`, vLLM y un juez mayor sin validar |
 | **H6 · Datos no salen de la red** | 2 | **DeepEval / DeepTeam** | **MUY IMPORTANTE**: comprobar que prompts y salidas no salen de la red; juez local (`deepeval set-ollama`), red teaming offline | por hacer |
 | **H7 · Simulación de ataques con verificación** | 2 | código propio + **Schemathesis** y **vegeta** opcionales | ataques inocuos y acotados contra el servidor (o la pasarela o aplicación de delante) y, por cada uno: ¿se bloqueó?, ¿quedó constancia (logs, métricas, auditoría)?, ¿se recuperó el servidor? Remedio y repetición de lo que falló | por hacer (diseño hecho; ver abajo) |
 | Capa 3 · agentes, MCP, herramientas | 3 | agentic-radar, etc. | superficie de agentes/MCP | **más adelante** (fuera de alcance ahora) |
@@ -155,4 +155,32 @@ contra un endpoint **llama.cpp**; formato de salida y su parseo; mapeo a severid
   repositorio y no se recupera. Etiqueta `garak`, fuera de `all`, con doble consentimiento. Validado
   contra un llama.cpp real; la configuración automática para vLLM solo tiene pruebas herméticas
   (**sin validar en real**: el vLLM de WSL no puede generar). Lo que garak no cubre (el system prompt
-  propio de una aplicación, con sus canarios) queda para H5 (promptfoo) o una sonda propia de garak.
+  propio de una aplicación, con sus canarios) lo cubre H5 (promptfoo).
+- **H5 (0.13.0):** promptfoo evalúa el comportamiento del chatbot con su system prompt, propósito y límites.
+  Etiqueta `promptfoo`, fuera de `all`, con doble consentimiento. Requiere **Node.js >= 22.22** (con uno
+  anterior promptfoo no arranca: `H5-PROMPTFOO-NODE-ANTIGUO`) y promptfoo 0.126.0; `--check-tools` y
+  `docs/TOOLS.md` / `docs/HERRAMIENTAS.md` los cubren. Decisiones:
+  - **Todo local, requisito duro** (el germen de H6): en cada subproceso, incluso la consulta de versión,
+    se fuerzan telemetría, comprobación de versión, compartir y generación remota desactivados, proxy
+    muerto con `NO_PROXY` solo para el chatbot y el juez, y `PROMPTFOO_CONFIG_DIR` dentro de la salida.
+    Medido: `PROMPTFOO_DISABLE_TELEMETRY=1` por sí sola **no** basta (promptfoo sigue enviando un evento a
+    `r.promptfoo.app`); con el bloqueo, un oyente en el proxy muerto solo vio esos intentos y el muestreo
+    de las conexiones de `node` no vio ningún destino externo. **Falla cerrado**: solo plugins y estrategias
+    verificados como locales; lo demás sale como INFO `H5-PROMPTFOO-REMOTO-OMITIDO`.
+  - **El juez es el servidor local** (por defecto el del propio chatbot). Un 7B que se juzga a sí mismo
+    aprobó un volcado completo del system prompt: por eso hay **canarios** deterministas (la señal de
+    confianza), **calibración del juez** antes de ejecutar, el hallazgo `H5-PROMPTFOO-JUEZ-MISMO-MODELO` y
+    una frase fija en el informe («un resultado limpio con un juez del mismo modelo no demuestra
+    seguridad»).
+  - **Presets** `quick`, `standard`, `gate` y `full`; `gate` (solo el paquete de pruebas fijas más las
+    `custom_tests`) es el de CI: determinista y de 1 a 4 min. El *gate* lo da la **severidad de los
+    hallazgos**: no hay una opción global nueva en el CLI.
+  - Se puede **pegar una configuración de promptfoo** (`promptfoo.config`, como objeto JSON) o apuntar a un
+    fichero; MRRobotIA la revisa (claves en claro, código, juez no local, pruebas descargadas de la red).
+  - Marcos: OWASP LLM 2025; ATLAS y NIST solo donde coinciden con H4 y, en autorización, solo OWASP.
+  - Sin dependencias de ejecución nuevas: no se lee YAML (sin PyYAML la configuración pegada va en JSON).
+  - **Sin validar / límites:** estrategias iterativas (`jailbreak`, `crescendo`...), `{{env.X}}` en
+    cabeceras, `--safe-mode` con aserciones `javascript`, `::1` en `NO_PROXY`, vLLM, `standard`, `full` y un
+    juez mayor que el chatbot. promptfoo solo escribe su JSON al terminar cada fase.
+  - **Pendiente de H6** (DeepEval): un juez distinto del sujeto (el 14B de otro puerto) y reutilizar la
+    calibración del juez.

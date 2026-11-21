@@ -13,8 +13,9 @@ from mrrobotia.modulos.h2_identificacion import JULIUS
 from mrrobotia.modulos.h3_host import H3Host
 from mrrobotia.modulos.h3_ssh import SSH_AUDIT
 from mrrobotia.modulos.h4_garak import H4Garak
+from mrrobotia.modulos.h5_promptfoo import NODE, PROMPTFOO
 
-TODAS = [JULIUS, SSH_AUDIT, H3Host.herramienta, H4Garak.herramienta]
+TODAS = [JULIUS, SSH_AUDIT, H3Host.herramienta, H4Garak.herramienta, NODE, PROMPTFOO]
 
 
 @pytest.fixture
@@ -65,14 +66,15 @@ def test_herramienta_ausente_da_la_instalacion_exacta(simulada, monkeypatch, cap
 def test_sin_objetivo_y_resumen_final(simulada, monkeypatch, capsys):
     simulada["julius"] = (None, "/x/julius")
     out = correr(monkeypatch, capsys)
-    assert "1 of 4 tools ready" in out and instalacion.GUIA in out
+    assert "1 of 6 tools ready" in out and instalacion.GUIA in out
     assert "not reported by the tool" in bloque(out, "julius")      # Julius no informa de su versión
 
 
 def test_cada_escaneo_con_su_herramienta(simulada, monkeypatch, capsys):
     out = correr(monkeypatch, capsys)
     for nombre, uso in [("julius", "H2-ID (scan 'id')"), ("ssh-audit", "H3-SSH (scan 'ssh')"),
-                        ("trivy", "H3-HOST (scan 'vulns')"), ("garak", "H4-GARAK (scan 'garak')")]:
+                        ("trivy", "H3-HOST (scan 'vulns')"), ("garak", "H4-GARAK (scan 'garak')"),
+                        ("node", "H5-PROMPTFOO (scan 'promptfoo')"), ("promptfoo", "H5-PROMPTFOO (scan 'promptfoo')")]:
         assert uso in bloque(out, nombre)
 
 

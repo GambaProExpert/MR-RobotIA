@@ -63,6 +63,7 @@ class Herramienta:
     fijada: str | None = None
     refs: dict = field(default_factory=dict)
     aislar_xdg: bool = False
+    version_patron: str | None = None
 
 
 @dataclass
@@ -91,8 +92,12 @@ def como_instalar(herramienta, sistema=None):
             f"tools.{herramienta.nombre}.path del objetivo. Detalle por sistema: mrrobotia --check-tools")
 
 
-def _extraer_version(texto):
-    """Primer 'x.y' o 'x.y.z' que aparezca en el texto; None si no hay ninguno."""
+def _extraer_version(texto, patron=None):
+    """Primer 'x.y' o 'x.y.z' que aparezca en el texto; None si no hay ninguno. Con `patron` (una
+    expresión regular de línea con el número en el grupo 1) solo cuenta lo que ella encuentre."""
+    if patron:
+        m = re.search(patron, texto or "", re.M)
+        return m.group(1) if m else None
     m = _RE_VERSION.search(texto or "")
     return m.group(0) if m else None
 
@@ -101,7 +106,7 @@ def _consultar_version(herramienta, ruta, env):
     proc = subprocess.run(
         [ruta, *herramienta.version_args],
         capture_output=True, text=True, errors="replace", timeout=30, env=env)
-    return _extraer_version((proc.stdout or "") + "\n" + (proc.stderr or ""))
+    return _extraer_version((proc.stdout or "") + "\n" + (proc.stderr or ""), herramienta.version_patron)
 
 
 def detectar(herramienta, overrides=None, env=None):
