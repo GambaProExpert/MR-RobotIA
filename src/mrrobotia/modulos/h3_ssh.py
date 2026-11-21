@@ -64,6 +64,16 @@ def _estado(sev):
     return "informativo" if sev == Severidad.INFO else "confirmado"
 
 
+def _salida_texto(res):
+    return "\n".join([res.stdout or "", res.stderr or ""]).strip()
+
+
+def _sin_servicio_ssh(res):
+    """¿ssh-audit dice que no pudo conectar (conexión rechazada, sin ruta, sin respuesta)? Es su
+    propio mensaje `[exception] cannot connect to HOST port N: ...`, en inglés en todos los sistemas."""
+    return "cannot connect to" in _salida_texto(res).lower()
+
+
 def _recorta(texto, n=300):
     """Recorta a `n` caracteres con un '…' final; nunca None."""
     texto = (texto or "").strip()
@@ -521,6 +531,15 @@ class H3Ssh(Modulo):
                 obj = json.loads(res.stdout)
             except (ValueError, TypeError):
                 obj = None
+        if obj is None and not res.expiro and res.error is None and _sin_servicio_ssh(res):
+            salida.append(Hallazgo(
+                "H3-SSH", "H3-SSH-SIN-SERVICIO",
+                "No hay un servicio SSH al que conectarse en el objetivo",
+                Severidad.INFO, "sin_concluir",
+                f"ssh-audit no pudo conectar a {host}:{puerto_ssh}: " + _recorta(_salida_texto(res), 160),
+                "No es un fallo de ssh-audit: arranca sshd en ese host/puerto o corrige ssh.port en el "
+                "fichero objetivo, y repite el análisis.", REFS))
+            return salida
         if obj is None:
             detalle = "expiró el tiempo límite" if res.expiro else (
                 res.error or f"returncode={res.returncode}; salida no interpretable como JSON")

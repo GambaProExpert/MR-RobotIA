@@ -5,8 +5,11 @@ fabricadas —sin servidor SSH ni `ssh-audit` instalado— y una integración li
 `ejecutar()` en modo pasivo (sshd_config temporal). Verifican además el invariante de
 privacidad: la evidencia nunca contiene claves privadas, host keys ni sus huellas.
 """
+import types
+
 from mrrobotia.modulos import h3_ssh as h3
 from mrrobotia.modulos.h3_ssh import H3Ssh, _evaluar_sshd, _evaluar_sshaudit
+from mrrobotia.herramientas import Resultado
 from mrrobotia.nucleo import Severidad
 
 
@@ -207,3 +210,25 @@ def test_host_no_local_confirmado_solo_hace_la_parte_activa(monkeypatch, tmp_pat
     m.activos_ok = True
     hallazgos = m.ejecutar({"host": "192.0.2.1", "authorization": {"confirm_non_local": True}, "ssh": {"port": 2222}})
     assert objetivo_visto == [("192.0.2.1", 2222)] and [h.id for h in hallazgos] == ["H3-SSH-NO-LOCAL"]
+
+
+def _activo(monkeypatch, res):
+    monkeypatch.setattr(h3.herramientas, "detectar",
+                        lambda *a, **k: types.SimpleNamespace(disponible=True, ruta="ssh-audit", version="3.9.0", error=None))
+    monkeypatch.setattr(h3.herramientas, "ejecutar", lambda *a, **k: res)
+    return H3Ssh()._activo({}, "127.0.0.1", 22)
+
+
+def test_ssh_audit_sin_servicio_es_info_claro(monkeypatch):
+    res = Resultado(1, "[exception] cannot connect to 127.0.0.1 port 22: [Errno 111] Connection refused", "", False, None)
+    hallazgos = _activo(monkeypatch, res)
+    ids = [h.id for h in hallazgos]
+    assert "H3-SSH-SIN-SERVICIO" in ids and "H3-SSH-ERROR" not in ids
+    h = next(h for h in hallazgos if h.id == "H3-SSH-SIN-SERVICIO")
+    assert h.severidad == Severidad.INFO and "127.0.0.1:22" in h.evidencia
+
+
+def test_ssh_audit_salida_ilegible_sigue_siendo_error(monkeypatch):
+    hallazgos = _activo(monkeypatch, Resultado(0, "<html>", "", False, None))
+    ids = [h.id for h in hallazgos]
+    assert "H3-SSH-ERROR" in ids and "H3-SSH-SIN-SERVICIO" not in ids

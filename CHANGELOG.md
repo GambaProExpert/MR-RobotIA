@@ -3,6 +3,21 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.12.1] - 2026-11-21
+
+### Corregido
+- **`--list` con `-t`:** ahora respeta `tools.<nombre>.path` del objetivo (como `--check-tools`, con la misma
+  detección: `cli._estado_herramienta`); antes marcaba «not installed» herramientas instaladas fuera del `PATH`.
+  Sin `-t` sigue mirando solo el `PATH`.
+- **Trivy sin base de datos (H3-HOST):** el escaneo offline fallaba con «Trivy terminó con un error · returncode 1».
+  Ahora, si el stderr indica que falta la base, da `H3-HOST-SIN-BASE` (INFO, sin concluir) con cómo poblarla
+  (`trivy image --download-db-only`, con red). Cualquier otro error sigue siendo `H3-HOST-ERROR`.
+- **ssh-audit sin servicio SSH (H3-SSH):** «cannot connect to…» ya no se informa como salida ilegible: da
+  `H3-SSH-SIN-SERVICIO` (INFO, sin concluir). Una salida realmente ilegible sigue dando `H3-SSH-ERROR`.
+- **garak con el servidor parado (H4-GARAK):** con la configuración automática, antes de lanzar garak se hace
+  una petición de vida (`GET <uri>models`, 3 s); si no responde, `H4-GARAK-ENDPOINT-NO-RESPONDE` (INFO) y no se
+  lanza el barrido. Con `generator_options` propios no se sondea (la URI real puede ser otra): se respeta lo declarado.
+
 ## [0.12.0] - 2026-11-17
 
 ### Añadido: alias de los hitos

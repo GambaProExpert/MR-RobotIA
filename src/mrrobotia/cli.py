@@ -153,13 +153,15 @@ def _resolver_escaneo(valor, excluir=None):
     return seleccion, forzar_pasivo
 
 
-def _listar():
-    """Print the available scans and groups."""
+def _listar(ruta_objetivo=None):
+    """Print the available scans and groups. With a target file (-t), the tools.<name>.path
+    declared in it are honoured, as --check-tools does; without it only the PATH is searched."""
+    overrides = _overrides_de(ruta_objetivo)
     print("Scans (for -s/--scan and -x/--skip):\n")
     for m in [IDENTIFICACION, *MODULOS]:
         externa = "none"
         if m.externa is not None:
-            det = herramientas.detectar(m.externa)
+            _, det, _ = _estado_herramienta(m.externa, overrides)
             externa = f"{m.externa.nombre} ({'installed' if det.disponible else 'not installed'})"
         print(f"  {m.etiqueta_escaneo}  {nucleo.rotulo_hito(m.hito)}  [{m.nombre}]")
         print(f"      {m.descripcion}")
@@ -315,7 +317,8 @@ def main():
     ap.add_argument("-x", "--skip", default=None, help=_ayuda_excluir())
     ap.add_argument("-l", "--list", action="store_true",
                     help="Show the scans and the groups (what they do, whether they are passive or hybrid, "
-                         "which external tool they use and whether it is installed) and exit")
+                         "which external tool they use and whether it is installed; with -t it respects tools.<name>.path) "
+                         "and exit")
     ap.add_argument("--check-tools", action="store_true",
                     help="Check the external tools (Julius, ssh-audit, Trivy, garak): which scans use each, "
                          "whether it is installed (path and version), the minimum version, and the exact way to "
@@ -333,7 +336,7 @@ def main():
     args = ap.parse_args()
 
     if args.list:
-        _listar()
+        _listar(args.target or os.environ.get("MRROBOTIA_TARGET"))
         return
     if args.check_tools:
         _comprobar_herramientas(args.target or os.environ.get("MRROBOTIA_TARGET"), args.os)

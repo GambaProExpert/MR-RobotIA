@@ -675,6 +675,21 @@ def construir_generador(cfg, contexto):
             "servidor": principal.tipo}, None, None
 
 
+def endpoint_responde(uri, timeout=3.0):
+    """(bool, detalle). Una petición GET barata a `<uri>models`; cualquier respuesta HTTP (incluso 401
+    o 404) significa que hay alguien escuchando. Solo la falta de respuesta cuenta como «no responde»."""
+    import urllib.error
+    import urllib.request
+    try:
+        urllib.request.urlopen(uri.rstrip("/") + "/models", timeout=timeout).close()
+        return True, ""
+    except urllib.error.HTTPError:
+        return True, ""
+    except Exception as e:
+        return False, type(e).__name__
+    # (nunca propaga: la comprobación no debe romper el módulo)
+
+
 def entorno_clave(info, cfg, entorno):
     """(variables, falta). `variables` = {NOMBRE: valor} que se pasan al subproceso. El valor sale de
     la variable `api_key_env` (o de la propia del generador si ya está definida) y no se guarda en
@@ -823,6 +838,19 @@ class H4Garak(ModuloHerramienta):
         spec_base, error = _spec(cfg)
         if error:
             return self._config_invalida(error)
+
+        # Con la construcción automática la URI es la del servidor identificado: si no responde, garak
+        # fallaría con «target URI is not reachable». Con generator_options propios no se sondea (la
+        # URI puede ser otra, con plantillas o cabeceras que no conocemos): se respeta lo declarado.
+        if info.get("automatico"):
+            uri = info["base"]["plugins"]["generators"]["openai"]["OpenAICompatible"]["uri"]
+            vivo, detalle = endpoint_responde(uri)
+            if not vivo:
+                return [self._h("ENDPOINT-NO-RESPONDE", "El endpoint no responde: no se lanza el barrido de garak",
+                                Severidad.INFO, "sin_concluir",
+                                f"{uri} no respondió ({detalle})",
+                                "Arranca el servidor (o corrige endpoint/exposure.port en el fichero objetivo) "
+                                "y repite el barrido; no se ha lanzado garak.")]
 
         preset = PRESETS[cfg["preset"]]
         generaciones = cfg["generations"] or preset["generations"]

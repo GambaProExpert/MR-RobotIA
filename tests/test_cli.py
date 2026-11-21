@@ -389,3 +389,24 @@ def test_objetivo_inexistente_o_invalido(monkeypatch, tmp_path):
         with pytest.raises(SystemExit) as e:
             cli.main()
         assert "target" in str(e.value)
+
+
+def test_listar_con_objetivo_respeta_las_rutas_declaradas(monkeypatch, capsys, tmp_path):
+    """-l solo mira el PATH; con -t también tools.<nombre>.path, igual que --check-tools."""
+    monkeypatch.delenv("MRROBOTIA_TARGET", raising=False)
+    monkeypatch.setattr(cli.herramientas.shutil, "which", lambda b: None)
+    objetivo = tmp_path / "t.json"
+    objetivo.write_text(json.dumps({"tools": {"garak": {"path": sys.executable}}}), encoding="utf-8")
+
+    monkeypatch.setattr(sys, "argv", ["mrrobotia", "--list"])
+    cli.main()
+    assert "garak (not installed)" in capsys.readouterr().out
+
+    monkeypatch.setattr(sys, "argv", ["mrrobotia", "--list", "-t", str(objetivo)])
+    cli.main()
+    salida = capsys.readouterr().out
+    assert "garak (installed)" in salida and "ssh-audit (not installed)" in salida
+
+    objetivo.write_text(json.dumps({"tools": {"garak": {"path": str(tmp_path / "no_existe.exe")}}}), encoding="utf-8")
+    cli.main()
+    assert "garak (not installed)" in capsys.readouterr().out

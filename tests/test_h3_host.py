@@ -182,3 +182,18 @@ def test_auditar_error(tmp_path, monkeypatch):
     assert len(hallazgos) == 1
     assert hallazgos[0].id == "H3-HOST-ERROR"
     assert hallazgos[0].severidad == Severidad.MEDIA
+
+
+def test_trivy_sin_base_da_info_claro(tmp_path, monkeypatch):
+    err = "FATAL	Fatal error	run error: init error: DB error: database error: --skip-db-update cannot be specified on the first run"
+    monkeypatch.setattr(herramientas, "ejecutar", lambda *a, **k: Resultado(1, "", err, False, None))
+    hallazgos = H3Host()._auditar({"trivy_host": {"path": str(tmp_path)}}, _DET)
+    assert [h.id for h in hallazgos] == ["H3-HOST-SIN-BASE"]
+    h = hallazgos[0]
+    assert h.severidad == Severidad.INFO and "download-db-only" in h.recomendacion
+
+
+def test_trivy_error_distinto_sigue_siendo_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(herramientas, "ejecutar", lambda *a, **k: Resultado(1, "", "permission denied", False, None))
+    hallazgos = H3Host()._auditar({"trivy_host": {"path": str(tmp_path)}}, _DET)
+    assert hallazgos[0].id == "H3-HOST-ERROR"

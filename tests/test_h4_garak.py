@@ -60,6 +60,8 @@ def banco(tmp_path, monkeypatch):
     monkeypatch.setenv("GARAK_FALSO_REGISTRO", str(registro))
     monkeypatch.delenv("MRROBOTIA_API_KEY", raising=False)
     monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    # El servidor del escenario es ficticio: la comprobación de vida se da por buena salvo que el test la cambie.
+    monkeypatch.setattr(h4_garak, "endpoint_responde", lambda uri, timeout=3.0: (True, ""))
     b = types.SimpleNamespace(tmp=tmp_path, registro=registro, ruta=envoltorio(tmp_path))
     b.salida = tmp_path / "salidas" / "informe_garak"
 
@@ -673,3 +675,29 @@ def test_salida_relativa_se_resuelve_a_absoluta(tmp_path, monkeypatch):
     env = m._env_deteccion({})
     for k in ("XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"):
         assert Path(env[k]).is_absolute() and Path(env[k]).is_relative_to(carpeta)
+
+
+# ------------------------------------------------------------------------------ endpoint parado (0.12.1)
+def test_endpoint_parado_no_lanza_garak(banco, monkeypatch):
+    visto = []
+    monkeypatch.setattr(h4_garak, "endpoint_responde", lambda uri, timeout=3.0: visto.append(uri) or (False, "URLError"))
+    hallazgos = banco.lanzar()
+    assert "H4-GARAK-ENDPOINT-NO-RESPONDE" in ids(hallazgos)
+    h = next(h for h in hallazgos if h.id == "H4-GARAK-ENDPOINT-NO-RESPONDE")
+    assert h.severidad == Severidad.INFO and visto and visto[0] in h.evidencia
+    assert not banco.registro.exists()          # garak (falso) no se ejecutó
+
+
+def test_endpoint_parado_con_generator_options_propios_no_bloquea(banco, monkeypatch):
+    monkeypatch.setattr(h4_garak, "endpoint_responde", lambda *a, **k: (_ for _ in ()).throw(AssertionError("sondeado")))
+    rest = {"rest": {"RestGenerator": {"uri": "http://127.0.0.1:9/x", "req_template_json_object": {"q": "$INPUT"},
+                                       "response_json": True, "response_json_field": "t"}}}
+    hallazgos = banco.lanzar(garak={"generator_options": rest})
+    assert "H4-GARAK-ENDPOINT-NO-RESPONDE" not in ids(hallazgos)
+
+
+def test_endpoint_responde_real_distingue_cerrado_de_vivo():
+    import socket
+    s = socket.socket(); s.bind(("127.0.0.1", 0)); puerto = s.getsockname()[1]; s.close()
+    vivo, detalle = h4_garak.endpoint_responde(f"http://127.0.0.1:{puerto}/v1/", timeout=1.0)
+    assert vivo is False and detalle

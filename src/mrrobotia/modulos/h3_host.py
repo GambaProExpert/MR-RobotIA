@@ -69,6 +69,21 @@ def _conteo_sev(lista):
     return ", ".join(f"{c[s]} {s}" for s in ("CRITICA", "ALTA", "MEDIA", "BAJA", "INFO") if c[s])
 
 
+_MARCAS_SIN_BASE = ("skip-db-update cannot be specified", "db error", "database error",
+                    "failed to download", "vulnerability db", "--download-db-only", "init error")
+
+
+def _falta_base_trivy(stderr):
+    """¿El stderr de Trivy indica que falta la base de datos (o que no se pudo descargar)?"""
+    t = (stderr or "").lower()
+    return any(m in t for m in _MARCAS_SIN_BASE)
+
+
+def _recorta_linea(texto, n=160):
+    lineas = [l.strip() for l in (texto or "").splitlines() if l.strip()]
+    return (lineas[-1] if lineas else "")[:n]
+
+
 def _hallazgos_desde_trivy(obj, antiguedad=None):
     """Convierte el JSON de `trivy fs` en una lista de `Hallazgo`. Función PURA:
     NO toca disco ni procesos, por lo que es directamente testeable.
@@ -211,6 +226,18 @@ class H3Host(ModuloHerramienta):
                 Severidad.MEDIA, "informativo",
                 f"timeout tras {self._timeout(objetivo, 900)} s escaneando {ruta}",
                 "Aumenta tools.trivy.timeout o reduce el alcance (trivy_host.path).",
+                REFS_SUPPLY)]
+
+        if res.error is None and res.returncode not in (0, None) and not res.stdout.strip()                 and _falta_base_trivy(res.stderr):
+            return [Hallazgo(
+                "H3-HOST", "H3-HOST-SIN-BASE",
+                "Trivy está instalado pero le falta su base de datos de vulnerabilidades",
+                Severidad.INFO, "sin_concluir",
+                "el escaneo es offline (--skip-db-update) y la caché de Trivy no tiene la base: "
+                + _recorta_linea(res.stderr),
+                "Descarga la base UNA vez, con red: 'trivy image --download-db-only' (con --cache-dir si "
+                "declaras tools.trivy.cache_dir) y repite el escaneo. "
+                "'mrrobotia --check-tools' muestra el comando exacto para tu sistema.",
                 REFS_SUPPLY)]
 
         if res.error or (res.returncode not in (0,) and not res.stdout.strip()):
