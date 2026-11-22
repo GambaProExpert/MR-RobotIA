@@ -195,7 +195,7 @@ def test_cada_modulo_declara_su_descripcion_y_tipo():
         assert modulo.descripcion and modulo.tipo in ("pasivo", "hibrido", "activo")
     assert cli.IDENTIFICACION.externa.nombre == "julius"
     assert {m.etiqueta_escaneo: m.externa.nombre for m in cli.MODULOS if m.externa} == {
-        "ssh": "ssh-audit", "vulns": "trivy", "garak": "garak", "promptfoo": "promptfoo"}
+        "ssh": "ssh-audit", "vulns": "trivy", "garak": "garak", "promptfoo": "promptfoo", "deepteam": "deepteam"}
 
 
 # ---------------------------------------------------------------------------- --server

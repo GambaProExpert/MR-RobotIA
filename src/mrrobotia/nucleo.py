@@ -97,8 +97,8 @@ def _es_clave_secreta(clave):
     return k in _CLAVES_SECRETAS or k.startswith("client_key")
 
 
-def _redactar_promptfoo(bloque):
-    """El bloque `promptfoo` del objetivo, sin lo que puede ser confidencial: los canarios (secretos que NUNCA deben
+def _redactar_h5(bloque):
+    """El bloque `promptfoo` o `deepteam` del objetivo, sin lo que puede ser confidencial: los canarios (secretos que NUNCA deben
     salir en una respuesta), el system prompt, la configuración pegada y las pruebas propias."""
     salida = {}
     for k, v in bloque.items():
@@ -123,8 +123,8 @@ def redactar(valor):
         salida = {}
         for k, v in valor.items():
             kl = str(k).lower()
-            if kl == "promptfoo" and isinstance(v, dict):
-                salida[k] = _redactar_promptfoo(v)
+            if kl in ("promptfoo", "deepteam") and isinstance(v, dict):
+                salida[k] = _redactar_h5(v)
             elif _es_clave_secreta(k) and v is not None:
                 salida[k] = "***"
             elif kl == "headers":
@@ -328,26 +328,41 @@ class Informe:
 
     def _seccion_promptfoo(self):
         """Líneas de Markdown de «Evaluación del comportamiento del chatbot (promptfoo)» (H5): solo si algún
-        hallazgo trae `detalle` de promptfoo. Los textos de ejemplo ya vienen truncados y saneados; los
-        canarios salen como «[canario nº k]»."""
-        plugins = [h for h in self.hallazgos if (h.detalle or {}).get("seccion") == "promptfoo"
+        hallazgo trae `detalle` de promptfoo."""
+        return self._seccion_h5(
+            "promptfoo", "promptfoo", "Plugin", "Estrategias", ("H5-PROMPTFOO-JUEZ-NO-FIABLE", "H5-PROMPTFOO-PARCIAL"),
+            "No disponibles sin generación remota (no ejecutados; se cubren con las pruebas escritas a mano y "
+            "promptfoo.custom_tests): ", "Sin fallos (sujeto al juez): ")
+
+    def _seccion_deepteam(self):
+        """Líneas de Markdown de «Evaluación del comportamiento del chatbot (DeepTeam)» (H5): solo si algún
+        hallazgo trae `detalle` de DeepTeam."""
+        return self._seccion_h5(
+            "deepteam", "DeepTeam", "Vulnerabilidad", "Ataques", ("H5-DEEPTEAM-JUEZ-NO-FIABLE", "H5-DEEPTEAM-PARCIAL"),
+            "No ejecutadas (no verificadas como 100 % locales; se omiten, no se dan por superadas): ",
+            "Sin fallos (sujeto al juez): ")
+
+    def _seccion_h5(self, seccion, nombre, col_plugin, col_estrategias, ids_estado, texto_no_disponibles, texto_superadas):
+        """Líneas de Markdown de un motor de H5 (promptfoo o DeepTeam): solo si algún hallazgo trae `detalle` de
+        esa sección. Los textos de ejemplo ya vienen truncados y saneados; los canarios salen como «[canario nº k]»."""
+        plugins = [h for h in self.hallazgos if (h.detalle or {}).get("seccion") == seccion
                    and h.detalle.get("tipo") == "plugin"]
-        resumen = [h for h in self.hallazgos if (h.detalle or {}).get("seccion") == "promptfoo"
+        resumen = [h for h in self.hallazgos if (h.detalle or {}).get("seccion") == seccion
                    and h.detalle.get("tipo") == "resumen"]
         if not plugins and not resumen:
             return []
-        L = ["", "## Evaluación del comportamiento del chatbot (promptfoo)", ""]
+        L = ["", f"## Evaluación del comportamiento del chatbot ({nombre})", ""]
         for h in resumen:
             d = h.detalle
             L.append(_celda(d.get("cabecera", "")))
             L.append("")
             L += [f"> {_celda(d.get('aviso_fiabilidad') or '')}", ""]
-        estados = [h for h in self.hallazgos if h.id in ("H5-PROMPTFOO-JUEZ-NO-FIABLE", "H5-PROMPTFOO-PARCIAL")]
+        estados = [h for h in self.hallazgos if h.id in ids_estado]
         for h in estados:
             L += [f"> **{_celda(h.titulo)}**: {_celda(h.evidencia)}", ""]
         orden = sorted(plugins, key=lambda h: (-h.severidad, -h.detalle.get("tasa", 0)))
         if orden:
-            L += ["| Plugin | Clase | Fallos | Tasa | Estrategias | Juez | OWASP / ATLAS / NIST | Severidad |",
+            L += [f"| {col_plugin} | Clase | Fallos | Tasa | {col_estrategias} | Juez | OWASP / ATLAS / NIST | Severidad |",
                   "|---|---|---|---|---|---|---|---|"]
             for h in orden:
                 d = h.detalle
@@ -375,10 +390,9 @@ class Informe:
         for h in resumen:
             d = h.detalle
             if d.get("superadas"):
-                L += [f"Sin fallos (sujeto al juez): {_celda(', '.join(d['superadas']))}", ""]
+                L += [f"{texto_superadas}{_celda(', '.join(d['superadas']))}", ""]
             if d.get("no_disponibles"):
-                L += ["No disponibles sin generación remota (no ejecutados; se cubren con las pruebas escritas a mano "
-                      f"y promptfoo.custom_tests): {_celda(', '.join(d['no_disponibles']))}", ""]
+                L += [f"{texto_no_disponibles}{_celda(', '.join(d['no_disponibles']))}", ""]
             if d.get("aviso_raw"):
                 L += [f"> {_celda(d['aviso_raw'])}", ""]
         return L
@@ -453,5 +467,6 @@ class Informe:
             L += [f"- **[{h.severidad.name}] {h.titulo}** — {h.recomendacion}" for h in recs]
         L += self._seccion_garak()
         L += self._seccion_promptfoo()
+        L += self._seccion_deepteam()
         L += self._seccion_egress()
         return "\n".join(L) + "\n"

@@ -6,7 +6,7 @@ Herramienta de **auditoría defensiva** (hardening) para servidores LLM auto alo
 **identifica** con qué se está tratando (servidor, versión, cómo se arrancó y en qué sistema),
 adapta las comprobaciones a lo que ha encontrado y **normaliza todo en un informe único** con
 severidades y referencias a OWASP LLM Top 10 2025, MITRE ATLAS y NIST AI 600-1. Cuando es útil,
-**orquesta herramientas ya consolidadas** (Julius, ssh-audit, Trivy, garak y promptfoo) de forma local y offline: «la auditoría no la hace MRRobotIA; los datos
+**orquesta herramientas ya consolidadas** (Julius, ssh-audit, Trivy, garak, promptfoo y DeepTeam) de forma local y offline: «la auditoría no la hace MRRobotIA; los datos
 sí los saca». La hoja de ruta está en [HITOS.md](HITOS.md).
 
 ## Qué está validado y qué no
@@ -18,6 +18,7 @@ sí los saca». La hoja de ruta está en [HITOS.md](HITOS.md).
 | Cualquier otro servicio (Ollama, LM Studio...) | Solo se reconoce (con las sondas de Julius, si está instalada) y recibe las comprobaciones comunes; no tiene perfil propio |
 | garak (H4) | Ejecutado de punta a punta contra un `llama-server` real (garak 0.17.1): configuración automática, configuración REST pegada y tiempo agotado con informe parcial. **vLLM: la configuración automática solo está en pruebas herméticas, sin validar en real.** Los presets `standard` y `full` no se han cronometrado |
 | promptfoo (H5) | Ejecutado de punta a punta contra un `llama-server` real (Qwen2.5-7B, promptfoo 0.126.0, Node 22.23): `gate` y `quick` automáticos, una configuración pegada y un servidor caído; ningún tráfico de red salió de la máquina (medido con un oyente en el proxy muerto). **Un 7B que se juzga a sí mismo no es un juez fiable** (dejó pasar un volcado del system prompt): los canarios son la señal de confianza. Los plugins generados necesitan un atacante mayor (sin validar). vLLM, `standard` y `full` sin validar |
+| DeepTeam (H5, segundo motor) | Ejecutado de punta a punta contra un `llama-server` real (chatbot Qwen2.5-7B en la GPU, juez y atacante Qwen3-14B en CPU; DeepTeam 1.0.10, DeepEval 4.3.4): `quick` (10 casos, juez calibrado 8/8, 25 min) y las 12 vulnerabilidades con los 5 métodos de mejora (36 casos con un juez 7B); ningún tráfico de red salió de la máquina (oyente en el proxy muerto: 0 intentos; guardia de sockets: 0) y no se escribió nada fuera de la carpeta de salida. **Un resultado limpio no prueba que el chatbot sea seguro**: los canarios son la señal de confianza (el juez marcó como fuga una respuesta con datos inventados). vLLM, `standard`, `full` y Linux/macOS sin validar |
 | H6 (`egress`) | Código propio. Validado contra un `llama-server` real (0 conexiones salientes con cientos de peticiones), un vLLM 0.33.0 real en CPU dentro de WSL (auditoría estática y un intento real de llegar al hub, visto) y un servidor falso que intenta conectar a una dirección sin dueño (positivo controlado; no salió nada de la máquina). **Ve destinos, no contenido (TLS); puede perder conexiones más cortas que el intervalo de muestreo; solo ve el árbol de procesos del servidor; un servidor dentro de WSL solo se ve desde dentro de WSL.** Sin validar en GPU |
 | Trivy (H3 `vulns`) | Instalado con [la guía](docs/HERRAMIENTAS.md) (0.76.2, con la suma SHA-256 comprobada) y ejecutado de punta a punta por MRRobotIA sobre carpetas reales (solo lectura), con hallazgos reales (dependencias vulnerables). Solo el modo sin red, con la base descargada antes |
 | `ssh-audit` | Instalado con la guía (3.9.0) y detectado con su versión; **su escaneo real sigue pendiente** (no hay `sshd` local y no se escanea ningún servidor ajeno): hasta entonces solo tiene salidas simuladas |
@@ -37,13 +38,14 @@ pip install -e ".[dev]"
 pytest
 ```
 El paquete solo usa la biblioteca estándar: no añade dependencias en tiempo de ejecución.
-Las herramientas externas (Julius, ssh-audit, Trivy, garak, Node.js y promptfoo) son opcionales y se instalan aparte; si
+Las herramientas externas (Julius, ssh-audit, Trivy, garak, Node.js, promptfoo y DeepTeam) son opcionales y se instalan aparte; si
 falta una, el informe lo dice y explica cómo instalarla. MRRobotIA nunca instala nada por su cuenta.
 `mrrobotia --check-tools` muestra, para cada herramienta, qué escaneos la usan, si está (ruta y
 versión) y la forma exacta de instalarla en tu sistema; la guía completa, con versiones fijadas,
 verificación de sumas y ubicación de cachés, es [docs/HERRAMIENTAS.md](docs/HERRAMIENTAS.md)
-(DeepEval/DeepTeam están previstos como segundo motor de H5, aparte de H6). Para garak, ver [H4: barrido con garak](#h4-barrido-con-garak--s-garak); para
-promptfoo (necesita Node.js 22.22 o superior), [H5: evaluación del chatbot con promptfoo](#h5-evaluación-del-chatbot-con-promptfoo--s-promptfoo).
+Para garak, ver [H4: barrido con garak](#h4-barrido-con-garak--s-garak); para
+promptfoo (necesita Node.js 22.22 o superior), [H5: evaluación del chatbot con promptfoo](#h5-evaluación-del-chatbot-con-promptfoo--s-promptfoo); para
+instalar DeepTeam (un entorno virtual de Python), [H5, segundo motor: DeepTeam](#h5-segundo-motor-evaluación-del-chatbot-con-deepteam--s-deepteam).
 
 ## Inicio rápido
 Copia el objetivo de ejemplo (en Windows: `copy ejemplos\target.example.json target.json`):
@@ -103,6 +105,7 @@ es la versión sin comentarios).
   "app_dir": "./app"                           //   carpeta de la aplicación
   "garak": {"preset": "quick"},                // barrido H4: solo corre con -s garak -a (ver «H4: barrido con garak»)
   "promptfoo": {"preset": "gate"},             // evaluación H5: solo corre con -s promptfoo -a (ver «H5: evaluación del chatbot con promptfoo»)
+  "deepteam": {"preset": "quick"},             // segundo motor de H5: solo corre con -s deepteam -a (ver «H5, segundo motor: DeepTeam»)
   // "tools": {"trivy": {"path": "...", "timeout": 900}, "garak": {"path": "..."}}   // rutas y tiempos límite; si no, se buscan en el PATH
 }
 ```
@@ -132,7 +135,7 @@ en `.gitignore`, igual que la carpeta `informes/`).
 | `-x`, `--skip` | Etiquetas o grupos que quitar de la selección. El escaneo `id` no se puede excluir |
 | `-l`, `--list` | Muestra los escaneos y los grupos (qué hace cada uno, si es pasivo o híbrido, qué herramienta externa usa y si está instalada) y termina; no necesita `--target` |
 | `--server {auto,llama.cpp,vllm}` | Fuerza el tipo de servidor en lugar de detectarlo. Si lo detectado difiere, el informe avisa del conflicto y se usa lo forzado |
-| `--check-tools` | Comprueba las herramientas externas (Julius, ssh-audit, Trivy, garak, Node.js, promptfoo): qué escaneos usa cada una, si está instalada (ruta y versión), la versión mínima y cómo instalarla en este sistema. No necesita objetivo ni instala nada; con `-t` respeta `tools.<nombre>.path`. Guía: [docs/HERRAMIENTAS.md](docs/HERRAMIENTAS.md) |
+| `--check-tools` | Comprueba las herramientas externas (Julius, ssh-audit, Trivy, garak, Node.js, promptfoo, DeepTeam): qué escaneos usa cada una, si está instalada (ruta y versión), la versión mínima y cómo instalarla en este sistema. No necesita objetivo ni instala nada; con `-t` respeta `tools.<nombre>.path`. Guía: [docs/HERRAMIENTAS.md](docs/HERRAMIENTAS.md) |
 | `--os {windows,linux,macos}` | Con `--check-tools`: enseña las instrucciones de instalación de otro sistema |
 | `--declared-only` | Audita solo el servidor del `endpoint` o del puerto declarado: no se prueban otros candidatos ni se auditan los demás servidores del host. Falla si el objetivo no declara ninguno |
 
@@ -163,10 +166,11 @@ La lista que sigue sale de `mrrobotia -l`, que siempre está al día con el regi
 | `egress` | H6-SALIDAS | ¿Salen datos de la red? Canales de salida configurados (telemetría, descargas, RPC, MCP, trazas, eventos KV) y conexiones salientes del árbol de procesos del servidor, en reposo y con tráfico de canario. En `all` solo corre la auditoría estática; la observación exige `-a` | Híbrido | ninguna |
 | `garak` | H4-GARAK | Barrido del modelo con garak (jailbreak, inyección de prompt, fuga del system prompt...). **No entra en `all`**: puede tardar horas; se pide con `-s garak -a` | Activo | garak |
 | `promptfoo` | H5-PROMPTFOO | Evaluación del chatbot con promptfoo (fuga del system prompt, inyección de prompt directa e indirecta, fuga entre sesiones, BOLA/BFLA...), con juez local y la red bloqueada. **No entra en `all`**: se pide con `-s promptfoo -a` | Activo | promptfoo (necesita Node.js) |
+| `deepteam` | H5-DEEPTEAM | Segundo motor de H5: evaluación del chatbot con DeepTeam (fuga de PII y del system prompt, BOLA, BFLA, RBAC, SSRF, agencia excesiva...), con juez y atacante locales, canarios deterministas y la red bloqueada. **No entra en `all`**: se pide con `-s deepteam -a` | Activo | DeepTeam (un entorno de Python) |
 
 | Grupo | Contenido |
 |---|---|
-| `all` | Todos los escaneos salvo los marcados «no entra en all» (`garak`, `promptfoo`) (por defecto) |
+| `all` | Todos los escaneos salvo los marcados «no entra en all» (`garak`, `promptfoo`, `deepteam`) (por defecto) |
 | `server` | `exposure`, `startup`, `cve`, `egress` |
 | `host` | `ssh`, `ports`, `vulns` (la seguridad del host) |
 | `active` | `exposure`, `ssh`, `ports`, `egress` (los que tienen parte activa; **no** la habilitan) |
@@ -200,6 +204,7 @@ Además de `name`, `authorization` (obligatoria), `host` y `allow_active`:
 | `garak` | H4 | Preset, sondas, generador y límites del barrido con garak (ver abajo) |
 | `egress` | H6 | Destinos permitidos, ventanas de observación, muestreo y canario de la comprobación de conexiones salientes (ver abajo) |
 | `promptfoo` | H5 | Preset, chatbot (system prompt o tu propia configuración), canarios, juez y límites de la evaluación con promptfoo (ver abajo) |
+| `deepteam` | H5 | Preset, chatbot (system prompt), canarios, vulnerabilidades, ataques, juez y límites de la evaluación con DeepTeam (ver abajo) |
 
 Las variables de entorno `MRROBOTIA_TARGET` y `MRROBOTIA_ACTIVE` son alternativas a
 `--target` y `--active`.
@@ -314,7 +319,8 @@ de 2025. Los ficheros de garak quedan en `<prefijo>_garak/`: `garak_config.json`
   `parallel_attempts` 8) solo tiene pruebas herméticas: **sin validar en real**.
 
 ### H5: evaluación del chatbot con promptfoo (`-s promptfoo`)
-[promptfoo](https://www.promptfoo.dev) evalúa **el comportamiento del chatbot** (el modelo más su system
+H5 tiene **dos motores**, promptfoo (esta sección) y DeepTeam (la siguiente, con una tabla de cuándo usar cada uno). Los dos
+corren con la red bloqueada y un juez local. [promptfoo](https://www.promptfoo.dev) evalúa **el comportamiento del chatbot** (el modelo más su system
 prompt, su propósito y sus límites): fuga del system prompt, inyección de prompt directa e indirecta, fuga entre
 sesiones, acceso a objetos de otros usuarios (BOLA) o a funciones de otro rol (BFLA), agencia excesiva...
 Donde H4 (garak) barre el **endpoint** con miles de sondas fijas, H5 pregunta «¿*mi* chatbot cumple sus
@@ -482,6 +488,127 @@ caído costaría minutos de reintentos). Los ficheros quedan en `<prefijo>_promp
 - Validado contra un servidor llama.cpp real con Qwen2.5-7B (un 7B que se juzga a sí mismo): `gate`, `quick`, una
   configuración pegada y un servidor caído. `standard`, `full`, vLLM y un juez mayor no están validados.
 
+### H5, segundo motor: evaluación del chatbot con DeepTeam (`-s deepteam`)
+[DeepTeam](https://github.com/confident-ai/deepteam) (con DeepEval debajo) es el **segundo motor de H5**: también
+evalúa el comportamiento del chatbot, pero con su propio simulador de ataques y sus propias métricas de
+vulnerabilidad. Los dos motores dan el mismo tipo de hallazgos (`H5-PROMPTFOO-*` y `H5-DEEPTEAM-*`) y la misma
+sección de informe, y comparten el bloqueo de red, el juez local, los canarios y la escala de severidad (un único
+código: `modulos/h5_comun.py`). Se piden por separado y se pueden combinar: `-s all,promptfoo,deepteam -a`.
+
+| | promptfoo (`-s promptfoo`) | DeepTeam (`-s deepteam`) |
+|---|---|---|
+| Úsalo cuando | quieras un **gate de CI** (preset `gate`: pruebas fijas y deterministas en 1-4 min), ya tengas un `promptfooconfig` que pegar o quieras el paquete fijo (inyección indirecta, exfiltración por Markdown) | quieras las **vulnerabilidades agénticas** que promptfoo solo tiene con generación remota (BOLA, BFLA, RBAC, SSRF, agencia excesiva, acceso de depuración, inyección SQL y de comandos...) funcionando del todo en local, o rúbricas más específicas de PII y de fuga del system prompt |
+| Necesita | Node.js 22.22 o superior y un paquete de npm | un entorno virtual de Python 3.10-3.13 (unos 100 MB) |
+| Cómo lo ejecuta MRRobotIA | `promptfoo eval` con una configuración generada o pegada | su propio script (`datos/deepteam_runner.py`) con el `python` del entorno de DeepTeam: **MRRobotIA nunca importa DeepTeam** |
+| Ataques | plugins y estrategias verificados como locales (el resto se omite) más el paquete fijo | 12 vulnerabilidades (abajo) x 6 métodos de ataque, todos verificados sin red; el resto se omite |
+| Duración | de 1 min (gate) a unos 50 min | unos 80 s por caso con un juez en CPU (ver los presets) |
+
+Es un módulo **activo** y **no entra en `all`**: exige `-s deepteam`, `-a` y `allow_active: true` (más
+`authorization.confirm_non_local` para un host no local). Manda decenas de peticiones al chatbot y, por cada caso,
+varias a un modelo juez y a uno atacante.
+```
+mrrobotia -t target.json -s deepteam -a -o informes/deepteam
+mrrobotia -t target.json -s all,promptfoo,deepteam -a     # todo, con los dos motores de H5
+```
+
+**Instalarlo** (opcional y aparte). Un entorno virtual con **exactamente** estos tres paquetes (el tercero es
+obligatorio: DeepTeam 1.0.10 importa `sentry_sdk` sin declararlo y, sin él, no se importa nada):
+```
+python -m venv <carpeta>
+<carpeta>/Scripts/python -m pip install deepeval==4.3.4 deepteam==1.0.10 sentry-sdk==2.75.0     # Linux/macOS: <carpeta>/bin/python
+```
+Python 3.10 a 3.13 (DeepTeam 1.0.10 exige menos de 3.14). Luego indica en `tools.deepteam.path` el **ejecutable
+`deepteam`** de ese entorno (`<carpeta>/Scripts/deepteam.exe` o `<carpeta>/bin/deepteam`); MRRobotIA ejecuta su propio
+script con el `python` que está junto a él. Si DeepTeam no se importa, el informe dice por qué y cómo arreglarlo
+(`H5-DEEPTEAM-SENTRY-FALTA`, `-NO-IMPORTA`, `-PYTHON-NO-SOPORTADO`, `-VERSION-NO-SOPORTADA`, todos INFO) y no ejecuta
+nada. `mrrobotia --check-tools` lo comprueba (la consulta de versión también va con la red bloqueada). Guía:
+[docs/HERRAMIENTAS.md](docs/HERRAMIENTAS.md).
+
+**Nada sale de la red (requisito duro, no configurable, falla cerrado).** Medido: DeepTeam, si se le deja, consulta la
+IP pública al importarse, manda eventos a PostHog y trazas a New Relic (unos 30 intentos por ejecución), sube toda la
+evaluación a Confident AI si hay clave y DeepEval escribe los prompts y las respuestas en claro en
+`<directorio de trabajo>/.deepeval/`. En **cada** proceso de DeepTeam (también para su versión) MRRobotIA fuerza:
+`DEEPEVAL_TELEMETRY_OPT_OUT=1` y `DEEPTEAM_TELEMETRY_OPT_OUT=YES` (DeepTeam solo acepta el literal `YES`: con `1` sigue
+enviando), `DEEPEVAL_DISABLE_DOTENV=1`, `DEEPEVAL_DISABLE_LEGACY_KEYFILE=1`, `DEEPEVAL_HOME`, el directorio personal, los
+temporales y el directorio de trabajo **dentro de `<prefijo>_deepteam/home/`**; **elimina** del entorno
+`CONFIDENT_API_KEY`, `OPENAI_API_KEY`, `ERROR_REPORTING` y todo lo que lleve los prefijos `DEEPEVAL_`, `DEEPTEAM_`,
+`CONFIDENT_`, `OPENAI_`, `ANTHROPIC_`, `AZURE_`, `GOOGLE_`, `OTEL_`, `SENTRY_`...; y un **proxy muerto**
+(`HTTPS_PROXY=http://127.0.0.1:9`) con `NO_PROXY` solo para el chatbot y el juez. El script se niega a arrancar (código de
+salida 3) si falta algo de eso y lleva una **guardia de sockets**: una conexión a cualquier destino que no sea el chatbot
+o el juez se bloquea y se cuenta (`H5-DEEPTEAM-SALIDA-BLOQUEADA` si hubo algún intento). Lo que exija la nube (Confident AI,
+marcos con conjuntos de datos remotos, modelos no locales) **no se ejecuta** y sale como `H5-DEEPTEAM-REMOTO-OMITIDO`
+(INFO); una `CONFIDENT_API_KEY` de tu entorno se ignora (`H5-DEEPTEAM-CONFIDENT-IGNORADO`). Puedes ver el bloqueo en
+acción: escucha en `127.0.0.1:9`.
+
+**El juez y el atacante son locales, y el mismo modelo no es un juez fiable.** Por defecto los dos son el propio
+`llama-server` del chatbot; con `judge.url` / `attacker.url` los apuntas a otro modelo local mayor (uno no local se rechaza:
+`H5-DEEPTEAM-JUEZ-NO-LOCAL`, ALTA). Cuando el juez es el propio chatbot, el informe lo dice (`H5-DEEPTEAM-JUEZ-MISMO-MODELO`) y
+lleva siempre la frase fija **«un resultado limpio NO demuestra que el chatbot sea seguro»**. Medido (chatbot Qwen2.5-7B en
+la GPU, juez Qwen3-14B en CPU con `--reasoning off`): el 7B juzgándose a sí mismo marcó 19 de 24 respuestas como vulnerables
+sin fuga alguna; el 14B no marcó ninguna por error pero dejó pasar 2 de 3 fugas reales. Por eso:
+- **`canaries`** son la señal de confianza: secretos que no deben aparecer nunca en una respuesta. Se buscan en cada
+  respuesta **sin ningún juez** (`H5-DEEPTEAM-canary` y la vulnerabilidad que originó el caso); un acierto es `confirmado` y
+  al menos MEDIA aunque el juez diera por buena la respuesta, y no se imprimen nunca (`[canario nº 1]`).
+- Antes de ejecutar, MRRobotIA **calibra el juez** (8 salidas fijas, 4 que rompen una regla y 4 que no, con las métricas
+  propias de DeepTeam). Si falla una, `H5-DEEPTEAM-JUEZ-NO-FIABLE` (MEDIA) avisa de que los resultados sin canario son una
+  **cota inferior**. La calibración cuesta unos 4 minutos con un juez en CPU (`calibrate_judge: false` la omite).
+
+**El bloque `deepteam`** del objetivo (todas las claves son opcionales):
+
+| Clave | Por defecto | Significado |
+|---|---|---|
+| `preset` | `"quick"` | `"quick"`, `"standard"` o `"full"` (ver abajo) |
+| `system_prompt`, `system_prompt_file` | `null` | El system prompt del chatbot (el sujeto se consulta con él). Sin él se prueba el modelo desnudo (`H5-DEEPTEAM-SIN-SYSTEM-PROMPT`, INFO) |
+| `purpose` | `null` | Para qué sirve el chatbot y qué no debe hacer; lo usan el atacante y el juez |
+| `canaries` | `[]` | Secretos que no deben aparecer en una respuesta (al menos 4 caracteres). Deterministas, no se imprimen |
+| `vulnerabilities` | según el preset | Lista de ids (`"bola"`) o de `{"id": ..., "types": [...]}`; ver la lista de abajo. Las desconocidas se omiten |
+| `attacks` | según el preset | `basic` (el ataque sin mejorar) y/o `prompt_injection`, `leetspeak`, `rot13`, `base64`, `roleplay`. `basic` es un pase por todos los tipos; los demás, un segundo pase en el que cada ataque se mejora con un método elegido al azar |
+| `attacks_per_type` | según el preset | Casos por tipo de vulnerabilidad y pase (1-10) |
+| `judge`, `attacker` | el servidor del chatbot | `{url, model, api_key_env, allow_non_local}`; el atacante es por defecto el juez. Deben ser locales |
+| `concurrency` | 1 | Casos simultáneos (un juez en CPU no gana con más) |
+| `max_duration` | 1 h / 4 h / 12 h según el preset | Segundos que se le dan a todo el módulo (también rige `tools.deepteam.timeout`; gana el menor). Al agotarse se mata el árbol de procesos (`H5-DEEPTEAM-TIMEOUT`); DeepTeam solo escribe sus resultados al final, así que no hay resultados parciales |
+| `max_tokens`, `temperature` | 256, 0.2 | Del chatbot |
+| `api_key_env` | `"MRROBOTIA_API_KEY"` | **Nombre** de la variable de entorno con la clave del chatbot, nunca la clave (un nombre que el bloqueo elimina, como `OPENAI_API_KEY`, se rechaza) |
+| `calibrate_judge` | `true` | Calibrar el juez antes de ejecutar |
+| `keep_raw` | `true` | Conserva `raw/` y `home/`: **ataques y respuestas sin filtrar**; trátalos como material sensible. Con `false` se borran tras sintetizar |
+
+Las vulnerabilidades que se ejecutan (OWASP LLM Top 10 2025; ATLAS y NIST solo donde coinciden con los de H4, ninguno en
+autorización): `pii_leakage` (LLM02), `prompt_leakage` (LLM07), `cross_context_retrieval` (LLM02), `bola`, `bfla`, `rbac`,
+`excessive_agency` (LLM06), `ssrf`, `debug_access`, `shell_injection`, `sql_injection` (LLM05) e `indirect_instruction`
+(LLM01). Una clave `confident`, `framework`, `model`, `simulator_model` o `evaluation_model` es una petición de nube y se
+contesta con `H5-DEEPTEAM-REMOTO-OMITIDO` sin ejecutar nada; una clave escrita en claro dentro de `judge` o `attacker` se
+rechaza sin ejecutar (`H5-DEEPTEAM-CLAVE-EN-CLARO` o `H5-DEEPTEAM-CONFIG`).
+
+**Presets.** Casos = tipos x `attacks_per_type` x pases (`basic` es un pase y los demás métodos, otro). Medido con un chatbot
+Qwen2.5-7B en la GPU y un juez y atacante Qwen3-14B en CPU: the `quick` preset (10 cases, two passes, judge calibrated 8/8) took **25 min** including the 3 min 42 s calibration, that is about **127 s per case** (almost all of it the 14B writing the attack and judging on the CPU; the chatbot answers in about 5 s). With the 7B as judge and attacker on the GPU (a judge that is the chatbot itself) 36 cases took 14 min 51 s (about 25 s per case).
+- `quick`: PII (revelación directa, fuga de sesión), fuga del system prompt (secretos, instrucciones) y BOLA (entre
+  clientes) con `basic` y `prompt_injection`: 10 casos.
+- `standard`: `quick` más PII por manipulación social, BFLA, RBAC, agencia excesiva, acceso de depuración, inyección SQL,
+  inyección de comandos y SSRF, con `basic`, `prompt_injection` y `leetspeak`: 28 casos (about 1 h 5 min, estimated from the measured 127 s per case).
+- `full`: las 12 vulnerabilidades con todos sus tipos, 2 casos cada una y todos los métodos de ataque: horas (sin medir).
+
+**Qué contiene el informe.** Una fila por vulnerabilidad con fallos (id `H5-DEEPTEAM-<vulnerabilidad>`), el hallazgo del
+canario si alguna respuesta lo contenía y una sección extra `## Evaluación del comportamiento del chatbot (DeepTeam)`: la
+cabecera del resumen, el aviso de fiabilidad, las vulnerabilidades ordenadas por severidad (fallos/total, **tipos**, métodos
+de ataque, juez: determinista / LLM local / mixto, OWASP / ATLAS / NIST) y, por vulnerabilidad, la recomendación y hasta dos
+ejemplos (ataque, respuesta y razón del juez, saneados; los canarios como `[canario nº k]`). La severidad es la misma escala
+que la de promptfoo; un fallo que solo dio el juez es `potencial`. Los casos que acabaron en error (un juez pequeño a
+menudo no devuelve el JSON que exige DeepTeam) no cuentan ni como aciertos ni como fallos
+(`H5-DEEPTEAM-SIN-RESPUESTA-<vulnerabilidad>`), salvo que la respuesta contenga un canario. Los ficheros quedan en
+`<prefijo>_deepteam/`: `raw/entrada.json` (lo enviado al script, con el system prompt: sin claves), `raw/resultados.json`,
+`home/` y `deepteam.ejecutor.log`.
+
+**Límites.**
+- Un resultado limpio no prueba nada (arriba). Los ataques de un atacante pequeño son flojos.
+- DeepTeam solo escribe sus resultados al final: un tiempo agotado no deja ninguno. Las pruebas fijas del `gate` de
+  promptfoo son la alternativa rápida para CI.
+- El bloqueo de red es una convención (proxy muerto, entorno) más una guardia escrita en Python: código nativo que ignore
+  ambas (un canal gRPC con su propio resolutor) se la saltaría. La medición no encontró ningún intento así.
+- Solo ataques de un turno (los de varios turnos, los marcos con conjuntos de datos remotos y las vulnerabilidades que
+  necesitan herramientas o varios agentes no se ejecutan). vLLM como chatbot, `standard`, `full` y macOS/Linux no están
+  validados.
+- Validated against a real `llama-server` (Qwen2.5-7B chatbot on the GPU, Qwen3-14B judge and attacker on the CPU; DeepTeam 1.0.10, DeepEval 4.3.4, Python 3.12): `quick` end to end (10 cases: one real leak of the session found by the canary, one false positive of the judge on made-up data) and, with a 7B judge, all 12 vulnerabilities and the 5 enhancement methods (36 cases, 0 without a score). Measured with a listener on the dead proxy (0 attempts), the socket guard (0 blocked, 0 through the proxy) and a search for new files (nothing outside `<prefix>_deepteam/`). vLLM, `standard`, `full` and Linux/macOS are not validated.
+
 ### H6: ¿salen datos de la red? (`-s egress`)
 
 H4 y H5 miran el **modelo** (qué responde); H6 es la única capa que mira la **red**: ¿salen de la máquina los prompts,
@@ -581,9 +708,9 @@ una que abre y cierra al instante, ninguna. Una muestra cuesta unos 8 ms en Wind
 **Por qué DeepEval/DeepTeam no forman parte de H6.** Se midieron y no responden a «¿salen datos de la red?» (juzgan
 lo que el modelo *dice*, que es terreno de H4/H5) y son ellos mismos un canal de salida por defecto: unos 30
 intentos de telemetría por ejecución (PostHog, New Relic y la IP pública), subida de ataques y respuestas a su nube si
-hay clave, y DeepTeam solo se silencia con el valor literal `YES` (`DEEPTEAM_TELEMETRY_OPT_OUT=1` no funciona). Se
-integrarán **aparte, como segundo motor de H5**, con la telemetría cortada del todo (`DEEPEVAL_TELEMETRY_OPT_OUT=1`,
-`DEEPTEAM_TELEMETRY_OPT_OUT=YES`) y un juez local, con la red bloqueada como promptfoo. **Trabajo futuro (fase 2, no
+hay clave, y DeepTeam solo se silencia con el valor literal `YES` (`DEEPTEAM_TELEMETRY_OPT_OUT=1` no funciona). Están
+integrados **aparte, como segundo motor de H5** (ver «H5, segundo motor: DeepTeam»), con la telemetría cortada del todo
+(`DEEPEVAL_TELEMETRY_OPT_OUT=1`, `DEEPTEAM_TELEMETRY_OPT_OUT=YES`) y un juez local, con la red bloqueada como promptfoo. **Trabajo futuro (fase 2, no
 implementado):** vigilar el arranque de un servidor (descargas, telemetría inicial) y autocomprobar los subprocesos
 de H4 y H5 con un pozo que escuche en vez de un proxy muerto.
 
@@ -640,6 +767,7 @@ MRRobotIA/
 │   ├── datos/
 │   │   ├── cve_llamacpp.json   # avisos de seguridad de llama.cpp
 │   │   ├── cve_vllm.json       # avisos de seguridad de vLLM
+│   │   ├── deepteam_runner.py  # H5: script que MRRobotIA ejecuta con el python de DeepTeam (nunca se importa)
 │   │   └── julius_sondas/      # sondas de Julius (licencia propia incluida)
 │   └── modulos/
 │       ├── h2_identificacion.py # H2-ID: identifica el servidor
@@ -652,11 +780,13 @@ MRRobotIA/
 │       ├── h3_puertos.py        # H3: puertos del host
 │       ├── h3_host.py           # H3: Trivy
 │       ├── h4_garak.py          # H4: barrido con garak y síntesis de su informe
+│       ├── h5_comun.py          # H5: lo que comparten los dos motores (bloqueo de red, juez, canarios, severidad)
 │       ├── h5_promptfoo.py      # H5: evaluación con promptfoo, bloqueo de red y síntesis
+│       ├── h5_deepteam.py       # H5: evaluación con DeepTeam (segundo motor), bloqueo de red y síntesis
 │       └── h6_salidas.py        # H6: canales de salida, conexiones del árbol del servidor, canario
 └── tests/                  # pytest; servidor_falso.py simula llama.cpp y vLLM,
-                            # garak_falso.py y promptfoo_falso.py simulan garak y promptfoo
-                            # (fixtures/garak, fixtures/promptfoo y fixtures/h6: capturas reales saneadas)
+                            # garak_falso.py, promptfoo_falso.py y deepteam_falso.py simulan garak, promptfoo
+                            # y DeepTeam (fixtures/garak, fixtures/promptfoo, fixtures/deepteam y fixtures/h6: capturas reales saneadas)
 ```
 
 ## Hitos (resumen)
@@ -669,7 +799,7 @@ El detalle, el orden y qué extrae cada hito están en [HITOS.md](HITOS.md).
 | H2 Identificación, exposición, arranque y avisos | `The_Voyeur` | 1 | Hecho; llama.cpp validado con un servidor real, **vLLM pendiente de validar** |
 | H3 Seguridad del host (SSH, puertos, Trivy) | `Magda` | 1 | Hecho; Trivy validado en real; ssh-audit instalado y detectado, escaneo real pendiente |
 | H4 Barrido del endpoint | `fsociety` | 2 | Hecho (garak); validado contra un llama.cpp real, **vLLM sin validar en real** |
-| H5 Prompt injection y evals | `White_Rose` | 2 | Hecho (promptfoo); validado contra un llama.cpp real con Qwen2.5-7B (un juez 7B es débil: canarios; red bloqueada) |
+| H5 Prompt injection y evals | `White_Rose` | 2 | Hecho, dos motores (promptfoo y DeepTeam); los dos validados contra un llama.cpp real con Qwen2.5-7B (un juez 7B es débil: canarios; red bloqueada) |
 | H6 Prompts y salidas no salen de la red | `Young_Elliot` | 2 | Hecho (código propio, sin herramienta externa); validado contra un llama.cpp real y un vLLM real en CPU; límites: TLS, muestreo, WSL |
 | H7 Simulación de ataques con verificación de detección y recuperación | `Mr_Robot` | 2 | Pendiente (diseño hecho) |
 

@@ -465,10 +465,56 @@ MRRobotIA ejecuta promptfoo con su estado (`PROMPTFOO_CONFIG_DIR`: base de datos
 
 `tools.promptfoo.path` apuntando a `node_modules/.bin/promptfoo` (Linux, macOS) o `node_modules\.bin\promptfoo.cmd` (Windows) de la carpeta de instalación.
 
+## DeepTeam (versión fijada: 1.0.10)
 
-## Próximamente
+**Para qué la usa MRRobotIA:** Evalúa el comportamiento del chatbot (fuga de datos personales y del system prompt, BOLA, BFLA, RBAC, SSRF, agencia excesiva...) en H5 (escaneo `deepteam`, segundo motor de H5 junto a promptfoo; fuera de `all`; requiere `-a` y `allow_active=true`). Necesita Python 3.10 a 3.13 (DeepTeam 1.0.10 exige menos de 3.14) y MRRobotIA exige la 1.0.10 o posterior, con DeepEval 4.3.4. **`sentry-sdk` es obligatorio:** DeepTeam 1.0.10 lo importa sin declararlo (fallo de empaquetado) y sin él ni siquiera se importa. Siempre se ejecuta con la red bloqueada (ver el README).
 
-- **DeepEval / DeepTeam**: segundo motor de evaluación de H5 (no de H6, que es código propio y no necesita herramienta), con la
-  telemetría cortada del todo y un juez local.
+### Instalación
 
-Se documentará aquí cuando se integre.
+**Windows (PowerShell 5.1 o superior), recomendada: pip in its own virtual environment (pinned versions; Python 3.10 to 3.13)** ([fuente](https://github.com/confident-ai/deepteam#readme))
+
+```powershell
+$Destino = "$env:LOCALAPPDATA\MRRobotIA\tools"
+python -m venv "$Destino\venvs\deepteam"
+& "$Destino\venvs\deepteam\Scripts\python.exe" -m pip install deepeval==4.3.4 deepteam==1.0.10 sentry-sdk==2.75.0
+```
+
+Ejecutable resultante: `%LOCALAPPDATA%\MRRobotIA\tools\venvs\deepteam\Scripts\deepteam.exe`
+
+**Linux, recomendada: pip in its own virtual environment (pinned versions; Python 3.10 to 3.13)** ([fuente](https://github.com/confident-ai/deepteam#readme))
+
+```bash
+DESTINO="$HOME/.local/mrrobotia-tools"
+python3 -m venv "$DESTINO/venvs/deepteam"
+"$DESTINO/venvs/deepteam/bin/python" -m pip install deepeval==4.3.4 deepteam==1.0.10 sentry-sdk==2.75.0
+```
+
+Ejecutable resultante: `$HOME/.local/mrrobotia-tools/venvs/deepteam/bin/deepteam`
+
+**macOS, recomendada: pip in its own virtual environment (pinned versions; Python 3.10 to 3.13)** ([fuente](https://github.com/confident-ai/deepteam#readme))
+
+```bash
+DESTINO="$HOME/.local/mrrobotia-tools"
+python3 -m venv "$DESTINO/venvs/deepteam"
+"$DESTINO/venvs/deepteam/bin/python" -m pip install deepeval==4.3.4 deepteam==1.0.10 sentry-sdk==2.75.0
+```
+
+Ejecutable resultante: `$HOME/.local/mrrobotia-tools/venvs/deepteam/bin/deepteam`
+
+Son unos 100 MB (84 paquetes). `tools.deepteam.path` debe apuntar al **ejecutable `deepteam`** del entorno virtual: MRRobotIA no importa DeepTeam, ejecuta su propio script con el `python` que está junto a él.
+
+### Verificación
+
+```
+deepteam --version
+```
+
+pip descarga de PyPI por HTTPS con las versiones fijadas; PyPI no publica una suma aparte. Con `--check-tools` la consulta de versión se hace también con el bloqueo de red (sin él, DeepTeam consulta la IP pública y manda telemetría solo con importarse).
+
+### Datos y cachés
+
+MRRobotIA ejecuta DeepTeam con `DEEPEVAL_HOME`, el directorio personal, los temporales y el directorio de trabajo dentro de `<prefijo de -o>_deepteam/home/`, con la telemetría cortada (`DEEPEVAL_TELEMETRY_OPT_OUT=1` y `DEEPTEAM_TELEMETRY_OPT_OUT=YES`: DeepTeam solo acepta el literal `YES`), sin claves de API y con un proxy muerto: no escribe en `~/.deepeval` ni en la carpeta actual, y no manda nada. DeepEval guarda los ataques y las respuestas **en claro**: están en `raw/` y `home/`. La caché de pip solo se usa en la instalación.
+
+### Apuntar MRRobotIA a ella
+
+`tools.deepteam.path` apuntando a `Scripts\deepteam.exe` (Windows) o a `bin/deepteam` del entorno virtual.

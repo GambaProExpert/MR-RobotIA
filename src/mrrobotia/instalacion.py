@@ -114,6 +114,10 @@ _G_DOC = "https://github.com/NVIDIA/garak#installation"
 _N_DIST = "https://nodejs.org/dist/v{version}"
 _N_DOC = "https://nodejs.org/en/download"
 _P_DOC = "https://www.promptfoo.dev/docs/installation/"
+_D_DOC = "https://github.com/confident-ai/deepteam#readme"
+# DeepTeam 1.0.10 importa sentry_sdk sin declararlo (fallo de empaquetado): hay que instalarlo a mano. Lleva su propia
+# versión fijada, y la de DeepEval con la que se probó.
+_D_PIP = "deepeval==4.3.4 deepteam=={version} sentry-sdk==2.75.0"
 
 
 def _node_windows():
@@ -331,6 +335,38 @@ CATALOGO = {
                     "in ~/.promptfoo and downloads nothing. npm's own cache (~/.npm) is only used by the installation"},
         nota="Needs Node.js 22.22 or later (see the 'node' entry): with an older Node it refuses to start. It sends "
              "hundreds of attack requests to the chatbot and to a judge model, so it is active and not part of 'all'."),
+
+    "deepteam": Instalable(
+        "deepteam",
+        "evaluates the behaviour of the chatbot (PII and system-prompt leaks, BOLA, BFLA, RBAC, SSRF, excessive agency...) "
+        "in H5 'deepteam', the second engine of H5 next to promptfoo",
+        (
+            Paso("windows", "pip in its own virtual environment (pinned versions; Python 3.10 to 3.13)",
+                 _venv_windows("deepteam", _D_PIP), _D_DOC,
+                 "%LOCALAPPDATA%\\MRRobotIA\\tools\\venvs\\deepteam\\Scripts\\deepteam.exe",
+                 resumen="en un entorno virtual con Python 3.10-3.13: pip install deepeval==4.3.4 deepteam=={version} "
+                         "sentry-sdk==2.75.0 (sentry-sdk es obligatorio: DeepTeam lo importa sin declararlo; pon "
+                         "<carpeta>/Scripts/deepteam.exe en tools.deepteam.path)"),
+            Paso("linux", "pip in its own virtual environment (pinned versions; Python 3.10 to 3.13)",
+                 _venv_posix("deepteam", _D_PIP), _D_DOC, "$HOME/.local/mrrobotia-tools/venvs/deepteam/bin/deepteam",
+                 resumen="en un entorno virtual con Python 3.10-3.13: pip install deepeval==4.3.4 deepteam=={version} "
+                         "sentry-sdk==2.75.0 (sentry-sdk es obligatorio: DeepTeam lo importa sin declararlo; pon "
+                         "<carpeta>/bin/deepteam en tools.deepteam.path)"),
+            Paso("macos", "pip in its own virtual environment (pinned versions; Python 3.10 to 3.13)",
+                 _venv_posix("deepteam", _D_PIP), _D_DOC, "$HOME/.local/mrrobotia-tools/venvs/deepteam/bin/deepteam",
+                 resumen="en un entorno virtual con Python 3.10-3.13: pip install deepeval==4.3.4 deepteam=={version} "
+                         "sentry-sdk==2.75.0 (sentry-sdk es obligatorio: DeepTeam lo importa sin declararlo; pon "
+                         "<carpeta>/bin/deepteam en tools.deepteam.path)"),
+        ),
+        "pip downloads from PyPI over HTTPS with the versions pinned; PyPI publishes no separate checksum.",
+        cache={"*": "MRRobotIA runs it with the network blocked (telemetry off, dead proxy, no API keys) and with DEEPEVAL_HOME, "
+                    "the home directory and the working directory inside <-o prefix>_deepteam/home/: it writes nothing in "
+                    "~/.deepeval or in the working directory. Without that, DeepTeam asks for the public IP when imported "
+                    "and sends telemetry (PostHog, New Relic). pip's own cache is only used by the installation"},
+        nota="Needs Python 3.10 to 3.13 (DeepTeam 1.0.10 requires < 3.14) and about 100 MB (84 packages). "
+             "sentry-sdk is mandatory: DeepTeam 1.0.10 imports it without declaring it. MRRobotIA does not import DeepTeam: "
+             "it runs a script with the python next to the 'deepteam' executable, so point tools.deepteam.path to that "
+             "executable. It sends tens of attacks to the chatbot and to a judge model, so it is active and not part of 'all'."),
 
     "julius": Instalable(
         "julius",

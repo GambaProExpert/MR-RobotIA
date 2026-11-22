@@ -3,6 +3,50 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.15.0] - 2026-11-22
+
+### Añadido: H5 `White_Rose`, segundo motor: DeepTeam
+- **Nuevo escaneo `deepteam`** (módulo `H5-DEEPTEAM`, `modulos/h5_deepteam.py`): evalúa el comportamiento del chatbot con
+  DeepTeam (y DeepEval debajo) como segundo motor de H5, junto a promptfoo. Es **activo** y **no entra en `all`**: exige
+  `-s deepteam`, `-a`, `allow_active` y, si el host no es local, `authorization.confirm_non_local`. Aporta las
+  vulnerabilidades agénticas (BOLA, BFLA, RBAC, SSRF, agencia excesiva, acceso de depuración, inyección SQL y de comandos...)
+  que en promptfoo solo existen con generación remota, y rúbricas más específicas de PII y fuga del system prompt.
+- **Sin dependencias de ejecución nuevas:** MRRobotIA **no importa** DeepTeam. Lanza `datos/deepteam_runner.py` con el
+  `python` del entorno virtual del ejecutable `deepteam` declarado en `tools.deepteam.path`, le pasa un JSON de entrada (sin
+  claves) y lee un JSON de salida, por `subprocess` y sin shell. Se instala con `deepeval==4.3.4 deepteam==1.0.10
+  sentry-sdk==2.75.0` (Python 3.10-3.13); `sentry-sdk` es obligatorio porque DeepTeam 1.0.10 lo importa sin declararlo
+  (`H5-DEEPTEAM-SENTRY-FALTA`). Entrada en el catálogo de instalación, en `--check-tools` y en `docs/TOOLS.md` y
+  `docs/HERRAMIENTAS.md`.
+- **Todo local, requisito duro y que falla cerrado.** En **cada** subproceso, también la consulta de versión:
+  `DEEPEVAL_TELEMETRY_OPT_OUT=1`, `DEEPTEAM_TELEMETRY_OPT_OUT=YES` (DeepTeam solo acepta el literal `YES`),
+  `DEEPEVAL_DISABLE_DOTENV=1`, `DEEPEVAL_DISABLE_LEGACY_KEYFILE=1`, `DEEPEVAL_HOME`, `~`, temporales y directorio de
+  trabajo dentro de `<prefijo>_deepteam/home/` (DeepEval escribe prompts y respuestas en claro en `<CWD>/.deepeval/`), sin
+  `CONFIDENT_API_KEY`, `OPENAI_API_KEY`, `ERROR_REPORTING` ni variables de servicios de terceros, y proxy muerto con
+  `NO_PROXY` solo para el sujeto y el juez. El ejecutor se niega a arrancar (código 3) si falta algo y lleva una guardia de
+  sockets (`H5-DEEPTEAM-SALIDA-BLOQUEADA`). Lo que exija la nube (Confident AI, marcos con datos remotos, modelos no
+  locales) no se ejecuta: INFO `H5-DEEPTEAM-REMOTO-OMITIDO`. Una clave en claro en el bloque se rechaza sin ejecutar nada.
+- **Juez y atacante locales**, por defecto el propio sujeto con aviso `H5-DEEPTEAM-JUEZ-MISMO-MODELO` y la frase fija de que
+  un resultado limpio no demuestra seguridad (medido: el 14B como juez, 0 falsos positivos pero 1 de 3 fugas detectadas; el
+  7B juzgándose, 19 falsos positivos de 24). Los **canarios** (`deepteam.canaries`) se buscan en la respuesta sin juez y son
+  la señal fiable; el juez se calibra antes con 8 casos y las métricas de DeepTeam (`H5-DEEPTEAM-JUEZ-NO-FIABLE`).
+- 12 vulnerabilidades verificadas sin red (`pii_leakage`, `prompt_leakage`, `cross_context_retrieval`, `bola`, `bfla`,
+  `rbac`, `excessive_agency`, `ssrf`, `debug_access`, `shell_injection`, `sql_injection`, `indirect_instruction`) y 6
+  métodos de ataque de un turno; presets `quick`, `standard` y `full`; bloque `deepteam` del objetivo (`preset`,
+  `system_prompt`, `system_prompt_file`, `purpose`, `canaries`, `vulnerabilities`, `attacks`, `attacks_per_type`, `judge`,
+  `attacker`, `concurrency`, `max_duration`, `max_tokens`, `temperature`, `api_key_env`, `keep_raw`, `calibrate_judge`).
+  Marcos: OWASP LLM 2025; ATLAS y NIST solo donde coinciden con H4.
+- Sección «Evaluación del comportamiento del chatbot (DeepTeam)» del informe y ejemplo en `ejemplos/target.example.json`.
+- Validación real (Qwen2.5-7B en GPU como sujeto y Qwen3-14B en CPU como juez y atacante): `quick` de punta a punta (10 casos, calibración 8/8, 25 min 0 s; una fuga real de sesión con el DNI hallada por el canario y un falso positivo del juez sobre datos inventados) y las 12 vulnerabilidades con los 5 métodos de mejora con un juez 7B (36 casos, 0 sin puntuar). Con un oyente en el proxy muerto y la guardia de sockets: 0 intentos propios; nada escrito fuera de `<prefijo>_deepteam/`; ni el canario ni claves en el informe. Sin validar: vLLM como chatbot, `standard`, `full` y Linux/macOS.
+
+### Cambiado
+- **Lo común de H5 pasa a `modulos/h5_comun.py`** (refactor sin cambios de comportamiento en promptfoo, con todas sus
+  pruebas pasando): base del bloqueo de red, severidad, canarios, claves en claro, destino local, validación y resolución
+  del juez y del atacante, hallazgos de fiabilidad del juez y el motivo de un fallo en el registro. El informe tiene una
+  sola función de sección para los dos motores.
+- `herramientas.Herramienta` gana `entorno_seguro` (consulta de versión con un entorno bloqueado y desde una carpeta
+  temporal) y `detectar` acepta `cwd`; `ModuloHerramienta` gana el gancho `_cwd_deteccion`.
+- `redactar` oculta los canarios, el system prompt y las claves también en el bloque `deepteam`.
+
 ## [0.14.0] - 2026-11-22
 
 ### Añadido: H6 `Young_Elliot` — ¿salen datos de la red?

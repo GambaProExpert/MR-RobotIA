@@ -64,6 +64,10 @@ class Herramienta:
     refs: dict = field(default_factory=dict)
     aislar_xdg: bool = False
     version_patron: str | None = None
+    # La herramienta hace telemetría o escribe estado en cuanto arranca, incluso para dar su versión (DeepTeam consulta
+    # la IP pública al importarse). Con una función `carpeta -> entorno`, `detectar` consulta la versión SIEMPRE con ese
+    # entorno (el bloqueo de red completo) y desde una carpeta temporal que se borra.
+    entorno_seguro: object = None
 
 
 @dataclass
@@ -102,14 +106,14 @@ def _extraer_version(texto, patron=None):
     return m.group(0) if m else None
 
 
-def _consultar_version(herramienta, ruta, env):
+def _consultar_version(herramienta, ruta, env, cwd=None):
     proc = subprocess.run(
         [ruta, *herramienta.version_args],
-        capture_output=True, text=True, errors="replace", timeout=30, env=env)
+        capture_output=True, text=True, errors="replace", timeout=60 if cwd else 30, env=env, cwd=cwd)
     return _extraer_version((proc.stdout or "") + "\n" + (proc.stderr or ""), herramienta.version_patron)
 
 
-def detectar(herramienta, overrides=None, env=None):
+def detectar(herramienta, overrides=None, env=None, cwd=None):
     """Busca la herramienta y, si está, consulta su versión.
 
     La ruta efectiva es `overrides[nombre]["path"]` si existe; si no, lo que
@@ -118,7 +122,9 @@ def detectar(herramienta, overrides=None, env=None):
     `version=None` y el tipo de error), porque existe y podrá ejecutarse.
 
     `env` es el entorno del proceso que consulta la versión (por defecto, el actual). Si no se da
-    y la herramienta tiene `aislar_xdg`, se usa una carpeta temporal para las rutas XDG.
+    y la herramienta tiene `aislar_xdg`, se usa una carpeta temporal para las rutas XDG. Si no se da y tiene
+    `entorno_seguro`, se usa el entorno que esa función construye en una carpeta temporal. `cwd` es la carpeta desde
+    la que se consulta.
     """
     overrides = overrides or {}
     conf = overrides.get(herramienta.nombre) or {}
@@ -128,11 +134,15 @@ def detectar(herramienta, overrides=None, env=None):
     if herramienta.version_args is None:
         return Deteccion(True, None, ruta, None)
     try:
+        if env is None and herramienta.entorno_seguro is not None:
+            with tempfile.TemporaryDirectory(prefix="mrrobotia_ver_") as tmp:
+                return Deteccion(True, _consultar_version(herramienta, ruta, herramienta.entorno_seguro(tmp), tmp),
+                                 ruta, None)
         if env is None and herramienta.aislar_xdg:
             with tempfile.TemporaryDirectory(prefix="mrrobotia_xdg_") as tmp:
                 env = {**os.environ, "XDG_DATA_HOME": tmp, "XDG_CONFIG_HOME": tmp, "XDG_CACHE_HOME": tmp}
                 return Deteccion(True, _consultar_version(herramienta, ruta, env), ruta, None)
-        return Deteccion(True, _consultar_version(herramienta, ruta, env), ruta, None)
+        return Deteccion(True, _consultar_version(herramienta, ruta, env, cwd), ruta, None)
     except (OSError, subprocess.SubprocessError) as e:
         # Está en disco aunque falle la versión: disponible, pero sin versión.
         return Deteccion(True, None, ruta, type(e).__name__)
@@ -249,11 +259,19 @@ class ModuloHerramienta(Modulo):
         """Entorno con el que se consulta la versión de la herramienta, o None = el actual."""
         return None
 
+    def _cwd_deteccion(self, objetivo):
+        """Carpeta desde la que se consulta la versión, o None = la actual."""
+        return None
+
     def ejecutar(self, objetivo):
         overrides = objetivo.get("tools", {}) or {}
         env = self._env_deteccion(objetivo)
-        det = (detectar(self.herramienta, overrides, env=env) if env is not None
-               else detectar(self.herramienta, overrides))
+        cwd = self._cwd_deteccion(objetivo)
+        if env is not None and cwd is not None:
+            det = detectar(self.herramienta, overrides, env=env, cwd=cwd)
+        else:
+            det = (detectar(self.herramienta, overrides, env=env) if env is not None
+                   else detectar(self.herramienta, overrides))
         if not det.disponible:
             # Orquestar, no reinventar: se informa, no se revienta.
             return [Hallazgo(
