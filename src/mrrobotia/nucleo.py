@@ -383,6 +383,31 @@ class Informe:
                 L += [f"> {_celda(d['aviso_raw'])}", ""]
         return L
 
+    def _seccion_egress(self):
+        """Líneas de Markdown de «Salidas de datos a la red (H6)»: una por servidor, a partir del `detalle` del
+        hallazgo de resumen. Nada de lo que llega aquí contiene el canario."""
+        resumen = [h for h in self.hallazgos if (h.detalle or {}).get("seccion") == "egress"
+                   and h.detalle.get("tipo") == "resumen"]
+        if not resumen:
+            return []
+        L = ["", "## Salidas de datos a la red (H6)", ""]
+        for h in resumen:
+            d = h.detalle
+            L += [_celda(d.get("cabecera", "")), ""]
+            if d.get("canales"):
+                L += ["| Canal | Estado | Evidencia | Severidad |", "|---|---|---|---|"]
+                L += [f"| {_celda(c['canal'])} | {_celda(c['estado'])} | {_celda(c['evidencia'])} | {_celda(c['severidad'])} |"
+                      for c in d["canales"]]
+                L.append("")
+            if d.get("conexiones"):
+                L += ["| Destino | Clase | PID y proceso | Ventana | Estados | Nº | Primera vista |", "|---|---|---|---|---|---|---|"]
+                L += [f"| {_celda(c['destino'])} | {_celda(c['clase'])} | {_celda(c['proceso'])} | {_celda(c['ventana'])} | "
+                      f"{_celda(c['estados'])} | {c['n']} | {c['primera_s']} s |" for c in d["conexiones"]]
+                L.append("")
+            if d.get("limites"):
+                L += [f"> {_celda(d['limites'])}", ""]
+        return L
+
     def to_json(self):
         return json.dumps({
             "herramienta": "MRRobotIA",
@@ -428,4 +453,5 @@ class Informe:
             L += [f"- **[{h.severidad.name}] {h.titulo}** — {h.recomendacion}" for h in recs]
         L += self._seccion_garak()
         L += self._seccion_promptfoo()
+        L += self._seccion_egress()
         return "\n".join(L) + "\n"

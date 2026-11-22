@@ -18,6 +18,10 @@ enabled with -a/--active (or MRROBOTIA_ACTIVE) AND allow_active=true in the targ
 file. HYBRID modules (H2, H3...) always do their passive part (network binding, processes,
 files) and their active part (network probing) only when active probing is enabled.
 
+The egress scan (H6, label 'egress') is part of 'all' but, without -a, it only audits the configured outgoing
+channels (telemetry, downloads, RPC, MCP, traces, KV events); the observation of the server's connections and the
+canary traffic need -a (the passive window also runs if you ask for it with -s egress).
+
 The garak sweep (H4, label 'garak') and the promptfoo evaluation (H5, label 'promptfoo') are active, long and
 NOT part of 'all': ask for them with '-s garak -a' or '-s promptfoo -a' (or '-s all,garak,promptfoo -a'); see the
 README for their 'garak' and 'promptfoo' blocks in the target file. promptfoo always runs with the network blocked.
@@ -47,6 +51,7 @@ from mrrobotia.modulos.h3_puertos import H3Puertos
 from mrrobotia.modulos.h3_host import H3Host
 from mrrobotia.modulos.h4_garak import H4Garak
 from mrrobotia.modulos.h5_promptfoo import H5Promptfoo
+from mrrobotia.modulos.h6_salidas import H6Salidas
 
 # La identificación no es un módulo más: corre siempre y primero, y su Contexto lo reciben
 # los demás, sea cual sea la selección de --scan.
@@ -56,20 +61,20 @@ IDENTIFICACION = H2Identificacion()
 # y la versión. El barrido del endpoint lo hace garak (H4), que sustituye al prober propio
 # anterior (M1, retirado). H4 y H5 no entran en `all`: se piden con -s garak y -s promptfoo.
 MODULOS = [M2Integridad(), M3Configuracion(), H2Exposicion(), H2Arranque(), H2Cve(),
-           H3Ssh(), H3Puertos(), H3Host(), H4Garak(), H5Promptfoo()]
+           H3Ssh(), H3Puertos(), H3Host(), H6Salidas(), H4Garak(), H5Promptfoo()]
 
 # Grupos del selector --scan y --skip (además de las etiquetas individuales de cada
 # módulo), con su descripción para --list y --help.
 GRUPOS = {
     "host": {"ssh", "ports", "vulns"},                     # la "seguridad del host" (H3)
-    "active": {"exposure", "ssh", "ports"},                # módulos con parte activa (NO la habilita)
-    "server": {"exposure", "startup", "cve"},              # el servidor LLM en sí
+    "active": {"exposure", "ssh", "ports", "egress"},                # módulos con parte activa (NO la habilita)
+    "server": {"exposure", "startup", "cve", "egress"},    # el servidor LLM en sí
 }
 DESCRIPCION_GRUPOS = {
     "all": "all scans (default), except the long ones that must be asked for by label (garak, promptfoo)",
     "host": "host security (H3)",
     "active": "the ones with an active part; they do not enable it",
-    "server": "the LLM server: exposure, startup and security advisories",
+    "server": "the LLM server: exposure, startup, security advisories and outgoing channels (egress)",
     "passive": "everything, but with no active check at all",
 }
 TIPOS_SERVIDOR_LLM = ("llama.cpp", "vllm")
@@ -396,6 +401,8 @@ def main():
                            else "no seleccionado con --scan")
             continue
         m.activos_ok = activos_ok   # los módulos híbridos (p. ej. H2, H3) autogatean su parte activa
+        if hasattr(m, "pedido_explicito"):
+            m.pedido_explicito = seleccion is not None and m.etiqueta_escaneo in seleccion
         m.contexto = IDENTIFICACION.contexto
         m.directorio_salida = Path(f"{args.out}_{m.etiqueta_escaneo}")
         if m.activo and not activos_ok:

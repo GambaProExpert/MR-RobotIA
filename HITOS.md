@@ -1,7 +1,7 @@
 # MRRobotIA — Hitos (roadmap por capas)
 
 > Operativiza [Guia_agentes.md](Guia_agentes.md). Alcance elegido: **LLM + RAG + host**.
-> Estado de este documento: versión 0.13.0 (2026-11-21). H0-H5 hechos; H6-H7 por hacer (H7 con el diseño hecho). vLLM está validado contra un
+> Estado de este documento: versión 0.14.0 (2026-11-22). H0-H6 hechos; H7 por hacer (con el diseño hecho). vLLM está validado contra un
 > vLLM 0.33.0 real en CPU; quedan por validar GPU, generación y el escaneo real de ssh-audit (ver más abajo). Trivy ya está validado en real (0.11.0).
 
 ## Qué es ahora MRRobotIA
@@ -30,7 +30,7 @@ ya consolidadas** contra un servidor LLM local y **normaliza sus datos** a un in
 | **H3 · Seguridad del host** | 1 | código propio + **Trivy** + ssh-audit | SSH (`sshd_config` CIS + `ssh-audit`), puertos abiertos innecesarios/inseguros (los puertos esperados salen de lo identificado) y vulnerabilidades/secretos/config con Trivy. Solo se ejecuta en máquinas con un servidor llama.cpp o vLLM. | **hecho** · Trivy validado en real (0.11.0); ssh-audit instalado y detectado, escaneo real pendiente (sin sshd) |
 | **H4 · Barrido del endpoint** | 2 | **garak** (NVIDIA) | barrido amplio del endpoint REST/llama.cpp (sondas de inyección y más) → informe JSONL normalizado | **hecho** (0.10.0) · **sustituye al *prober* propio anterior** (fuera del repositorio). Validado contra un llama.cpp real (7B) con configuración automática, `garak-config.json` REST pegado y tiempo agotado con informe parcial; **vLLM sin validar en real** (solo pruebas herméticas). Duración medida solo para `quick` (unos 4-6 min); `standard` y `full` son estimaciones |
 | **H5 · Prompt injection / evals** | 2 | **promptfoo** | red team + evals en YAML como *gate* de CI: inyección directa e indirecta, fuga entre sesiones, agencia excesiva, BOLA/BFLA | **hecho** (0.13.0) · validado contra un llama.cpp real con Qwen2.5-7B (`gate`, `quick`, configuración de promptfoo pegada y servidor caído) y con la red bloqueada. Salvedades: **un juez del mismo modelo es poco fiable** (aprobó un volcado del system prompt; la señal de confianza son los canarios), los plugins generados necesitan un atacante mayor (un 7B escribe ataques flojos) y 18 plugins solo remotos (BOLA, BFLA, inyección indirecta...) se sustituyen por pruebas fijas y `custom_tests`. `standard`, `full`, vLLM y un juez mayor sin validar |
-| **H6 · Datos no salen de la red** | 2 | **DeepEval / DeepTeam** | **MUY IMPORTANTE**: comprobar que prompts y salidas no salen de la red; juez local (`deepeval set-ollama`), red teaming offline | por hacer |
+| **H6 · Datos no salen de la red** | 2 | código propio (biblioteca estándar: tablas de sockets por PID) | **MUY IMPORTANTE**: canales de salida configurados (telemetría, descargas, RPC, MCP, trazas, eventos KV) y conexiones salientes del árbol de procesos del servidor, en reposo y con tráfico de canario. DeepEval/DeepTeam **no forman parte de H6**: se integrarán aparte, como segundo motor de H5 | **hecho** (0.14.0) · validado contra un llama.cpp real (0 salidas) y un vLLM 0.33.0 real en CPU en WSL; positivo controlado con un servidor falso. Límites: TLS (destino, no contenido), muestreo, solo el árbol del servidor, WSL solo desde dentro |
 | **H7 · Simulación de ataques con verificación** | 2 | código propio + **Schemathesis** y **vegeta** opcionales | ataques inocuos y acotados contra el servidor (o la pasarela o aplicación de delante) y, por cada uno: ¿se bloqueó?, ¿quedó constancia (logs, métricas, auditoría)?, ¿se recuperó el servidor? Remedio y repetición de lo que falló | por hacer (diseño hecho; ver abajo) |
 | Capa 3 · agentes, MCP, herramientas | 3 | agentic-radar, etc. | superficie de agentes/MCP | **más adelante** (fuera de alcance ahora) |
 
@@ -48,15 +48,15 @@ del código y del informe siguen siendo `H0`…`H7`.
 | H3 · Seguridad del host | `Magda` (o `Persecutor`) | La madre | La figura estricta y severa: audita la máquina con mano dura (CIS, ssh-audit, Trivy) buscando malas configuraciones, secretos expuestos o puertas mal cerradas |
 | H4 · Barrido del endpoint | `fsociety` (o `Darlene`, `Fuzz_Mask`) | La máscara, el colectivo | El ataque masivo, ruidoso y sistemático: con garak lanza muchas sondas de inyección para probar la resistencia del endpoint desde distintos ángulos |
 | H5 · Prompt injection y evals | `White_Rose` (o `Dark_Army`) | Whiterose (la manipulación) | La mente maestra de la manipulación: inyección directa e indirecta, fuga entre sesiones y abuso de privilegios (BOLA/BFLA) como *gate* de CI |
-| H6 · Datos no salen de la red | `Young_Elliot` (o `Safe_Room`) | El Elliot niño | La necesidad absoluta de aislamiento: que prompts y salidas nunca salgan del entorno local (juez offline con Ollama) |
+| H6 · Datos no salen de la red | `Young_Elliot` (o `Safe_Room`) | El Elliot niño | La necesidad absoluta de aislamiento: que prompts y salidas nunca salgan del entorno local (se comprueba mirando las conexiones del servidor) |
 | H7 · Simulación de ataques con verificación | `Mr_Robot` | El protector | Entra en acción en los momentos críticos: lanza ataques controlados y comprueba si el sistema resiste, si deja rastro y si se recupera |
 
 ## Orden propuesto
 
 `H0 → H2 → H3 → H4 → H5 → H6 → H7`
 
-- **H0, H2 y H3 no dependen** de instalar garak/promptfoo/DeepEval: son el cimiento y la Capa 1.
-- **H4–H6** sí requieren esas herramientas en local; se abordan después del núcleo.
+- **H0, H2 y H3 no dependen** de instalar garak ni promptfoo: son el cimiento y la Capa 1.
+- **H4 y H5** sí requieren esas herramientas en local; **H6** es código propio. Se abordan después del núcleo.
 - **H7** va después de H4-H6 (decisión del 16/11/2026), aunque su primera fase no depende de ellos:
   cuando estén, sus sondas sirven como carga útil del H7.
 
@@ -182,5 +182,42 @@ contra un endpoint **llama.cpp**; formato de salida y su parseo; mapeo a severid
   - **Sin validar / límites:** estrategias iterativas (`jailbreak`, `crescendo`...), `{{env.X}}` en
     cabeceras, `--safe-mode` con aserciones `javascript`, `::1` en `NO_PROXY`, vLLM, `standard`, `full` y un
     juez mayor que el chatbot. promptfoo solo escribe su JSON al terminar cada fase.
-  - **Pendiente de H6** (DeepEval): un juez distinto del sujeto (el 14B de otro puerto) y reutilizar la
-    calibración del juez.
+  - Un juez distinto del sujeto (el 14B de otro puerto, con `promptfoo.judge.url`) queda documentado y medido en H6.
+- **H6 (0.14.0):** comprobación directa de si los datos salen de la red; código propio, solo biblioteca
+  estándar. Etiqueta `egress`, módulo híbrido que **entra en `all` solo con la auditoría estática**; la ventana
+  de observación y los canarios exigen `-a` con `allow_active` (la ventana pasiva también corre con `-s egress`).
+  Decisiones:
+  - **Opción B, sin DeepEval/DeepTeam en H6.** Medido: no responden a «¿salen datos de la red?» (evalúan lo que
+    el modelo dice: es H4/H5), y son ellos mismos un canal de salida: unos 30 intentos de telemetría por
+    ejecución (PostHog, New Relic, IP pública), subida de ataques y respuestas a su nube si hay clave, y
+    DeepTeam solo se corta con el valor literal `YES`. **Se integrarán aparte, como segundo motor de H5**, con
+    `DEEPEVAL_TELEMETRY_OPT_OUT=1`, `DEEPTEAM_TELEMETRY_OPT_OUT=YES` y un juez local, con la red bloqueada como
+    promptfoo.
+  - **Método:** muestreo de la tabla de sockets del sistema por PID (Windows `GetExtendedTcpTable` y
+    `CreateToolhelp32Snapshot`; Linux `/proc/<pid>/net/*` e inodos de `/proc/<pid>/fd`) sobre el **árbol** de
+    procesos del servidor, recalculado en cada muestra. Clases: escucha, entrante, pull, propia, permitida,
+    DNS, UDP y SALIDA (pública o privada). **Canario** (`MRR-H6-<12 hex>`, nunca impreso) por `chat` con
+    `max_tokens` 8 o por `tokenize`, y correlación de peticiones con conexiones nuevas.
+  - **H6 es el único dueño de los canales de salida.** La comprobación de telemetría de vLLM salió de
+    H2-ARRANQUE (`H2-ARRANQUE-TELEMETRIA`) y es `H6-SALIDAS-CANAL-TELEMETRIA`. Se corrigió un **fallo real**: vLLM
+    solo acepta `DO_NOT_TRACK`, `VLLM_DO_NOT_TRACK` y `VLLM_NO_USAGE_STATS` con el valor exacto `1` (con
+    `true` envía igual, medido) y MRRobotIA daba por buena cualquier valor: ahora sale
+    `H6-SALIDAS-CANAL-TELEMETRIA-EXCLUSION-INVALIDA`.
+  - **Severidades:** estadísticas de uso de vLLM, BAJA (no llevan prompts); eventos KV por ZMQ sin
+    autenticación, ALTA (los `token_ids` son los del prompt); salida a internet, ALTA; a la red local, MEDIA;
+    correlacionada con el canario, CRÍTICA (pública).
+  - **Validado:** llama.cpp real (0 conexiones salientes con cientos de peticiones), vLLM 0.33.0 real en CPU
+    dentro de WSL (auditoría estática con y sin `HF_HUB_OFFLINE`, `DO_NOT_TRACK=true` frente a `=1`, eventos KV
+    y un intento real de llegar al hub, visto como `SYN_SENT`) y un servidor falso que intenta conectar a una
+    dirección sin dueño al recibir un canario (positivo controlado; nada salió de la máquina).
+  - **Límites:** con TLS se ve el destino, no el contenido; el muestreo puede perder conexiones de menos de unos
+    100 ms (medido: 20 de 20 desde 100 ms, 4-8 de 20 con 20 ms, ninguna al instante); solo se ve el árbol del
+    servidor y solo durante la ventana; el DNS no se atribuye al servidor; un servidor dentro de WSL no se ve desde
+    Windows (hay que ejecutar MRRobotIA dentro de WSL); en Windows el entorno de otro proceso no se lee y la
+    tabla UDP no da la remota. vLLM en GPU y su ruta de generación sin validar.
+  - **El juez distinto del sujeto** que dejó pendiente H5 se resuelve en H5 con `promptfoo.judge.url` apuntando
+    a otro modelo local mayor (H5 ya lo admitía). Medido: el 7B juzgándose a sí mismo marcó 19 de 24
+    respuestas como vulnerables sin fuga alguna; el juez 14B (CPU, unos 26 s por evaluación) no marcó ninguna
+    por error pero dejó pasar 2 de 3 fugas reales: **el canario es la única señal fiable**.
+  - **Fase 2, no implementada (trabajo futuro):** observar el arranque de un servidor (descargas, telemetría
+    inicial) y autocomprobar los subprocesos de H4/H5 con un pozo que escuche en lugar del proxy muerto.

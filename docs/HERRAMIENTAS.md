@@ -468,6 +468,7 @@ MRRobotIA ejecuta promptfoo con su estado (`PROMPTFOO_CONFIG_DIR`: base de datos
 
 ## Próximamente
 
-- **DeepEval** (H6): evaluación de calidad y de fugas con métricas.
+- **DeepEval / DeepTeam**: segundo motor de evaluación de H5 (no de H6, que es código propio y no necesita herramienta), con la
+  telemetría cortada del todo y un juez local.
 
 Se documentará aquí cuando se integre.

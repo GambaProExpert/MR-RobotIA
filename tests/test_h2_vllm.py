@@ -421,29 +421,9 @@ def test_huella():
     assert "H2-ARRANQUE-FINGERPRINT" not in ids(evaluar({"fingerprint_mode": "none"}))
 
 
-def test_telemetria_con_entorno_legible():
-    h = uno(evaluar(entorno={"VLLM_LOGGING_LEVEL": "INFO"}), "TELEMETRIA")
-    assert (h.severidad, h.estado) == (Severidad.BAJA, "confirmado") and "DO_NOT_TRACK" in h.evidencia
-
-
-@pytest.mark.parametrize("variable", ["VLLM_NO_USAGE_STATS", "VLLM_DO_NOT_TRACK", "DO_NOT_TRACK"])
-def test_telemetria_desactivada(variable):
-    assert "H2-ARRANQUE-TELEMETRIA" not in ids(evaluar(entorno={variable: "1"}))
-
-
-def test_telemetria_sin_entorno_legible_no_afirma(monkeypatch):
-    monkeypatch.setattr(perfil_vllm.procesos, "entorno_legible", lambda pid: False)
-    h = uno(evaluar(pid=5), "TELEMETRIA")
-    assert h.estado == "potencial" and "no es legible" in h.evidencia and "envía" not in h.titulo
-
-
-def test_telemetria_sin_proceso_no_afirma():
-    assert uno(evaluar(pid=None), "TELEMETRIA").estado == "potencial"
-
-
-def test_telemetria_con_entorno_vacio_pero_legible(monkeypatch):
-    monkeypatch.setattr(perfil_vllm.procesos, "entorno_legible", lambda pid: True)
-    assert uno(evaluar(pid=5), "TELEMETRIA").estado == "confirmado"
+def test_la_telemetria_ya_no_es_de_h2_arranque():
+    """La auditoría de la telemetría de vLLM pasó a H6 (`H6-SALIDAS-CANAL-TELEMETRIA`): H2-ARRANQUE no la repite."""
+    assert "H2-ARRANQUE-TELEMETRIA" not in ids(evaluar(entorno={"VLLM_LOGGING_LEVEL": "INFO"}))
 
 
 def test_inventario_en_un_unico_hallazgo():
@@ -478,7 +458,6 @@ def test_lo_observado_manda_sobre_el_arranque():
     m.contexto = Contexto("linux", servidores=[s])
     h = {x.id for x in m.ejecutar({})}
     assert not {"H2-ARRANQUE-SIN-CLAVE", "H2-ARRANQUE-DESARROLLO", "H2-ARRANQUE-OPENAPI", "H2-ARRANQUE-TLS", "H2-ARRANQUE-HOST"} & h
-    assert "H2-ARRANQUE-TELEMETRIA" in h
 
 
 # ------------------------------------------------------------ puertos del perfil

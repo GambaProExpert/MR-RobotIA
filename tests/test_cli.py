@@ -17,7 +17,7 @@ from mrrobotia.modulos.h3_puertos import H3Puertos
 from mrrobotia.modulos.h3_ssh import H3Ssh
 from mrrobotia.procesos import Proceso
 
-ETIQUETAS = {"id", "integrity", "config", "exposure", "startup", "cve", "ssh", "ports", "vulns", "garak", "promptfoo"}
+ETIQUETAS = {"id", "integrity", "config", "exposure", "startup", "cve", "ssh", "ports", "vulns", "egress", "garak", "promptfoo"}
 
 
 def objetivo(**extra):
@@ -96,8 +96,8 @@ def test_ayuda_incluye_modulos_nuevos(monkeypatch):
 
 
 def test_grupo_servidor():
-    assert cli.GRUPOS["server"] == {"exposure", "startup", "cve"}
-    assert cli._resolver_escaneo("server") == ({"exposure", "startup", "cve"}, False)
+    assert cli.GRUPOS["server"] == {"exposure", "startup", "cve", "egress"}
+    assert cli._resolver_escaneo("server") == ({"exposure", "startup", "cve", "egress"}, False)
 
 
 def test_todas_las_etiquetas_son_validas():
@@ -127,7 +127,7 @@ def test_excluir_un_grupo():
 
 
 def test_excluir_de_una_seleccion():
-    assert cli._resolver_escaneo("server", "cve") == ({"exposure", "startup"}, False)
+    assert cli._resolver_escaneo("server", "cve") == ({"exposure", "startup", "egress"}, False)
 
 
 @pytest.mark.parametrize("excluir", ["id", "cve,id"])
@@ -175,7 +175,7 @@ def test_listar_no_necesita_objetivo(entorno, monkeypatch, capsys):
     assert "type: hybrid" in salida and "type: passive" in salida
     assert "julius (not installed)" in salida and "ssh-audit (not installed)" in salida
     assert "trivy (installed)" in salida
-    assert "server: the LLM server" in salida and "= cve, exposure, startup" in salida
+    assert "server: the LLM server" in salida and "= cve, egress, exposure, startup" in salida
     assert "host: " in salida and "active: " in salida and "passive: " in salida
     assert "cannot be skipped" in salida
 
@@ -267,7 +267,7 @@ def test_solo_declarado_con_puerto_en_exposicion(entorno, monkeypatch, tmp_path)
 # ------------------------------------------------------------ H3 solo con servidor LLM
 def test_los_modulos_del_host_requieren_servidor():
     assert H3Ssh.requiere_servidor and H3Puertos.requiere_servidor and H3Host.requiere_servidor
-    assert {m.etiqueta_escaneo for m in cli.MODULOS if m.requiere_servidor} == {"ssh", "ports", "vulns"}
+    assert {m.etiqueta_escaneo for m in cli.MODULOS if m.requiere_servidor} == {"ssh", "ports", "vulns", "egress"}
 
 
 def test_host_omitido_sin_servidor(entorno, monkeypatch, tmp_path):

@@ -13,13 +13,15 @@ generación, y las pruebas usan un servidor falso que sigue esa lectura y esas o
 from __future__ import annotations
 
 import json
+import os
+import re
 import secrets
 
 from mrrobotia import cve, procesos
 from mrrobotia.nucleo import Severidad
 from mrrobotia.perfiles.base import (
     MAX_MODELOS, REFS_EXPO, REFS_FUGA, REFS_SECRETOS, REFS_SUPPLY, Identificacion, Op, Perfil, graduar,
-    hallazgo_autenticacion, hallazgo_modelos, limpiar, nombre_fichero, nombre_modelo, normalizar_prefijo,
+    es_ruta_absoluta, hallazgo_autenticacion, hallazgo_modelos, limpiar, nombre_fichero, nombre_modelo, normalizar_prefijo,
     version_segura,
 )
 from mrrobotia.perfiles.base import hallazgo_arranque as _a
@@ -103,6 +105,12 @@ OPCIONES = {
     **_bandera("enable_scale_out"),
     **_bandera("enable_fault_tolerance"),
     "--tool-server": Op("tool_server"),
+    # Canales por los que puede salir información (H6). `--kv-transfer-config` lleva direcciones de otros nodos: solo
+    # presencia; `--kv-events-config` se conserva porque su `endpoint` decide la gravedad.
+    "--otlp-traces-endpoint": Op("otlp_traces_endpoint"),
+    "--kv-events-config": Op("kv_events_config"),
+    "--kv-transfer-config": Op("kv_transfer_config", secreto=True),
+    "--load-format": Op("load_format"),
     "--profiler-config": Op("profiler_config", secreto=True),
     "--fingerprint-mode": Op("fingerprint_mode"),
     # Registros
@@ -151,7 +159,10 @@ VARIABLES = {
 
 
 _VALORES_FALSOS = {"off", "disabled", "false", "0", ""}
-_VARIABLES_TELEMETRIA = ("VLLM_NO_USAGE_STATS", "VLLM_DO_NOT_TRACK", "DO_NOT_TRACK")
+# Variables que desactivan las estadísticas de uso. vLLM solo las acepta con el valor EXACTO "1" (`envs.py`): con
+# `true` o `yes` envía igual (medido con DO_NOT_TRACK=true). Lo audita H6.
+VARIABLES_TELEMETRIA = ("VLLM_NO_USAGE_STATS", "VLLM_DO_NOT_TRACK", "DO_NOT_TRACK")
+_REPO_HUB = re.compile(r"[\w.-]+/[\w.-]+")
 # Antes de esta versión, --allowed-origins valía ["*"] por defecto.
 _VERSION_CORS_RESTRINGIDO = "0.32.0"
 
@@ -396,11 +407,6 @@ def _activa(valor):
     return valor is True or str(valor).strip().lower() not in _VALORES_FALSOS
 
 
-def _entorno_legible(s):
-    """¿Se ha podido mirar el entorno del proceso? Si no, lo que falta en él no se puede afirmar."""
-    return bool(s.entorno) or (s.pid is not None and procesos.entorno_legible(s.pid))
-
-
 def _arranque_enlace(s):
     """Siempre ALTA: la combinación con la falta de clave ya la da `SIN-CLAVE`. Sin --host, vLLM
     escucha en todas las interfaces IPv4, pero la opción podría estar en un --config."""
@@ -538,19 +544,19 @@ def _arranque_huella(s, expuesto):
               estado="informativo" if severidad == _INFO else "confirmado" if modo else "potencial")
 
 
-def _arranque_telemetria(s, legible):
-    """Sin exclusión expresa, vLLM envía estadísticas de uso a un servicio externo. Si el entorno no
-    se puede leer, no se sabe si la exclusión está puesta."""
-    if any(_activa(s.entorno.get(v)) for v in _VARIABLES_TELEMETRIA):
-        return None
-    if legible:
-        return _a("TELEMETRIA", "vLLM envía telemetría de uso al exterior", _BAJA,
-                  "no consta VLLM_NO_USAGE_STATS, VLLM_DO_NOT_TRACK ni DO_NOT_TRACK",
-                  "Define VLLM_NO_USAGE_STATS=1 o DO_NOT_TRACK=1 si no quieres que salgan datos del equipo.")
-    return _a("TELEMETRIA", "Telemetría de vLLM sin comprobar", _BAJA,
-              "el entorno del proceso no es legible: no se puede saber si la telemetría está desactivada",
-              "Comprueba que VLLM_NO_USAGE_STATS=1 o DO_NOT_TRACK=1 estén definidas si no quieres que salgan datos del equipo.",
-              estado="potencial")
+def exclusion_telemetria(entorno):
+    """Estado de la exclusión de estadísticas en un entorno: ("valida", variable) si alguna vale exactamente "1";
+    ("invalida", variable) si hay alguna con otro valor no vacío (vLLM la ignora); ("ausente", None)."""
+    invalida = None
+    for variable in VARIABLES_TELEMETRIA:
+        valor = entorno.get(variable)
+        if valor is None or valor is False:
+            continue
+        if str(valor).strip() == "1":
+            return "valida", variable
+        if valor is True or str(valor).strip():
+            invalida = invalida or variable
+    return ("invalida", invalida) if invalida else ("ausente", None)
 
 
 def _arranque_informativas(s):
@@ -612,9 +618,15 @@ class Vllm(Perfil):
 
     def analizar_argv(self, argv) -> dict:
         opciones = super().analizar_argv(argv)
-        modelo = nombre_modelo(opciones.get("model") or self._posicional_serve(argv))
+        crudo = opciones.get("model") or self._posicional_serve(argv)
+        modelo = nombre_modelo(crudo)
         if modelo:
             opciones["model"] = modelo
+            # Un identificador `org/modelo` que no existe como ruta se descarga del hub en línea (H6). El resto
+            # queda sin marcar: una ruta relativa o un nombre sin barra no permiten afirmarlo.
+            if (isinstance(crudo, str) and _REPO_HUB.fullmatch(crudo.strip()) and not es_ruta_absoluta(crudo)
+                    and not os.path.exists(crudo.strip())):
+                opciones["model_remoto"] = True
         else:
             opciones.pop("model", None)
         return opciones
@@ -763,7 +775,7 @@ class Vllm(Perfil):
                  _arranque_documentacion(servidor, expuesto), _arranque_medios(servidor, expuesto),
                  *_arranque_por_tabla(servidor, expuesto), _arranque_registros(servidor),
                  _arranque_herramientas(servidor, expuesto), _arranque_huella(servidor, expuesto),
-                 _arranque_telemetria(servidor, _entorno_legible(servidor)), _arranque_informativas(servidor)]
+                 _arranque_informativas(servidor)]
         return [h for h in filas if h is not None]
 
     def componente_en_uso(self, aviso, servidor):

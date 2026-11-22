@@ -3,6 +3,48 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.14.0] - 2026-11-22
+
+### Añadido: H6 `Young_Elliot` — ¿salen datos de la red?
+- **Nuevo escaneo `egress`** (módulo `H6-SALIDAS`, `modulos/h6_salidas.py`): código propio, solo biblioteca estándar y
+  sin herramienta externa. Es **híbrido** y entra en `all` solo con su **auditoría estática**; la ventana de
+  observación y los canarios exigen `-a` con `allow_active` (la ventana pasiva también corre con `-s egress`).
+  - **Auditoría estática de canales de salida** (`H6-SALIDAS-CANAL-*`) a partir de la línea de órdenes saneada, el
+    entorno del proceso y los ficheros de estado de vLLM: telemetría (y exclusión inválida, e historial con
+    `usage_stats.json`), hub de modelos en línea sin `HF_HUB_OFFLINE`, descargas de llama.cpp sin `--offline`,
+    carga remota, RPC, MCP y herramientas, proxy de la interfaz, trazas OTLP, eventos KV por ZMQ (ALTA: llevan los
+    `token_ids` del prompt, sin autenticación), transferencia KV y proxies del entorno.
+  - **Observación por PID** del árbol de procesos del servidor: muestreo de la tabla de sockets del sistema
+    (Windows `GetExtendedTcpTable`/Toolhelp; Linux `/proc/<pid>/net/*` e inodos de `fd`). Salida pública, ALTA;
+    a la red local, MEDIA; `H6-SALIDAS-PULL-<puerto>`, `-DNS`, `-UDP-<n>`.
+  - **Canario** (`MRR-H6-<12 hex>`, nunca impreso, por `chat` o `tokenize`) con correlación: conexiones públicas
+    nuevas tras al menos la mitad de las peticiones dan `H6-SALIDAS-CORRELACION` (CRÍTICA). La ventana limpia lleva
+    la frase fija de límites (TLS, muestreo, árbol, DNS, WSL).
+  - Bloque `egress` del objetivo (`allow`, `passive_window`, `active_window`, `trailing`, `interval_ms`, `canaries`,
+    `canary_endpoint`, `max_tokens`, `correlation_s`, `api_key_env`, `pids`, `process_names`, `history_files`),
+    sección «Salidas de datos a la red (H6)» del informe con las tablas de canales y de conexiones, y pertenencia al
+    grupo `server` y `active`.
+  - Funciones nuevas: `red.filas_tabla_tcp_todas`, `red.sockets_windows`, `red.filas_proc_net`, `red.sockets_linux`
+    y `procesos.tabla_pid_ppid`/`arbol_de`. Opciones nuevas en los perfiles: vLLM `--otlp-traces-endpoint`,
+    `--kv-events-config`, `--kv-transfer-config` (solo presencia) y `--load-format`, y la marca `model_remoto`
+    (identificador de repositorio); llama.cpp `--offline` y `-hfd`/`--hf-repo-draft`.
+- **DeepEval/DeepTeam no forman parte de H6** (medido: no responden a «¿salen datos de la red?» y son un canal de
+  salida por defecto, con unos 30 intentos de telemetría por ejecución y un corte que en DeepTeam exige el literal
+  `YES`). Se integrarán aparte, como segundo motor de H5, con la telemetría cortada del todo y un juez local.
+- Documentado y medido el **juez distinto del sujeto** de H5 (`promptfoo.judge.url` hacia otro modelo local mayor):
+  el 7B juzgándose a sí mismo dio 19 falsos positivos de 24; el juez 14B ninguno, pero dejó pasar 2 de 3 fugas reales.
+  El canario es la única señal fiable.
+
+### Cambiado
+- **La comprobación de telemetría de vLLM pasa de H2-ARRANQUE a H6**: el hallazgo `H2-ARRANQUE-TELEMETRIA` desaparece
+  y su lugar lo ocupa `H6-SALIDAS-CANAL-TELEMETRIA`. Cualquier consumidor del informe que filtrara por el
+  identificador antiguo debe usar el nuevo. Con `-s startup` solo ya no sale esa fila.
+
+### Corregido
+- **Exclusión de telemetría de vLLM mal interpretada:** MRRobotIA daba por buena una exclusión con cualquier valor
+  (`DO_NOT_TRACK=true`), pero vLLM solo acepta exactamente `1` (con `true` envía igual: medido en un vLLM real).
+  Ahora sale `H6-SALIDAS-CANAL-TELEMETRIA-EXCLUSION-INVALIDA` (BAJA).
+
 ## [0.13.0] - 2026-11-21
 
 ### Añadido: H5 `White_Rose` — evaluación del chatbot con promptfoo

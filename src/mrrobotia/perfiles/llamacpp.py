@@ -107,6 +107,10 @@ OPCIONES = {
     "-hf": Op("hf_repo"),
     "-hfr": Op("hf_repo"),
     "--hf-repo": Op("hf_repo"),
+    "-hfd": Op("hf_repo_draft"),
+    "-hfrd": Op("hf_repo_draft"),
+    "--hf-repo-draft": Op("hf_repo_draft"),
+    **_bandera("offline", ["--offline"], []),
     "-dr": Op("docker_repo"),
     "--docker-repo": Op("docker_repo"),
     # Límites de denegación de servicio

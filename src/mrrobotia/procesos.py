@@ -192,6 +192,86 @@ def descendientes(lista, pid):
     return vistos
 
 
+def arbol_de(tabla, raices):
+    """Raíces presentes en `tabla` ({pid: (ppid, nombre)}) y todos sus descendientes."""
+    hijos = {}
+    for pid, (ppid, _) in tabla.items():
+        hijos.setdefault(ppid, []).append(pid)
+    vistos, pendientes = set(), [r for r in raices if r in tabla]
+    while pendientes:
+        actual = pendientes.pop()
+        if actual in vistos:
+            continue
+        vistos.add(actual)
+        pendientes.extend(hijos.get(actual, ()))
+    return vistos
+
+
+def _tabla_windows():
+    """{pid: (ppid, nombre)} con una instantánea de Toolhelp: milisegundos y sin PowerShell."""
+    import ctypes
+
+    class _Entrada(ctypes.Structure):
+        _fields_ = [("dwSize", ctypes.c_ulong), ("cntUsage", ctypes.c_ulong), ("th32ProcessID", ctypes.c_ulong),
+                    ("th32DefaultHeapID", ctypes.c_size_t), ("th32ModuleID", ctypes.c_ulong),
+                    ("cntThreads", ctypes.c_ulong), ("th32ParentProcessID", ctypes.c_ulong),
+                    ("pcPriClassBase", ctypes.c_long), ("dwFlags", ctypes.c_ulong),
+                    ("szExeFile", ctypes.c_wchar * 260)]
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
+    instantanea = k32.CreateToolhelp32Snapshot(2, 0)       # TH32CS_SNAPPROCESS
+    tabla = {}
+    if not instantanea or instantanea == ctypes.c_void_p(-1).value:
+        return tabla
+    try:
+        entrada = _Entrada()
+        entrada.dwSize = ctypes.sizeof(_Entrada)
+        hay = k32.Process32FirstW(ctypes.c_void_p(instantanea), ctypes.byref(entrada))
+        while hay:
+            tabla[entrada.th32ProcessID] = (entrada.th32ParentProcessID, entrada.szExeFile)
+            hay = k32.Process32NextW(ctypes.c_void_p(instantanea), ctypes.byref(entrada))
+    finally:
+        k32.CloseHandle(ctypes.c_void_p(instantanea))
+    return tabla
+
+
+def _tabla_linux(raiz="/proc"):
+    """{pid: (ppid, nombre)} de `<raiz>/<pid>/stat`. El nombre de un hijo de vLLM es su título (`VLLM::EngineCore`)
+    y no el truncado de `comm`; de la línea de órdenes solo se lee el primer elemento."""
+    tabla = {}
+    for entrada in os.listdir(raiz):
+        if not entrada.isdigit():
+            continue
+        try:
+            with open(os.path.join(raiz, entrada, "stat"), "rb") as f:
+                datos = f.read(4096)
+            nombre = datos[datos.index(b"(") + 1:datos.rindex(b")")].decode("utf-8", "replace")
+            ppid = int(datos[datos.rindex(b")") + 1:].split()[1])
+            try:
+                with open(os.path.join(raiz, entrada, "cmdline"), "rb") as f:
+                    titulo = decodificar(f.read(256).split(b"\0")[0]).strip()
+                if titulo.startswith("VLLM::"):
+                    nombre = titulo[:60]
+            except OSError:
+                pass
+            tabla[int(entrada)] = (ppid, nombre)
+        except (OSError, ValueError, IndexError):
+            continue
+    return tabla
+
+
+def tabla_pid_ppid():
+    """{pid: (ppid, nombre)} de todos los procesos, rápida (unos ms) y sin lanzar nunca: {} si falla."""
+    try:
+        if os.name == "nt":
+            return _tabla_windows()
+        if sys.platform.startswith("linux"):
+            return _tabla_linux()
+    except Exception:
+        pass
+    return {}
+
+
 def version_de_paquete(argv0, paquete):
     """Versión instalada de `paquete` en el entorno virtual del ejecutable `argv0`, leída del
     `METADATA` de su `*.dist-info`. Solo lectura de ficheros locales; nada de red ni de importar

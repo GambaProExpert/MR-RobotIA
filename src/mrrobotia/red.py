@@ -259,6 +259,132 @@ def _tabla_escucha_windows():
     return "\n".join(filas)
 
 
+# ---------------------------------------- tablas de conexiones por PID (H6, solo lectura)
+_TCP_TABLA_TODAS = 5        # TCP_TABLE_OWNER_PID_ALL de GetExtendedTcpTable
+ESTADOS_TCP_WINDOWS = {1: "CLOSED", 2: "LISTEN", 3: "SYN_SENT", 4: "SYN_RCVD", 5: "ESTABLISHED", 6: "FIN_WAIT1",
+                       7: "FIN_WAIT2", 8: "CLOSE_WAIT", 9: "CLOSING", 10: "LAST_ACK", 11: "TIME_WAIT", 12: "DELETE_TCB"}
+ESTADOS_PROC_NET = {"01": "ESTABLISHED", "02": "SYN_SENT", "03": "SYN_RCVD", "04": "FIN_WAIT1", "05": "FIN_WAIT2",
+                    "06": "TIME_WAIT", "07": "CLOSE", "08": "CLOSE_WAIT", "09": "LAST_ACK", "0A": "LISTEN",
+                    "0B": "CLOSING"}
+MAX_FILAS_TABLA = 200_000   # tope de seguridad de una lectura completa
+
+
+@dataclass
+class Fila:
+    """Una conexión o socket de la tabla del sistema. `remota` es None en un socket UDP sin conectar."""
+    proto: str              # "tcp" | "udp"
+    local: str
+    puerto_local: int
+    remota: str | None
+    puerto_remoto: int | None
+    estado: str             # LISTEN, ESTABLISHED, SYN_SENT... o UDP / UDP_CONECTADO
+    pid: int | None         # None: socket de un proceso que no es del árbol observado (Linux)
+
+
+def filas_tabla_tcp_todas(datos, familia):
+    """`Fila`s de lo que devuelve `GetExtendedTcpTable` con `TCP_TABLE_OWNER_PID_ALL` (IPv4: 24 bytes por fila;
+    IPv6: 56). Pura. Los puertos vienen en orden de red. Un TIME_WAIT trae PID 0."""
+    ipv4 = familia == socket.AF_INET
+    tam = 24 if ipv4 else 56
+    filas = []
+    try:
+        total = min(struct.unpack_from("<I", datos, 0)[0], MAX_FILAS_TABLA)
+        for i in range(total):
+            o = 4 + i * tam
+            if ipv4:
+                estado, la, lp, ra, rp, pid = struct.unpack_from("<IIIIII", datos, o)
+                local, remota = socket.inet_ntoa(struct.pack("<I", la)), socket.inet_ntoa(struct.pack("<I", ra))
+            else:
+                local = socket.inet_ntop(socket.AF_INET6, datos[o:o + 16])
+                lp = struct.unpack_from("<I", datos, o + 20)[0]
+                remota = socket.inet_ntop(socket.AF_INET6, datos[o + 24:o + 40])
+                rp, estado, pid = struct.unpack_from("<III", datos, o + 44)
+            filas.append(Fila("tcp", local, socket.ntohs(lp & 0xFFFF), remota, socket.ntohs(rp & 0xFFFF),
+                              ESTADOS_TCP_WINDOWS.get(estado, str(estado)), pid))
+    except (struct.error, ValueError):
+        pass
+    return filas
+
+
+def sockets_windows():
+    """Todas las conexiones TCP del sistema con su PID (API de Windows, sin PowerShell ni elevación). La tabla
+    UDP de Windows no da la dirección remota: no sirve para H6 y no se lee. [] si la API no responde."""
+    filas = []
+    try:
+        consulta = ctypes.WinDLL("iphlpapi").GetExtendedTcpTable
+        for familia in (socket.AF_INET, socket.AF_INET6):
+            tamano = ctypes.c_ulong(0)
+            consulta(None, ctypes.byref(tamano), False, familia, _TCP_TABLA_TODAS, 0)
+            memoria = ctypes.create_string_buffer(tamano.value + 8 * _HOLGURA_TABLA)
+            tamano = ctypes.c_ulong(len(memoria))
+            if consulta(memoria, ctypes.byref(tamano), False, familia, _TCP_TABLA_TODAS, 0) == 0:
+                filas += filas_tabla_tcp_todas(memoria.raw, familia)
+    except (AttributeError, OSError, ValueError):
+        return []
+    return filas
+
+
+def _ip_de_proc_net(hexa):
+    """IP de una columna de /proc/net/*: una palabra de 32 bits (IPv4) o cuatro, cada una en orden del host."""
+    crudo = bytes.fromhex(hexa)
+    if len(crudo) == 4:
+        return socket.inet_ntoa(crudo[::-1])
+    return socket.inet_ntop(socket.AF_INET6, b"".join(crudo[i:i + 4][::-1] for i in range(0, 16, 4)))
+
+
+def filas_proc_net(texto, proto, inodo_pid):
+    """`Fila`s de un `/proc/net/{tcp,tcp6,udp,udp6}`. `proto` es el nombre del fichero. `inodo_pid` mapea el
+    inodo de un socket al PID del proceso observado que lo tiene: el resto sale con pid None, salvo el inodo 0
+    (TIME_WAIT, no atribuible), que sale con pid 0. Pura."""
+    filas = []
+    for linea in (texto or "").splitlines()[1:MAX_FILAS_TABLA]:
+        c = linea.split()
+        if len(c) < 10:
+            continue
+        try:
+            la, lp = c[1].split(":")
+            ra, rp = c[2].split(":")
+            puerto_remoto = int(rp, 16)
+            if proto.startswith("tcp"):
+                estado = ESTADOS_PROC_NET.get(c[3].upper(), c[3])
+            else:
+                estado = "UDP" if puerto_remoto == 0 else "UDP_CONECTADO"
+            inodo = c[9]
+            filas.append(Fila(proto[:3], _ip_de_proc_net(la), int(lp, 16), _ip_de_proc_net(ra), puerto_remoto, estado,
+                              inodo_pid.get(inodo, 0 if inodo == "0" else None)))
+        except (ValueError, OSError):
+            continue
+    return filas
+
+
+def sockets_linux(pids, raiz="/proc"):
+    """(filas, sin_permiso) de la vista de red del primer proceso de `pids` (su espacio de nombres: sirve en un
+    contenedor). Los inodos se resuelven solo en los `fd` de `pids`: si alguno no se puede leer, `sin_permiso`."""
+    inodos, sin_permiso = {}, False
+    for pid in sorted(pids):
+        try:
+            for fd in os.listdir(f"{raiz}/{pid}/fd"):
+                try:
+                    destino = os.readlink(f"{raiz}/{pid}/fd/{fd}")
+                except OSError:
+                    continue
+                if destino.startswith("socket:["):
+                    inodos[destino[8:-1]] = pid
+        except PermissionError:
+            sin_permiso = True
+        except OSError:
+            continue
+    base = f"{raiz}/{min(pids)}/net" if pids else f"{raiz}/net"
+    filas = []
+    for proto in ("tcp", "tcp6", "udp", "udp6"):
+        try:
+            with open(f"{base}/{proto}", encoding="ascii", errors="replace") as f:
+                filas += filas_proc_net(f.read(), proto, inodos)
+        except OSError:
+            continue
+    return filas, sin_permiso
+
+
 # ----------------------------------------------------- recogida (red/SO)
 def tabla_puertos():
     """Tabla de puertos en escucha. Nunca lanza ni usa shell: si todo falla, devuelve ''.

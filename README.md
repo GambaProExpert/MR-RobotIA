@@ -6,8 +6,7 @@ A **defensive audit** (hardening) tool for self-hosted LLM servers. It first **i
 what it is dealing with (server, version, how it was started and on which system), adapts its
 checks to what it found and **normalizes everything into a single report** with severities and
 references to OWASP LLM Top 10 2025, MITRE ATLAS and NIST AI 600-1. When useful, it
-**orchestrates well-established tools** (Julius, ssh-audit, Trivy, garak and promptfoo; later
-DeepEval) locally and offline: "MRRobotIA does not do the auditing; it extracts the data". The
+**orchestrates well-established tools** (Julius, ssh-audit, Trivy, garak and promptfoo) locally and offline: "MRRobotIA does not do the auditing; it extracts the data". The
 roadmap is in [HITOS.md](HITOS.md) (in Spanish).
 
 > The command line (options, labels, help) and the target file (`target.json` and all its keys)
@@ -22,6 +21,7 @@ roadmap is in [HITOS.md](HITOS.md) (in Spanish).
 | Any other service (Ollama, LM Studio...) | Only recognized (with the Julius probes, if installed) and given the common checks; it has no profile of its own |
 | garak (H4) | Run end to end against a real `llama-server` (garak 0.17.1): automatic configuration, pasted REST configuration and time-out with a partial report. **vLLM: automatic configuration only in hermetic tests, not validated for real.** The `standard` and `full` presets have not been timed |
 | promptfoo (H5) | Run end to end against a real `llama-server` (Qwen2.5-7B, promptfoo 0.126.0, Node 22.23): automatic `gate` and `quick`, a pasted configuration and a server that is down; no network traffic left the machine (measured with a listener on the dead proxy). **A 7B judging itself is not a reliable judge** (it let a system-prompt dump through): canaries are the confidence signal. The generated plugins need a bigger attacker (not validated). vLLM, `standard` and `full` are not validated |
+| H6 (`egress`) | Own code. Validated against a real `llama-server` (0 outgoing connections over hundreds of requests), a real vLLM 0.33.0 on CPU in WSL (static audit and a real attempt to reach the model hub, seen) and a fake server that tries to connect to an address with no owner (controlled positive; nothing left the machine). **It sees destinations, not content (TLS); it can miss connections shorter than the sampling interval; it only sees the server's process tree; a server inside WSL is only visible from inside WSL.** Not validated on a GPU |
 | Trivy (H3 `vulns`) | Installed with [the guide](docs/TOOLS.md) (0.76.2, SHA-256 checked) and run end to end through MRRobotIA on real folders (read-only), including real findings (vulnerable dependencies). Only the offline mode, with the database downloaded beforehand |
 | `ssh-audit` | Installed with the guide (3.9.0) and detected with its version; **its real scan is still pending** (no local `sshd`, and no foreign server is scanned): until then it has only simulated output |
 | Julius | Tried by hand against a real server. Inside MRRobotIA, which only calls it for what the profiles do not recognize, it has been run against a non-LLM service; positive recognition is tested with simulated output |
@@ -44,8 +44,8 @@ The package only uses the standard library: no runtime dependencies. The externa
 report says so and explains how to install it. MRRobotIA never installs anything by itself.
 `mrrobotia --check-tools` shows, for each tool, which scans use it, whether it is installed (path and
 version) and the exact way to install it on your system; the full guide, with pinned versions,
-checksum verification and cache locations, is [docs/TOOLS.md](docs/TOOLS.md) (DeepEval will join it
-with H6). To install garak, see [H4: sweep with garak](#h4-sweep-with-garak--s-garak); to install
+checksum verification and cache locations, is [docs/TOOLS.md](docs/TOOLS.md) (DeepEval/DeepTeam are planned as a
+second engine of H5, separate from H6). To install garak, see [H4: sweep with garak](#h4-sweep-with-garak--s-garak); to install
 promptfoo (it needs Node.js 22.22 or later), [H5: chatbot evaluation with promptfoo](#h5-chatbot-evaluation-with-promptfoo--s-promptfoo).
 
 ## Quick start
@@ -162,15 +162,16 @@ module descriptions that `-l` prints are in Spanish for now.
 | `ssh` | H3-SSH | `sshd_config` (passive) and `ssh-audit` against the service (active) | Hybrid | ssh-audit |
 | `ports` | H3-PUERTOS | Unexpected or dangerous host ports; plain connect sweep (active) | Hybrid | none |
 | `vulns` | H3-HOST | Vulnerabilities, misconfigurations and secrets on the local disk | Passive | Trivy |
+| `egress` | H6-SALIDAS | Do data leave the network? Outgoing channels configured (telemetry, downloads, RPC, MCP, traces, KV events) and outgoing connections of the server's process tree, at rest and with canary traffic. In `all` only the static audit runs; the observation needs `-a` | Hybrid | none |
 | `garak` | H4-GARAK | Sweep of the model with garak (jailbreak, prompt injection, system prompt leak...). **Not part of `all`**: it can take hours; ask for it with `-s garak -a` | Active | garak |
 | `promptfoo` | H5-PROMPTFOO | Evaluation of the chatbot with promptfoo (system-prompt leak, direct and indirect prompt injection, cross-session leak, BOLA/BFLA...), with a local judge and the network blocked. **Not part of `all`**: ask for it with `-s promptfoo -a` | Active | promptfoo (needs Node.js) |
 
 | Group | Contents |
 |---|---|
 | `all` | Every scan except the ones marked "not part of all" (`garak`, `promptfoo`) (default) |
-| `server` | `exposure`, `startup`, `cve` |
+| `server` | `exposure`, `startup`, `cve`, `egress` |
 | `host` | `ssh`, `ports`, `vulns` (host security) |
-| `active` | `exposure`, `ssh`, `ports` (the ones with an active part; they do **not** enable it) |
+| `active` | `exposure`, `ssh`, `ports`, `egress` (the ones with an active part; they do **not** enable it) |
 | `passive` | Like `all`, but forces skipping every active check |
 
 A **passive** scan only observes (disk, processes, port table). A **hybrid** one always does its
@@ -199,6 +200,7 @@ Besides `name`, `authorization` (mandatory), `host` and `allow_active`:
 | `trivy_host` | H3-HOST | `path` (directory to scan), `scanners`, `severity` |
 | `tools` | H2-ID, H3, H4, H5 | Paths and timeouts per tool, e.g. `{"trivy": {"path": "...", "timeout": 900, "cache_dir": "..."}}`. Without it, tools are looked up in the `PATH` |
 | `garak` | H4 | Preset, probes, generator and limits of the garak sweep (see below) |
+| `egress` | H6 | Allowed destinations, observation windows, sampling and canary of the outgoing-connection check (see below) |
 | `promptfoo` | H5 | Preset, chatbot (system prompt or your own configuration), canaries, judge and limits of the promptfoo evaluation (see below) |
 
 The `MRROBOTIA_TARGET` and `MRROBOTIA_ACTIVE` environment variables are alternatives to
@@ -363,6 +365,10 @@ in the validation a 7B judging itself approved a complete dump of the system pro
 - Before running, MRRobotIA **calibrates the judge** (7 fixed outputs: 4 that break a rule, 3 that do not). If it
   misses one, `H5-PROMPTFOO-JUEZ-NO-FIABLE` (MEDIUM) warns that the results without canary are a **lower bound**.
 - Use `judge.url` with another, bigger local model (another `llama-server`, on another port) for a better judge.
+  Measured: a Qwen2.5-7B subject on the GPU and a Qwen3-14B judge on the CPU (port 8092, `--reasoning off`) takes
+  about 26 s per evaluation. Judging itself, the 7B marked 19 of 24 answers as vulnerable with no leak (false
+  positives); the 14B judge marked none wrongly, but let 2 of 3 real leaks through. **The canaries are the only
+  reliable signal**; a bigger judge removes false positives, it does not replace them.
 
 **The `promptfoo` block** of the target file (every key is optional):
 
@@ -471,6 +477,112 @@ would cost minutes of retries). The files are in `<prefix>_promptfoo/`: `promptf
 - Validated against a real llama.cpp server with Qwen2.5-7B (a 7B judging itself): `gate`, `quick`, a pasted
   configuration and a server that is down. `standard`, `full`, vLLM and a bigger judge are not validated.
 
+### H6: do data leave the network? (`-s egress`)
+
+H4 and H5 look at the **model** (what it answers); H6 is the only layer that looks at the **network**: do the
+prompts, the answers or anything else of the deployment leave the machine? It is own code (standard library only,
+no external tool) and it answers two questions about an llama.cpp or vLLM server that runs on **this** machine:
+
+1. **Which channels that can carry data out are configured?** (static audit, passive, instant) Telemetry,
+   downloads at startup, online model hub, RPC, MCP and tools, OTLP traces, KV-cache events and transfer, proxies.
+   It reads only the sanitized command line, the process environment (when it can be read) and vLLM's state files.
+   **This is the only part that runs in `all`** and it is the sole owner of the outgoing channels: the vLLM
+   telemetry check that used to be in `startup` lives here now.
+2. **Does the server's process tree open outgoing connections?** (observation, needs `-a` and `allow_active`, or
+   asking for the scan by label with `-s egress`). The table of sockets of the system is sampled by PID (Windows:
+   `GetExtendedTcpTable`; Linux: `/proc/<pid>/net/*` and the inodes of `/proc/<pid>/fd`) and the connections of
+   the server's tree (it is recomputed on every sample: vLLM creates its children after starting) that are not
+   loopback, not an address of this machine and not in the `egress.allow` whitelist are reported. With `-a` there
+   is also a window **with canary traffic**: requests with a unique mark (`MRR-H6-...`, never printed) are sent
+   while the tree is observed, and a connection that appears after each request and was not there at rest is
+   *correlated* with it.
+
+**Passive and active.** Without `-a`, `all` only does the static audit (and `-s egress` also adds the passive
+window: no traffic, only observation). With `-a` and `allow_active` it observes `passive_window` seconds, then
+sends `canaries` requests during `active_window` and keeps observing `trailing` seconds. The module never starts,
+restarts or modifies a process and writes nothing but the report. The canary request goes to the real path of the
+engine (`chat` with `max_tokens` 8); on a server that cannot generate (a CPU-only vLLM without a compiler) use
+`canary_endpoint: "tokenize"`.
+
+**The `egress` block** of the target file (every key is optional; an unknown key or a value out of range gives
+`H6-SALIDAS-CONFIG`, MEDIUM, and nothing is observed):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `allow` | `[]` | Destinations allowed besides loopback and this machine: `"10.0.0.5"`, `"10.0.0.0/8"`, `"10.0.0.5:8092"`, `"[fd00::1]:50052"`. A name is resolved **once** at the start (a DNS query; the report says so) |
+| `passive_window` | `10` (0-600) | Seconds observed **with no traffic**. `0` = static audit only |
+| `active_window` | `30` (10-1800) | Seconds in which the canary requests are sent (only with `-a`) |
+| `trailing` | `10` (0-600) | Seconds observed after the last request (batch exporters: OTLP sends every 5 s) |
+| `interval_ms` | `100` (50-1000) | Sampling period |
+| `canaries` | `5` (1-50) | Number of requests with a canary |
+| `canary_endpoint` | `"chat"` | `"chat"` (`/v1/chat/completions`), `"completion"` (`/completion` or `/v1/completions`) or `"tokenize"` (does not generate) |
+| `max_tokens` | `8` (1-64) | Of every canary request |
+| `correlation_s` | `5` (0.5-60) | A new connection within these seconds after a request counts as caused by it |
+| `api_key_env` | `"MRROBOTIA_API_KEY"` | NAME of the variable with the server key (never the key), as in H4 and H5 |
+| `pids`, `process_names` | `[]` | Extra roots of the tree (e.g. the gateway in front of the model), by PID or exact executable name |
+| `history_files` | `true` | Read vLLM's `usage_stats.json` and `do_not_track` |
+
+**How to read the findings.**
+- `H6-SALIDAS-CONEXION-<n>` (one per destination): a connection of the tree to a public address is **HIGH**; to a
+  private one (RFC 1918, ULA, link-local, 100.64/10) is **MEDIUM**, and HIGH if the requests caused it. The evidence
+  has protocol, destination, PID and process name, states, time of the first sighting and window, and number of
+  connections. `H6-SALIDAS-CORRELACION` (**CRITICAL**): public connections that were not there at rest appeared
+  after at least half of the canary requests (and at least two): the content of the prompts or of the answers may
+  be leaving (with TLS the destination is seen, not the content).
+- `H6-SALIDAS-DNS` (LOW), `H6-SALIDAS-UDP-<n>` (MEDIUM): a UDP socket *connected* to a DNS server or to another
+  destination (Linux only). `H6-SALIDAS-PULL-<port>`: a foreign host connected to an internal port that is not the
+  API (MEDIUM; HIGH on the known KV events/RPC ports).
+- `H6-SALIDAS-CANAL-<channel>` (static audit): `TELEMETRIA` (vLLM usage statistics: LOW, they carry hardware, version
+  and configuration, not prompts, and with the CPU build they are not sent), `TELEMETRIA-EXCLUSION-INVALIDA` (LOW: vLLM
+  only accepts `DO_NOT_TRACK`, `VLLM_DO_NOT_TRACK` or `VLLM_NO_USAGE_STATS` with the exact value `1`; with `true` it
+  sends anyway, measured), `TELEMETRIA-HISTORIAL` (LOW: `usage_stats.json` exists), `HUB` (LOW: the model is a
+  repository id and `HF_HUB_OFFLINE=1` is not set), `DESCARGA`, `CARGA-REMOTA`, `RPC` (HIGH), `MCP`, `PROXY-UI`,
+  `HERRAMIENTAS`, `TRAZAS` (OTLP: INFO if local, MEDIUM if not), `KV-EVENTOS` (**HIGH**: ZMQ publishes the token ids
+  of the prompts without authentication; CRITICAL if bound to all interfaces on an exposed host), `KV-TRANSFER`,
+  `PROXY`. On Windows the environment of another process is not readable: the channels that depend on it are
+  `sin concluir`.
+- `H6-SALIDAS-VENTANA-LIMPIA` carries the fixed sentence: *no outgoing connection was seen during X s (sampling
+  every Y ms); that does not prove that nothing ever leaves*. `H6-SALIDAS-RESUMEN` heads the report section
+  "Salidas de datos a la red (H6)": the **channel table** (open, closed, unchecked) and the **table of observed
+  connections**. `-WSL`, `-NO-LOCAL`, `-SIN-PID`, `-SIN-PERMISO`, `-CANARIO-OMITIDO`, `-CANARIO-SIN-RESPUESTA` and
+  `-SERVIDOR-CAIDO` say why something could not be done (the canary stops if the server stops answering after the
+  first request).
+
+**Measured.** llama.cpp (Qwen2.5-7B on the GPU): 0 outgoing connections over hundreds of requests. vLLM 0.33.0
+(CPU, in WSL): without `HF_HUB_OFFLINE` and with the model as repository id it tries to reach `huggingface.co`
+(seen as `SYN_SENT` and `H6-SALIDAS-CANAL-HUB`) and does not start if it cannot; the usage statistics are only sent
+by the GPU worker. A connection that lives at least 100 ms is seen 20 times out of 20 with a 100 ms sampling; one of
+20 ms, 4-8 of 20; one that opens and closes at once, none. A sample costs about 8 ms on Windows and 2-3 ms in WSL.
+
+**Limits (honest).**
+- **TLS**: the destination is seen, not the content. "A connection left" is not "the prompt left", unless it is
+  correlated with the canary requests.
+- **Sampling**: connections shorter than the interval may be missed; there is no packet capture (it would need
+  privileges).
+- **Only the server's tree and only during the window**: a sidecar, a log collector, a cloud agent or a gateway
+  are not seen (unless `pids`/`process_names`), nor what happens outside the window (vLLM sends statistics every 10
+  minutes; startup).
+- **DNS**: a name resolution is made by another service (`Dnscache`, `systemd-resolved`) and is not attributed to the
+  server; exfiltration through DNS is out of scope.
+- **WSL seen from Windows**: the server appears as `wslrelay.exe`; its processes and traffic are not visible. Run
+  MRRobotIA **inside WSL** (`python3 -m mrrobotia ...`).
+- **UDP on Windows**: its table has no remote address; only TCP is conclusive there. Linux: the descriptors of
+  other users' processes need that user or root (`H6-SALIDAS-SIN-PERMISO`).
+- Validated against a real llama.cpp (negative: 0 outgoing connections), a real vLLM 0.33.0 on CPU in WSL (static
+  audit with and without `HF_HUB_OFFLINE`, `DO_NOT_TRACK=true` against `=1`, KV events, and a real attempt to reach
+  the hub) and a fake server that tries to connect to an address with no owner when it receives a canary (positive
+  controlled: nothing left the machine). vLLM on a GPU and the generation path of vLLM are not validated.
+
+**Why DeepEval/DeepTeam are not part of H6.** They were measured and they do not answer "do data leave the
+network?" (they judge what the model *says*, which is H4/H5 territory) and they are themselves an outgoing channel
+by default: about 30 telemetry attempts per run (PostHog, New Relic, and the public IP), upload of attacks and
+answers to their cloud if there is a key, and DeepTeam is only silenced with the literal value `YES`
+(`DEEPTEAM_TELEMETRY_OPT_OUT=1` does not work). They will be integrated **separately, as a second engine of H5** with
+the telemetry completely cut (`DEEPEVAL_TELEMETRY_OPT_OUT=1`, `DEEPTEAM_TELEMETRY_OPT_OUT=YES`) and a local judge,
+with the network blocked like promptfoo. **Future work (phase 2, not implemented):** watching the startup of a
+server (downloads, initial telemetry) and self-checking H4/H5's own subprocesses with a listening sink instead of a
+dead proxy.
+
 ## Principles
 - **Explicit authorization.** The target file declares that you have permission. Without
   `authorization.authorized = true`, the tool does not run. A non-local host needs a
@@ -537,10 +649,11 @@ MRRobotIA/
 │       ├── h3_puertos.py        # H3: host ports
 │       ├── h3_host.py           # H3: Trivy
 │       ├── h4_garak.py          # H4: garak sweep and synthesis of its report
-│       └── h5_promptfoo.py      # H5: promptfoo evaluation, network block and synthesis
+│       ├── h5_promptfoo.py      # H5: promptfoo evaluation, network block and synthesis
+│       └── h6_salidas.py        # H6: outgoing channels, connections of the server's tree, canary
 └── tests/                  # pytest; servidor_falso.py simulates llama.cpp and vLLM,
                             # garak_falso.py and promptfoo_falso.py simulate garak and promptfoo
-                            # (fixtures/garak and fixtures/promptfoo: real, sanitized captures)
+                            # (fixtures/garak, fixtures/promptfoo and fixtures/h6: real, sanitized captures)
 ```
 
 ## Milestones (summary)
@@ -554,7 +667,7 @@ Details, order and what each milestone extracts are in [HITOS.md](HITOS.md) (in 
 | H3 Host security (SSH, ports, Trivy) | `Magda` | 1 | Done; Trivy validated for real; ssh-audit installed and detected, real scan pending |
 | H4 Endpoint sweep | `fsociety` | 2 | Done (garak); validated against a real llama.cpp, **vLLM not validated for real** |
 | H5 Prompt injection and evals | `White_Rose` | 2 | Done (promptfoo); validated against a real llama.cpp with Qwen2.5-7B (a 7B judge is weak: canaries; network blocked) |
-| H6 Prompts and outputs do not leave the network | `Young_Elliot` | 2 | Pending (DeepEval) |
+| H6 Prompts and outputs do not leave the network | `Young_Elliot` | 2 | Done (own code, no external tool); validated against a real llama.cpp and a real vLLM on CPU; limits: TLS, sampling, WSL |
 | H7 Attack simulation with verification of detection and recovery | `Mr_Robot` | 2 | Pending (design done) |
 
 ### Milestone aliases

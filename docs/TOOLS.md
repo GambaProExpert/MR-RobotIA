@@ -468,6 +468,7 @@ MRRobotIA runs promptfoo with its state (`PROMPTFOO_CONFIG_DIR`: database, cache
 
 ## Coming soon
 
-- **DeepEval** (H6): quality and leak evaluation with metrics.
+- **DeepEval / DeepTeam**: a second evaluation engine for H5 (not H6, which is own code and needs no tool), with the
+  telemetry fully cut and a local judge.
 
 It will be documented here when it is integrated.

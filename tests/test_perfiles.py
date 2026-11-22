@@ -120,7 +120,7 @@ def test_vllm_forma_serve():
             "--trust-remote-code", "--no-enable-log-requests", "--allowed-origins", '["*"]']
     opciones = VLLM.analizar_argv(argv)
     assert opciones == {"model": "Qwen/Qwen2.5-7B", "host": "0.0.0.0", "api_key": True, "trust_remote_code": True,
-                        "enable_log_requests": False, "allowed_origins": '["*"]'}
+                        "enable_log_requests": False, "allowed_origins": '["*"]', "model_remoto": True}
     assert CANARIO not in repr(opciones) and "otra-clave" not in repr(opciones)
 
 
