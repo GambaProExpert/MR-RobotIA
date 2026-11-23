@@ -859,3 +859,25 @@ def test_el_ejecutor_info_sin_deepteam_instalado_da_el_error_de_importacion(runn
     info = runner.modo_info()
     assert info["importa"] is False and "ImportError" in info["error"] or "ModuleNotFoundError" in info["error"]
     assert info["python"].count(".") == 2
+
+
+def _casos_del_preset(nombre):
+    """Casos que ejecuta el preset, con el mismo cálculo que el plan del módulo (`contar_casos`)."""
+    preset = h5_deepteam.PRESETS[nombre]
+    vulns, ataques, _ = filtrar([{"id": v, "types": list(t)} for v, t in h5_deepteam.plan_preset(nombre)], preset["ataques"])
+    return h5_deepteam.contar_casos(vulns, ataques, preset["por_tipo"])
+
+
+def test_los_casos_de_la_descripcion_de_cada_preset_son_los_reales():
+    import re
+    for nombre, preset in h5_deepteam.PRESETS.items():
+        m = re.search(r"(\d+) casos", preset["duracion"])
+        if m:                                               # `full` no da número de casos
+            assert int(m.group(1)) == _casos_del_preset(nombre), nombre
+    # la duración estimada de `standard` sale de los mismos casos
+    n = _casos_del_preset("standard")
+    minutos = int(re.search(r"unos (\d+) min", h5_deepteam.PRESETS["standard"]["duracion"]).group(1))
+    assert minutos == round(h5_deepteam.estimar(n) / 60)
+    raiz = Path(__file__).resolve().parent.parent
+    for fichero, frase in (("README.md", f"{n} cases (about {minutos} min"), ("README.es.md", f"{n} casos (unos {minutos} min")):
+        assert frase in (raiz / fichero).read_text(encoding="utf-8"), fichero

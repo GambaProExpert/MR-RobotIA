@@ -281,7 +281,7 @@ CATALOGO = {
 
     "node": Instalable(
         "node",
-        "runs promptfoo in H5 'promptfoo' (promptfoo needs Node.js 22.22 or later, or 20.20 or later)",
+        "runs promptfoo in H5 'promptfoo' (promptfoo needs Node.js 22.22 or later)",
         (
             Paso("windows", "Official portable zip with SHA-256 verification (no administrator rights)",
                  _node_windows(), _N_DOC,
@@ -306,9 +306,11 @@ CATALOGO = {
         "SHA-256 of the archive against SHASUMS256.txt (published next to it on nodejs.org). The file is also "
         "signed (SHASUMS256.txt.sig) for whoever wants to verify it with the Node.js release keys.",
         cache={"*": "stores no data of its own"},
-        nota="Put the unzipped folder (node.exe) or its bin folder first in the PATH, or point to it with "
-             "tools.node.path. The Node commands have not been run (the validation installed Node with the 'node' npm "
-             "package). Whichever Node comes first in the PATH is the one promptfoo uses."),
+        nota="Put the unzipped folder (node.exe) or its bin folder first in the PATH, or point to node with "
+             "tools.node.path: --check-tools reads it, and MRRobotIA puts its folder first in the PATH of every "
+             "promptfoo process (and nothing else is added to that environment). Without tools.node.path, whichever "
+             "Node comes first in the PATH is the one promptfoo uses. The Node commands have not been run (the "
+             "validation installed Node with the 'node' npm package)."),
 
     "promptfoo": Instalable(
         "promptfoo",

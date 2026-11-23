@@ -334,7 +334,7 @@ It stores no data or caches.
 
 ## Node.js (pinned version: 22.23.5)
 
-**What MRRobotIA uses it for:** Runs promptfoo in H5 (scan `promptfoo`). **Only needed for H5**: promptfoo requires Node.js 22.22 or later (or 20.20 or later) and refuses to start with an older one; MRRobotIA then reports `H5-PROMPTFOO-NODE-ANTIGUO` (INFO) and runs nothing.
+**What MRRobotIA uses it for:** Runs promptfoo in H5 (scan `promptfoo`). **Only needed for H5**: promptfoo requires Node.js 22.22 or later and refuses to start with an older one; MRRobotIA then reports `H5-PROMPTFOO-NODE-ANTIGUO` (INFO) and runs nothing.
 
 ### Installation
 
@@ -406,11 +406,11 @@ The archive's SHA-256 is checked against `SHASUMS256.txt` (the block does it). T
 
 ### Data and caches
 
-Stores no data of its own. Whichever `node` comes first in the `PATH` is the one promptfoo uses: put the unzipped folder (`node.exe` or `bin/`) first in the `PATH`.
+Stores no data of its own. Whichever `node` comes first in the `PATH` is the one promptfoo uses, unless the target file declares `tools.node.path` (see below): put the unzipped folder (`node.exe` or `bin/`) first in the `PATH`, or declare it.
 
 ### Pointing MRRobotIA to it
 
-`tools.node.path` in the target file (only used by `--check-tools`; promptfoo itself uses the `PATH`, or the Node that its own launcher chooses).
+`tools.node.path` in the target file, pointing to the `node` executable (`node.exe` on Windows). `--check-tools` reads it, and MRRobotIA puts its folder first in the `PATH` of every promptfoo process (the version query and the run); nothing else is added to that environment. If the file does not exist, the `PATH` is left alone and H5-PROMPTFOO reports `H5-PROMPTFOO-NODE-NO-ENCONTRADO` (INFO).
 
 
 ## promptfoo (pinned version: 0.126.0)

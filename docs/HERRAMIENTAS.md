@@ -334,7 +334,7 @@ No guarda datos ni cachés.
 
 ## Node.js (versión fijada: 22.23.5)
 
-**Para qué la usa MRRobotIA:** Ejecuta promptfoo en H5 (escaneo `promptfoo`). **Solo hace falta para H5**: promptfoo exige Node.js 22.22 o superior (o 20.20 o superior) y se niega a arrancar con uno anterior; MRRobotIA lo informa como `H5-PROMPTFOO-NODE-ANTIGUO` (INFO) y no ejecuta nada.
+**Para qué la usa MRRobotIA:** Ejecuta promptfoo en H5 (escaneo `promptfoo`). **Solo hace falta para H5**: promptfoo exige Node.js 22.22 o superior y se niega a arrancar con uno anterior; MRRobotIA lo informa como `H5-PROMPTFOO-NODE-ANTIGUO` (INFO) y no ejecuta nada.
 
 ### Instalación
 
@@ -406,11 +406,11 @@ El SHA-256 del archivo se comprueba con `SHASUMS256.txt` (el bloque lo hace). Es
 
 ### Datos y cachés
 
-No guarda datos propios. El `node` que esté primero en el `PATH` es el que usa promptfoo: pon la carpeta descomprimida (`node.exe` o `bin/`) la primera en el `PATH`.
+No guarda datos propios. El `node` que esté primero en el `PATH` es el que usa promptfoo, salvo que el objetivo declare `tools.node.path` (ver abajo): pon la carpeta descomprimida (`node.exe` o `bin/`) la primera en el `PATH`, o decláralo.
 
 ### Apuntar MRRobotIA a ella
 
-`tools.node.path` en el objetivo (solo lo usa `--check-tools`; promptfoo usa el `PATH`, o el Node que elija su propio lanzador).
+`tools.node.path` en el objetivo, apuntando al ejecutable `node` (`node.exe` en Windows). `--check-tools` lo lee y MRRobotIA antepone su carpeta al `PATH` de cada proceso de promptfoo (la consulta de versión y la ejecución); no se añade nada más a ese entorno. Si el fichero no existe, el `PATH` no se toca y H5-PROMPTFOO informa `H5-PROMPTFOO-NODE-NO-ENCONTRADO` (INFO).
 
 
 ## promptfoo (versión fijada: 0.126.0)

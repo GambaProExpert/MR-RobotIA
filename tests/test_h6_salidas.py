@@ -2,6 +2,7 @@
 síntesis, auditoría estática de canales y una integración con un servidor falso. No sale nada de la máquina."""
 import json
 import os
+import re
 import socket
 import struct
 import threading
@@ -680,3 +681,94 @@ def test_registro_en_el_cli():
     from mrrobotia import cli
     assert any(isinstance(m, h6.H6Salidas) for m in cli.MODULOS)
     assert nucleo.ALIAS_HITOS["H6"] == "Young_Elliot"
+
+
+# ------------------------------------------------------------------------------------------------ sin proceso visible
+def test_macos_con_pids_declarados_no_envia_canario(ventanas_cortas):
+    canarios = []
+    with servidor_chat(None, canarios) as falso:
+        s = servidor("llama.cpp", puerto=falso.puerto)
+        hs = modulo(s, so="macos", activos=True).ejecutar({"egress": {**ventanas_cortas, "pids": [10]}})
+    ids = {h.id: h for h in hs}
+    assert canarios == []
+    assert ids["H6-SALIDAS-SO-NO-SOPORTADO"].estado == "sin_concluir" and "solo lee" in ids["H6-SALIDAS-SO-NO-SOPORTADO"].evidencia
+    assert not {"H6-SALIDAS-VENTANA-LIMPIA", "H6-SALIDAS-CORRELACION", "H6-SALIDAS-CANARIO-OMITIDO"} & set(ids)
+    cabecera = ids["H6-SALIDAS-RESUMEN"].evidencia
+    assert "canales sin comprobar: DESCARGA, RPC, MCP, PROXY-UI, PROXY" in cabecera
+
+
+def test_windows_sin_proceso_marca_los_canales_sin_comprobar():
+    hs = {h.id: h for h in modulo(servidor("llama.cpp"), so="windows").ejecutar({})}
+    tabla = {t["canal"]: t["estado"] for t in hs["H6-SALIDAS-RESUMEN"].detalle["canales"]}
+    assert all(tabla[c] == "sin comprobar" for c in ("DESCARGA", "RPC", "MCP", "PROXY-UI", "PROXY"))
+    assert tabla["TELEMETRIA"] == "cerrado"
+    assert "sin comprobar" in hs["H6-SALIDAS-WSL"].evidencia and "no se ha observado" in hs["H6-SALIDAS-WSL"].evidencia
+    assert "ninguno de los comprobados" in hs["H6-SALIDAS-RESUMEN"].evidencia
+    _, tabla_vllm = canales(servidor("vllm"))
+    assert {t["canal"] for t in tabla_vllm if t["estado"] == "sin comprobar"} >= {"HUB", "TRAZAS", "KV-EVENTOS", "MCP", "TELEMETRIA"}
+
+
+def test_linux_con_proceso_visible_no_marca_sin_comprobar():
+    s = servidor("llama.cpp", pid=10, opciones={"model": "m.gguf"})
+    _, tabla = canales(s)
+    assert not [t for t in tabla if t["estado"] == "sin comprobar"]
+    hs = {h.id: h for h in modulo(s, explicito=True).ejecutar({"egress": {"passive_window": 1, "interval_ms": 50}})}
+    assert "H6-SALIDAS-VENTANA-LIMPIA" in hs and "sin comprobar" not in hs["H6-SALIDAS-RESUMEN"].evidencia
+    assert "canales abiertos: ninguno" in hs["H6-SALIDAS-RESUMEN"].evidencia
+
+
+def test_pids_declarados_inexistentes_no_envian_canario(ventanas_cortas):
+    canarios = []
+    with servidor_chat(None, canarios) as falso:
+        s = servidor("llama.cpp", puerto=falso.puerto)
+        m = modulo(s, activos=True, procesos_=lambda: {10: (1, "otro")})
+        hs = m.ejecutar({"egress": {**ventanas_cortas, "pids": [999], "process_names": ["no-existe"]}})
+    ids = {h.id: h for h in hs}
+    assert canarios == [] and ids["H6-SALIDAS-SIN-PID"].estado == "sin_concluir"
+    assert "ningún canario" in ids["H6-SALIDAS-SIN-PID"].evidencia and "H6-SALIDAS-VENTANA-LIMPIA" not in ids
+
+
+def test_pids_declarados_dicen_por_que_los_canales_salen_sin_comprobar():
+    """Con egress.pids sí se observa, pero la línea de órdenes no se analiza: la fila no dice «no hay proceso»."""
+    _, tabla = canales(servidor("llama.cpp"))
+    filas = [t for t in tabla if t["estado"] == "sin comprobar"]
+    assert filas and all("egress.pids" in t["evidencia"] and "no hay proceso" not in t["evidencia"] for t in filas)
+
+
+def _arbol_que_muere(monkeypatch, antes_de):
+    """El árbol (PID 10) existe hasta que empieza la ventana `antes_de` ("activa") o justo después de la pasiva."""
+    vivo, real = [True], h6.observar
+
+    def observar(*a, **k):
+        if k.get("ventana") == antes_de:
+            vivo[0] = False
+        obs = real(*a, **k)
+        if antes_de == "tras_pasiva" and k.get("ventana") == "pasiva":
+            vivo[0] = False
+        return obs
+    monkeypatch.setattr(h6, "observar", observar)
+    return lambda: {10: (1, "llama-server")} if vivo[0] else {20: (1, "otro")}
+
+
+def test_si_el_arbol_desaparece_tras_la_pasiva_no_se_envia_canario(ventanas_cortas, monkeypatch):
+    """Antes del arreglo, el árbol solo se comprobaba antes de la pasiva: el canario salía sin nadie observando."""
+    canarios, procesos_ = [], _arbol_que_muere(monkeypatch, "tras_pasiva")
+    with servidor_chat(None, canarios) as falso:
+        s = servidor("llama.cpp", pid=10, puerto=falso.puerto, opciones={"model": "m.gguf"})
+        hs = {h.id: h for h in modulo(s, activos=True, procesos_=procesos_).ejecutar({"egress": ventanas_cortas})}
+    assert canarios == []
+    assert "tras la ventana pasiva" in hs["H6-SALIDAS-SIN-PID"].titulo and "ningún canario" in hs["H6-SALIDAS-SIN-PID"].evidencia
+    assert "H6-SALIDAS-VENTANA-LIMPIA" in hs                      # la pasiva sí se observó y estaba limpia
+    assert "activa 0 s" in hs["H6-SALIDAS-RESUMEN"].evidencia
+
+
+def test_una_ventana_sin_arbol_no_cuenta_como_limpia(ventanas_cortas, monkeypatch):
+    """Antes del arreglo bastaba con ver el árbol en una ventana: VENTANA-LIMPIA sumaba también los segundos de la otra."""
+    canarios, procesos_ = [], _arbol_que_muere(monkeypatch, "activa")
+    with servidor_chat(None, canarios) as falso:
+        s = servidor("llama.cpp", pid=10, puerto=falso.puerto, opciones={"model": "m.gguf"})
+        hs = {h.id: h for h in modulo(s, activos=True, procesos_=procesos_).ejecutar({"egress": ventanas_cortas})}
+    assert "ventana activa" in hs["H6-SALIDAS-SIN-PID"].evidencia
+    segundos = float(re.search(r"durante ([\d.]+) s", hs["H6-SALIDAS-VENTANA-LIMPIA"].evidencia).group(1))
+    assert segundos < ventanas_cortas["passive_window"] + 1        # solo la pasiva: la activa dura 3 s
+    assert hs["H6-SALIDAS-RESUMEN"].detalle["limites"].startswith(f"Sin salidas del árbol del servidor durante {segundos:g} s")

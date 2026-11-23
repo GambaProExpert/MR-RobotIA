@@ -3,6 +3,35 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.15.1] - 2026-11-23
+
+Arreglos de las incoherencias que salieron al poner al día el manual de usuario.
+
+### Corregido
+- H5 DeepTeam: el preset `standard` son 26 casos, no 28 (unos 59 min con el juez en CPU). El cálculo vive en
+  `contar_casos`, que usan el plan y una prueba que contrasta cada descripción de preset y los README.
+- H5 DeepTeam: el aviso de Ctrl-C ya no promete un informe parcial de DeepTeam (solo escribe los resultados al terminar;
+  se conserva el informe del resto de escaneos).
+- H5 promptfoo: `tools.node.path` ya no lo lee solo `--check-tools`: su carpeta se antepone al `PATH` de cada proceso de
+  promptfoo (consulta de versión, detección de Node antiguo y ejecución), sin tocar nada más del entorno. Si no apunta a
+  un fichero, `H5-PROMPTFOO-NODE-NO-ENCONTRADO` (INFO) y se sigue con el Node del `PATH`.
+- `--check-tools` consulta la versión de promptfoo con el bloqueo de red completo y desde una carpeta temporal (antes
+  usaba el entorno del usuario: telemetría y estado en `~/.promptfoo`). `herramientas.detectar` pasa `tools` a
+  `entorno_seguro`.
+- H6: sin un proceso asociado (servidor en WSL o en un contenedor visto desde Windows, macOS, o solo `egress.pids`), los
+  canales que dependen de la línea de órdenes o del entorno salen «sin comprobar» y el resumen ya no dice «canales
+  abiertos: ninguno» a secas. Los textos de `H6-SALIDAS-WSL` y `H6-SALIDAS-SIN-PID` dicen qué se ha hecho y qué no.
+- H6: en un sistema que no es Windows ni Linux, `H6-SALIDAS-SO-NO-SOPORTADO` (INFO, sin concluir); no se observa ni se
+  envía canario, aunque haya `egress.pids` o `egress.process_names`.
+- H6: no se envía canario si el árbol del servidor no se ve al empezar o deja de verse tras la ventana pasiva, y una
+  ventana en la que no se vio no cuenta en `H6-SALIDAS-VENTANA-LIMPIA`.
+
+### Cambiado
+- Node.js 22.22 o superior es la única versión admitida para promptfoo (desaparece la mención a 20.20 en el catálogo,
+  los README y las guías de herramientas).
+- README: traducidas al español las frases de DeepTeam que seguían en inglés; `full` de DeepTeam son 2 casos por tipo;
+  qué canales de H6 quedan sin concluir en Windows. `HITOS.md` al día.
+
 ## [0.15.0] - 2026-11-22
 
 ### Añadido: H5 `White_Rose`, segundo motor: DeepTeam

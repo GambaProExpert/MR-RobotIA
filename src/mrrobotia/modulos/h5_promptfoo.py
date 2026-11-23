@@ -64,11 +64,19 @@ NODE_FIJADO = "22.23.5"
 REFS_INFO = {"owasp": "LLM01", "atlas": "AML.T0051", "nist": "2.9"}
 
 # --------------------------------------------------------------------------- herramientas
+def _entorno_version(carpeta, overrides=None):
+    """Entorno de una consulta de versión sin módulo detrás (`--check-tools`, vía `Herramienta.entorno_seguro`): el mismo
+    bloqueo que el escaneo (la consulta de versión ya crea estado y hace una petición de telemetría) y el Node de
+    `tools.node.path`, con el estado de promptfoo dentro de la carpeta temporal."""
+    h5_comun.crear_carpetas(carpeta, "home", "home/logs")
+    return entorno_bloqueado(carpeta, node_dir=carpeta_node({"tools": overrides or {}}))
+
+
 NODE = Herramienta(
     "node", "node", version_args=("--version",), exigida=NODE_MINIMO, fijada=NODE_FIJADO)
 PROMPTFOO = Herramienta(
     "promptfoo", "promptfoo", version_args=("--version",), exigida=VERSION_MINIMA, fijada=VERSION_PROBADA,
-    refs=REFS_INFO,
+    refs=REFS_INFO, entorno_seguro=_entorno_version,
     # Con un Node demasiado antiguo promptfoo imprime «Detected: v22.20.0» y sale con error: sin este
     # patrón se tomaría la versión de Node por la de promptfoo.
     version_patron=r"^v?(\d+\.\d+\.\d+)\s*$")
@@ -89,15 +97,36 @@ VARIABLES_BLOQUEO = {
 TIMEOUT_PRUEBA_MS = 120000
 
 
-def entorno_bloqueado(carpeta, hosts=(), max_ms=None, base=None, juez_url=None, juez_clave=None):
+def carpeta_node(objetivo):
+    """Carpeta del Node que declara `tools.node.path` en el objetivo, solo si ese fichero existe; si no, None
+    (se usa el primer `node` del PATH, como siempre). promptfoo es un script de Node que busca `node` en el
+    PATH: la única forma de usar un Node portátil (un zip sin tocar el PATH) es anteponer su carpeta."""
+    try:
+        ruta = objetivo["tools"]["node"]["path"]
+    except (KeyError, TypeError):
+        return None
+    if not isinstance(ruta, str) or not ruta.strip():
+        return None
+    try:
+        fichero = Path(ruta).expanduser()
+        return str(fichero.absolute().parent) if fichero.is_file() else None
+    except (OSError, ValueError):
+        return None
+
+
+def entorno_bloqueado(carpeta, hosts=(), max_ms=None, base=None, juez_url=None, juez_clave=None, node_dir=None):
     """Entorno de CUALQUIER subproceso de promptfoo: copia de `base` (por defecto el actual) con el
     bloqueo completo de red y el estado de promptfoo dentro de `carpeta`. Siempre se llama igual, en
     la detección y en la ejecución. `hosts` son los únicos a los que se puede llegar (sujeto y juez);
     `juez_url`/`juez_clave` hacen que cualquier proveedor OpenAI por defecto apunte al juez local y
-    sustituyen una clave real de OpenAI del entorno, que así nunca viaja."""
+    sustituyen una clave real de OpenAI del entorno, que así nunca viaja. `node_dir` (la carpeta del Node de
+    `tools.node.path`) es lo único que se añade al entorno aparte del bloqueo: va al principio del PATH."""
     carpeta = Path(carpeta).resolve()
     env = entorno_red_bloqueada(base, hosts)
     env.update(VARIABLES_BLOQUEO)
+    if node_dir:
+        clave_path = next((k for k in env if k.upper() == "PATH"), "PATH")
+        env[clave_path] = os.pathsep.join([str(node_dir), *([env[clave_path]] if env.get(clave_path) else [])])
     home = carpeta / "home"
     env["PROMPTFOO_CONFIG_DIR"] = str(home)
     env["PROMPTFOO_LOG_DIR"] = str(home / "logs")
@@ -871,7 +900,7 @@ class H5Promptfoo(ModuloHerramienta):
         va con el mismo entorno bloqueado que la ejecución."""
         carpeta = self._carpeta()
         self._crear(carpeta, "home", "home/logs")
-        return entorno_bloqueado(carpeta)
+        return entorno_bloqueado(carpeta, node_dir=carpeta_node(objetivo))
 
     def _h(self, sufijo, titulo, sev, estado, evidencia, recomendacion="", detalle=None):
         return _h(sufijo, titulo, sev, estado, evidencia, recomendacion, detalle)
@@ -889,9 +918,9 @@ class H5Promptfoo(ModuloHerramienta):
         return [self._h(sufijo, titulo, Severidad.MEDIA, "sin_concluir", texto,
                         "Corrige el bloque «promptfoo» del objetivo; no se ha ejecutado nada.")]
 
-    def _node_antiguo(self, det):
+    def _node_antiguo(self, det, objetivo=None):
         """Si `--version` falla por la versión de Node, (versión detectada, minima); si no, None."""
-        env = self._env_deteccion(None)
+        env = self._env_deteccion(objetivo)
         res = herramientas.ejecutar([det.ruta, "--version"], timeout=60, env=env)
         texto = _RE_ANSI.sub("", (res.stdout or "") + "\n" + (res.stderr or ""))
         if "requires a supported Node.js runtime" in texto:
@@ -901,13 +930,28 @@ class H5Promptfoo(ModuloHerramienta):
 
     # -- flujo --------------------------------------------------------------------
     def _auditar(self, objetivo, det):
+        return self._aviso_node(objetivo) + self._auditar_con_node(objetivo, det)
+
+    def _aviso_node(self, objetivo):
+        """Si el objetivo declara `tools.node.path` y no es un fichero, se sigue con el Node del PATH y se avisa."""
+        try:
+            ruta = objetivo["tools"]["node"]["path"]
+        except (KeyError, TypeError):
+            return []
+        if not ruta or carpeta_node(objetivo):
+            return []
+        return [self._h("NODE-NO-ENCONTRADO", "tools.node.path no apunta a un fichero", Severidad.INFO, "informativo",
+                        "la ruta declarada para Node no existe; se usa el primer node del PATH",
+                        "Corrige tools.node.path (la ruta del ejecutable node) o quítalo.")]
+
+    def _auditar_con_node(self, objetivo, det):
         if det.version is None:
-            antiguo = self._node_antiguo(det)
+            antiguo = self._node_antiguo(det, objetivo)
             if antiguo:
                 return [self._h("NODE-ANTIGUO", "promptfoo necesita un Node.js más reciente", Severidad.INFO, "informativo",
                                 f"promptfoo necesita Node >= {antiguo[1]}; detectado {antiguo[0]}",
-                                "Instala Node >= 22.22 (ver mrrobotia --check-tools) o indica en tools.promptfoo.path un "
-                                "promptfoo que use ese Node.")]
+                                "Instala Node >= 22.22 (ver mrrobotia --check-tools) e indica su ruta en tools.node.path "
+                                "(MRRobotIA antepone su carpeta al PATH de promptfoo) o ponlo el primero en el PATH.")]
             return [self._h("VERSION-NO-SOPORTADA", "No se pudo leer la versión de promptfoo", Severidad.INFO, "informativo",
                             "la salida de --version no tiene una versión legible",
                             f"Instala promptfoo {VERSION_PROBADA}: {herramientas.como_instalar(self.herramienta)}")]
@@ -1245,7 +1289,7 @@ class H5Promptfoo(ModuloHerramienta):
         juez = plan["juez"]
         clave_juez = os.environ.get(juez["clave_env"]) if juez else None
         env = entorno_bloqueado(carpeta, plan["hosts"], duracion_max * 1000, juez_url=juez["url"] if juez else None,
-                                juez_clave=clave_juez or clave)
+                                juez_clave=clave_juez or clave, node_dir=carpeta_node(objetivo))
         env[plan["clave_var"]] = clave or "not-needed"
         if juez and juez["clave_env"] != plan["clave_var"]:
             env[juez["clave_env"]] = clave_juez or "not-needed"

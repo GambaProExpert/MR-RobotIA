@@ -85,9 +85,10 @@ def banco(tmp_path, monkeypatch):
     b = types.SimpleNamespace(tmp=tmp_path, registro=registro, ruta=envoltorio(tmp_path))
     b.salida = tmp_path / "salidas" / "informe_promptfoo"
 
-    def lanzar(pf=None, ctx=None, activos=True, extra=None, tools=None):
+    def lanzar(pf=None, ctx=None, activos=True, extra=None, tools=None, node=None):
         obj = objetivo(promptfoo=pf if pf is not None else {"preset": "gate"},
-                       tools={"promptfoo": {"path": b.ruta, **(tools or {})}}, **(extra or {}))
+                       tools={"promptfoo": {"path": b.ruta, **(tools or {})}, **({"node": {"path": node}} if node else {})},
+                       **(extra or {}))
         m = H5Promptfoo()
         m.activos_ok = activos
         m.contexto = ctx if ctx is not None else contexto()
@@ -883,6 +884,66 @@ def test_la_deteccion_tambien_va_con_el_entorno_bloqueado(banco):
     banco.lanzar()
     version = banco.de(["--version"])
     assert version and Path(version[0]["env"]["PROMPTFOO_CONFIG_DIR"]).is_relative_to(banco.salida.resolve())
+
+
+def _node_falso(tmp_path):
+    carpeta = tmp_path / "node_portatil"
+    carpeta.mkdir()
+    ruta = carpeta / ("node.exe" if os.name == "nt" else "node")
+    ruta.write_text("", encoding="utf-8")
+    return carpeta, str(ruta)
+
+
+def test_tools_node_path_se_antepone_al_path_de_todos_los_subprocesos(banco):
+    carpeta, ruta = _node_falso(banco.tmp)
+    banco.lanzar(node=ruta)
+    inv = banco.invocaciones()
+    assert inv and banco.de(["--version"]) and banco.de(["eval"])           # la consulta de versión y la ejecución
+    for i in inv:
+        assert i["env"]["PATH"].split(os.pathsep)[0] == str(carpeta.absolute())
+        assert os.pathsep.join(i["env"]["PATH"].split(os.pathsep)[1:]) == os.environ["PATH"]      # y nada más cambia en el PATH
+    _todo(inv, banco.salida)                              # el bloqueo de red sigue intacto
+
+
+def test_tools_node_path_tambien_rige_en_la_consulta_de_node_antiguo(banco, monkeypatch):
+    carpeta, ruta = _node_falso(banco.tmp)
+    monkeypatch.setenv("PROMPTFOO_FALSO_MODO", "nodeantiguo")
+    h = banco.lanzar(node=ruta)
+    assert "H5-PROMPTFOO-NODE-ANTIGUO" in ids(h) and "tools.node.path" in por_id(h, "H5-PROMPTFOO-NODE-ANTIGUO").recomendacion
+    assert banco.invocaciones() and all(i["env"]["PATH"].startswith(str(carpeta.absolute()) + os.pathsep) for i in banco.invocaciones())
+
+
+def test_sin_tools_node_path_el_path_no_cambia(banco):
+    banco.lanzar()
+    inv = banco.invocaciones()
+    assert inv and all(i["env"]["PATH"] == os.environ["PATH"] for i in inv)
+    assert "H5-PROMPTFOO-NODE-NO-ENCONTRADO" not in ids(banco.lanzar())
+
+
+def test_tools_node_path_inexistente_no_toca_el_path_y_avisa(banco):
+    falsa = str(banco.tmp / "no_existe" / "node")
+    h = banco.lanzar(node=falsa)
+    f = por_id(h, "H5-PROMPTFOO-NODE-NO-ENCONTRADO")
+    assert f.severidad == Severidad.INFO and "tools.node.path" in f.recomendacion
+    inv = banco.invocaciones()
+    assert inv and all(i["env"]["PATH"] == os.environ["PATH"] for i in inv)
+    assert banco.de(["eval"])                              # se sigue con el Node del PATH
+
+
+def test_check_tools_consulta_la_version_con_el_bloqueo_y_el_node_declarado(banco):
+    """Antes del arreglo, `--check-tools` lanzaba `promptfoo --version` con el entorno del usuario: sin bloqueo de red
+    (la consulta ya hace una petición de telemetría y escribe en ~/.promptfoo) y sin el Node de tools.node.path."""
+    carpeta, ruta = _node_falso(banco.tmp)
+    det = herramientas.detectar(h5_promptfoo.PROMPTFOO, {"promptfoo": {"path": banco.ruta}, "node": {"path": ruta}})
+    assert det.disponible and det.version
+    (inv,) = banco.de(["--version"])
+    env = inv["env"]
+    assert env["PROMPTFOO_DISABLE_TELEMETRY"] == "1" and env["PROMPTFOO_DISABLE_UPDATE"] == "1"
+    assert env["HTTPS_PROXY"] == env["HTTP_PROXY"] == "http://127.0.0.1:9" and "proxy.real" not in json.dumps(env)
+    assert "sk-real-de-openai" not in json.dumps(env)
+    home = Path(env["PROMPTFOO_CONFIG_DIR"])
+    assert home.parent == Path(inv["cwd"]).resolve() and not home.is_relative_to(Path.home() / ".promptfoo")
+    assert env["PATH"].split(os.pathsep)[0] == str(carpeta.absolute())
 
 
 # ------------------------------------------------------------------------------ cli y núcleo

@@ -26,7 +26,7 @@ VARIABLES = ("PROMPTFOO_DISABLE_TELEMETRY", "PROMPTFOO_DISABLE_UPDATE", "PROMPTF
              "PROMPTFOO_FAILED_TEST_EXIT_CODE", "PROMPTFOO_CONFIG_DIR", "PROMPTFOO_LOG_DIR", "HTTPS_PROXY",
              "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "ALL_PROXY", "PROMPTFOO_EVAL_TIMEOUT_MS",
              "REQUEST_TIMEOUT_MS", "PROMPTFOO_MAX_EVAL_TIME_MS", "OPENAI_API_KEY", "OPENAI_BASE_URL",
-             "MRROBOTIA_API_KEY", "MIKLAVE", "NO_COLOR", "PYTHONUTF8")
+             "MRROBOTIA_API_KEY", "MIKLAVE", "NO_COLOR", "PYTHONUTF8", "PATH")
 ANTIGUO = ("\x1b[33mpromptfoo requires a supported Node.js runtime.\n\nDetected: v22.20.0\nRequired: >=22.22.0\n\n"
            "Install a supported Node.js version and try again.\x1b[0m")
 

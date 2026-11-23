@@ -337,7 +337,7 @@ mrrobotia -t target.json -s promptfoo -a -o informes/promptfoo
 mrrobotia -t target.json -s all,promptfoo -a     # todo, incluido promptfoo
 ```
 
-**Instalarlo** (opcional y aparte). promptfoo necesita **Node.js 22.22 o superior** (o 20.20 o superior) y se
+**Instalarlo** (opcional y aparte). promptfoo necesita **Node.js 22.22 o superior** y se
 niega a arrancar con uno anterior (MRRobotIA lo informa como `H5-PROMPTFOO-NODE-ANTIGUO`, INFO, y no ejecuta
 nada). `mrrobotia --check-tools` comprueba a la vez Node y promptfoo. Instalación genérica (0.126.0 es la
 versión probada; las anteriores no se ejecutan):
@@ -345,7 +345,9 @@ versión probada; las anteriores no se ejecutan):
 npm install promptfoo@0.126.0 --prefix <carpeta> --no-audit --no-fund
 ```
 Luego pon `<carpeta>/node_modules/.bin/promptfoo` en el `PATH` o indica `tools.promptfoo.path` en el objetivo
-(en Windows es `promptfoo.cmd`). La guía completa, con la descarga de Node.js y su suma, está en
+(en Windows es `promptfoo.cmd`). Si Node no es el primero del `PATH` (por ejemplo, un zip portátil), indica en
+`tools.node.path` el ejecutable `node`: `--check-tools` lo lee y MRRobotIA antepone su carpeta al `PATH` de cada proceso de
+promptfoo (no se añade nada más a ese entorno). La guía completa, con la descarga de Node.js y su suma, está en
 [docs/HERRAMIENTAS.md](docs/HERRAMIENTAS.md).
 
 **Nada sale de la red (requisito duro, no configurable).** promptfoo, si se le deja, envía telemetría (aun con
@@ -580,12 +582,12 @@ contesta con `H5-DEEPTEAM-REMOTO-OMITIDO` sin ejecutar nada; una clave escrita e
 rechaza sin ejecutar (`H5-DEEPTEAM-CLAVE-EN-CLARO` o `H5-DEEPTEAM-CONFIG`).
 
 **Presets.** Casos = tipos x `attacks_per_type` x pases (`basic` es un pase y los demás métodos, otro). Medido con un chatbot
-Qwen2.5-7B en la GPU y un juez y atacante Qwen3-14B en CPU: the `quick` preset (10 cases, two passes, judge calibrated 8/8) took **25 min** including the 3 min 42 s calibration, that is about **127 s per case** (almost all of it the 14B writing the attack and judging on the CPU; the chatbot answers in about 5 s). With the 7B as judge and attacker on the GPU (a judge that is the chatbot itself) 36 cases took 14 min 51 s (about 25 s per case).
+Qwen2.5-7B en la GPU y un juez y atacante Qwen3-14B en CPU: el preset `quick` (10 casos, dos pases, juez calibrado 8/8) tardó **25 min** con los 3 min 42 s de calibración, unos **127 s por caso** (casi todo es el 14B escribiendo el ataque y juzgando en la CPU; el chatbot responde en unos 5 s). Con el 7B de juez y atacante en la GPU (un juez que es el propio chatbot), 36 casos tardaron 14 min 51 s (unos 25 s por caso).
 - `quick`: PII (revelación directa, fuga de sesión), fuga del system prompt (secretos, instrucciones) y BOLA (entre
   clientes) con `basic` y `prompt_injection`: 10 casos.
 - `standard`: `quick` más PII por manipulación social, BFLA, RBAC, agencia excesiva, acceso de depuración, inyección SQL,
-  inyección de comandos y SSRF, con `basic`, `prompt_injection` y `leetspeak`: 28 casos (about 1 h 5 min, estimated from the measured 127 s per case).
-- `full`: las 12 vulnerabilidades con todos sus tipos, 2 casos cada una y todos los métodos de ataque: horas (sin medir).
+  inyección de comandos y SSRF, con `basic`, `prompt_injection` y `leetspeak`: 26 casos (unos 59 min, estimados a partir de los 127 s medidos por caso más los 222 s de la calibración).
+- `full`: las 12 vulnerabilidades con todos sus tipos, 2 casos por tipo y todos los métodos de ataque: horas (sin medir).
 
 **Qué contiene el informe.** Una fila por vulnerabilidad con fallos (id `H5-DEEPTEAM-<vulnerabilidad>`), el hallazgo del
 canario si alguna respuesta lo contenía y una sección extra `## Evaluación del comportamiento del chatbot (DeepTeam)`: la
@@ -671,14 +673,26 @@ da `H6-SALIDAS-CONFIG`, MEDIA, y no se observa nada):
   un identificador de repositorio y no consta `HF_HUB_OFFLINE=1`), `DESCARGA`, `CARGA-REMOTA`, `RPC` (ALTA), `MCP`,
   `PROXY-UI`, `HERRAMIENTAS`, `TRAZAS` (OTLP: INFO si es local, MEDIA si no), `KV-EVENTOS` (**ALTA**: ZMQ publica
   los token ids de los prompts sin autenticación; CRÍTICA si escucha en todas las interfaces de un host expuesto),
-  `KV-TRANSFER`, `PROXY`. En Windows el entorno de otro proceso no se puede leer: los canales que dependen de él
-  quedan `sin concluir`.
+  `KV-TRANSFER`, `PROXY`. En Windows el entorno de otro proceso no se puede leer: la telemetría y el hub de vLLM
+  quedan `sin concluir`, la descarga de llama.cpp queda `potencial` y lo que solo está en el entorno (proxies,
+  variables `LLAMA_ARG_*`) no se ve.
 - `H6-SALIDAS-VENTANA-LIMPIA` lleva la frase fija: *no se vio ninguna conexión saliente durante X s (muestreo cada Y
   ms); eso no prueba que nunca salga nada*. `H6-SALIDAS-RESUMEN` encabeza la sección del informe «Salidas de datos
   a la red (H6)»: la **tabla de canales** (abiertos, cerrados, sin comprobar) y la **tabla de conexiones
-  observadas**. `-WSL`, `-NO-LOCAL`, `-SIN-PID`, `-SIN-PERMISO`, `-CANARIO-OMITIDO`, `-CANARIO-SIN-RESPUESTA` y
-  `-SERVIDOR-CAIDO` dicen por qué no se pudo hacer algo (el canario se detiene si el servidor deja de responder
-  tras la primera petición).
+  observadas**. `-WSL`, `-NO-LOCAL`, `-SIN-PID`, `-SO-NO-SOPORTADO`, `-SIN-PERMISO`, `-CANARIO-OMITIDO`,
+  `-CANARIO-SIN-RESPUESTA` y `-SERVIDOR-CAIDO` dicen por qué no se pudo hacer algo (el canario se detiene si el
+  servidor deja de responder tras la primera petición).
+- **Sin proceso asociado**: si H2-ID no asoció el servidor a un proceso, no hay línea de órdenes ni entorno que leer y
+  la auditoría estática se queda en lo declarado: las descargas, el RPC, el MCP, el proxy de la interfaz, los proxies
+  y, en vLLM, el hub, la carga remota, las trazas y los eventos KV salen **«sin comprobar»** en la tabla (y el resumen
+  lo dice en vez de «canales abiertos: ninguno»), aunque `egress.pids` o `egress.process_names` permitan observarlo.
+  Sin ellos no se observa ninguna conexión (`-WSL` en Windows, `-SIN-PID` en Linux). Si declaras `egress.pids` o
+  `egress.process_names` que no existen al empezar, tampoco se observa ni se envía ningún canario (`-SIN-PID`); si el
+  árbol deja de verse tras la ventana pasiva, no se envía canario, y una ventana en la que no se vio no cuenta en
+  `-VENTANA-LIMPIA`.
+- **Sistema que no es Windows ni Linux** (macOS): H6 solo lee procesos y sockets en esos dos. `-SO-NO-SOPORTADO`
+  (INFO, `sin concluir`): no se observa ni se envía canario, aunque haya `egress.pids`; ejecuta MRRobotIA en
+  Windows, Linux, WSL o dentro del contenedor del servidor.
 
 **Medido.** llama.cpp (Qwen2.5-7B en GPU): 0 conexiones salientes con cientos de peticiones. vLLM 0.33.0 (CPU, en
 WSL): sin `HF_HUB_OFFLINE` y con el modelo como id de repositorio intenta salir a `huggingface.co` (se ve como

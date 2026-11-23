@@ -108,7 +108,7 @@ def entorno_deepteam(carpeta, hosts=(), base=None, claves=None):
     return env
 
 
-def _entorno_deteccion(carpeta):
+def _entorno_deteccion(carpeta, overrides=None):
     """Entorno para consultar la versión desde una carpeta temporal (`Herramienta.entorno_seguro`): crea las
     subcarpetas que DeepEval espera, para que ni siquiera el arranque escriba fuera de ella."""
     for sub in ("home/deepeval", "home/usuario", "home/tmp"):
@@ -192,7 +192,7 @@ PRESETS = {
     "quick": {"vulnerabilidades": _QUICK, "ataques": ["basic", "prompt_injection"], "por_tipo": 1, "max_duration": 3600,
               "duracion": "25 min con el juez en CPU (medido: 10 casos y calibración)"},
     "standard": {"vulnerabilidades": _STANDARD, "ataques": ["basic", "prompt_injection", "leetspeak"], "por_tipo": 1,
-                 "max_duration": 14400, "duracion": "unos 1 h 5 min con el juez en CPU (estimada: 28 casos)"},
+                 "max_duration": 14400, "duracion": "unos 59 min con el juez en CPU (estimada: 26 casos)"},
     "full": {"vulnerabilidades": [(v, ()) for v in VULNERABILIDADES],
              "ataques": ["basic", "prompt_injection", "leetspeak", "rot13", "base64", "roleplay"], "por_tipo": 2,
              "max_duration": 43200, "duracion": "varias horas con el juez en CPU (estimada, sin medir)"},
@@ -214,6 +214,12 @@ def plan_preset(nombre):
             if t not in actual:
                 actual.append(t)
     return [(v, tuple(t)) for v, t in juntas.items()]
+
+
+def contar_casos(vulns, ataques, por_tipo):
+    """Casos = tipos x casos por tipo x pases (`basic` es un pase y los demás métodos, otro)."""
+    pases = (1 if "basic" in ataques else 0) + (1 if any(a != "basic" for a in ataques) else 0)
+    return sum(len(t) for _, t in vulns) * por_tipo * pases
 
 
 def estimar(n_casos, calibracion=True):
@@ -761,9 +767,7 @@ class H5Deepteam(ModuloHerramienta):
         if not ataques:
             ataques = ["basic"]
         por_tipo = cfg["attacks_per_type"] or preset["por_tipo"]
-        n_tipos = sum(len(t) for _, t in vulns)
-        pases = (1 if "basic" in ataques else 0) + (1 if any(a != "basic" for a in ataques) else 0)
-        n_casos = n_tipos * por_tipo * pases
+        n_casos = contar_casos(vulns, ataques, por_tipo)
         urls = [sujeto[0], juez["url"], atacante["url"]]
         hosts = [h for h in dict.fromkeys(host_de_url(u)[0] for u in urls) if h]
         plan = {
@@ -834,7 +838,8 @@ class H5Deepteam(ModuloHerramienta):
             cfg["vulnerabilities"] is not None or cfg["attacks"] is not None) else "")
         print(f"H5-DEEPTEAM: preset {etiqueta_preset}, ~{plan['n_casos']} casos, duración ~{_duracion(plan['segundos'])} con el juez en CPU; "
               f"tope {_duracion(duracion_max)}. Todo local: juez en {'el mismo modelo' if plan['juez_mismo'] else 'un servidor local'}, "
-              f"red bloqueada. Ctrl-C lo aborta y deja un informe parcial. Progreso en {carpeta}{os.sep}deepteam.ejecutor.log", flush=True)
+              f"red bloqueada. Ctrl-C lo aborta: se conserva el informe del resto de escaneos, pero de DeepTeam no queda nada "
+              f"(escribe los resultados solo al terminar). Progreso en {carpeta}{os.sep}deepteam.ejecutor.log", flush=True)
 
         ocultar = ocultador(cfg["canaries"])
         inicio = time.monotonic()

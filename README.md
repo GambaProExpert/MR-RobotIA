@@ -336,7 +336,7 @@ mrrobotia -t target.json -s promptfoo -a -o informes/promptfoo
 mrrobotia -t target.json -s all,promptfoo -a     # everything, including promptfoo
 ```
 
-**Installing it** (optional, separate). promptfoo needs **Node.js 22.22 or later** (or 20.20 or later) and refuses
+**Installing it** (optional, separate). promptfoo needs **Node.js 22.22 or later** and refuses
 to start with an older one (MRRobotIA then reports `H5-PROMPTFOO-NODE-ANTIGUO`, INFO, and runs nothing).
 `mrrobotia --check-tools` checks both Node and promptfoo. Generic installation (0.126.0 is the version tested;
 older ones are not run):
@@ -344,7 +344,9 @@ older ones are not run):
 npm install promptfoo@0.126.0 --prefix <folder> --no-audit --no-fund
 ```
 Then either put `<folder>/node_modules/.bin/promptfoo` on the `PATH` or set `tools.promptfoo.path` in the target
-file (on Windows it is `promptfoo.cmd`). The full guide, with the Node.js download and its checksum, is in
+file (on Windows it is `promptfoo.cmd`). If Node is not first in the `PATH` (for example a portable zip), set
+`tools.node.path` to the `node` executable: `--check-tools` reads it and MRRobotIA puts its folder first in the `PATH` of
+every promptfoo process (nothing else is added to that environment). The full guide, with the Node.js download and its checksum, is in
 [docs/TOOLS.md](docs/TOOLS.md).
 
 **Nothing leaves the network (hard requirement, not configurable).** promptfoo, left alone, sends telemetry
@@ -579,8 +581,8 @@ with a Qwen2.5-7B chatbot on the GPU and a Qwen3-14B judge and attacker on the C
 - `quick`: PII (direct disclosure, session leak), system-prompt leak (secrets, instructions) and BOLA (cross customer)
   with `basic` and `prompt_injection`: 10 cases.
 - `standard`: `quick` plus PII by social manipulation, BFLA, RBAC, excessive agency, debug access, SQL injection,
-  shell injection and SSRF, with `basic`, `prompt_injection` and `leetspeak`: 28 cases (about 1 h 5 min, estimated from the measured 127 s per case).
-- `full`: all 12 vulnerabilities and all their types, 2 cases each, with every attack method: hours (not measured).
+  shell injection and SSRF, with `basic`, `prompt_injection` and `leetspeak`: 26 cases (about 59 min, estimated from the measured 127 s per case plus the 222 s calibration).
+- `full`: all 12 vulnerabilities and all their types, 2 cases per type, with every attack method: hours (not measured).
 
 **What the report contains.** A row per vulnerability with failures (id `H5-DEEPTEAM-<vulnerability>`), the canary
 finding if any answer contained one, and an extra `## Evaluación del comportamiento del chatbot (DeepTeam)` section:
@@ -665,14 +667,26 @@ engine (`chat` with `max_tokens` 8); on a server that cannot generate (a CPU-onl
   repository id and `HF_HUB_OFFLINE=1` is not set), `DESCARGA`, `CARGA-REMOTA`, `RPC` (HIGH), `MCP`, `PROXY-UI`,
   `HERRAMIENTAS`, `TRAZAS` (OTLP: INFO if local, MEDIUM if not), `KV-EVENTOS` (**HIGH**: ZMQ publishes the token ids
   of the prompts without authentication; CRITICAL if bound to all interfaces on an exposed host), `KV-TRANSFER`,
-  `PROXY`. On Windows the environment of another process is not readable: the channels that depend on it are
-  `sin concluir`.
+  `PROXY`. On Windows the environment of another process is not readable: vLLM's telemetry and hub channels are
+  `sin concluir`, llama.cpp's download channel is `potencial`, and whatever is only in the environment (proxies,
+  `LLAMA_ARG_*` variables) is not seen.
 - `H6-SALIDAS-VENTANA-LIMPIA` carries the fixed sentence: *no outgoing connection was seen during X s (sampling
   every Y ms); that does not prove that nothing ever leaves*. `H6-SALIDAS-RESUMEN` heads the report section
   "Salidas de datos a la red (H6)": the **channel table** (open, closed, unchecked) and the **table of observed
-  connections**. `-WSL`, `-NO-LOCAL`, `-SIN-PID`, `-SIN-PERMISO`, `-CANARIO-OMITIDO`, `-CANARIO-SIN-RESPUESTA` and
-  `-SERVIDOR-CAIDO` say why something could not be done (the canary stops if the server stops answering after the
-  first request).
+  connections**. `-WSL`, `-NO-LOCAL`, `-SIN-PID`, `-SO-NO-SOPORTADO`, `-SIN-PERMISO`, `-CANARIO-OMITIDO`,
+  `-CANARIO-SIN-RESPUESTA` and `-SERVIDOR-CAIDO` say why something could not be done (the canary stops if the server
+  stops answering after the first request).
+- **No associated process**: if H2-ID did not tie the server to a process, there is no command line or environment
+  to read and the static audit stays at what is declared: downloads, RPC, MCP, the UI proxy, proxies and, on vLLM, the
+  hub, remote loading, traces and KV events show as **"sin comprobar" (unchecked)** in the table (and the summary says
+  so instead of "canales abiertos: ninguno"), even if `egress.pids` or `egress.process_names` let it be observed.
+  Without them no connection is observed (`-WSL` on Windows, `-SIN-PID` on Linux). If you declare `egress.pids` or
+  `egress.process_names` that do not exist at the start, nothing is observed and no canary is sent either
+  (`-SIN-PID`); if the tree stops being visible after the passive window, no canary is sent, and a window in which it
+  was not seen does not count towards `-VENTANA-LIMPIA`.
+- **A system that is neither Windows nor Linux** (macOS): H6 only reads processes and sockets on those two.
+  `-SO-NO-SOPORTADO` (INFO, `sin_concluir`): nothing is observed and no canary is sent, even with `egress.pids`; run
+  MRRobotIA on Windows, Linux, WSL or inside the server's container.
 
 **Measured.** llama.cpp (Qwen2.5-7B on the GPU): 0 outgoing connections over hundreds of requests. vLLM 0.33.0
 (CPU, in WSL): without `HF_HUB_OFFLINE` and with the model as repository id it tries to reach `huggingface.co`

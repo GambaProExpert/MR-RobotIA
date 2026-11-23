@@ -65,8 +65,9 @@ class Herramienta:
     aislar_xdg: bool = False
     version_patron: str | None = None
     # La herramienta hace telemetría o escribe estado en cuanto arranca, incluso para dar su versión (DeepTeam consulta
-    # la IP pública al importarse). Con una función `carpeta -> entorno`, `detectar` consulta la versión SIEMPRE con ese
-    # entorno (el bloqueo de red completo) y desde una carpeta temporal que se borra.
+    # la IP pública al importarse). Con una función `(carpeta, overrides) -> entorno`, `detectar` consulta la versión
+    # SIEMPRE con ese entorno (el bloqueo de red completo) y desde una carpeta temporal que se borra; `overrides` es el
+    # bloque `tools` del objetivo (promptfoo lo usa para `tools.node.path`).
     entorno_seguro: object = None
 
 
@@ -136,8 +137,8 @@ def detectar(herramienta, overrides=None, env=None, cwd=None):
     try:
         if env is None and herramienta.entorno_seguro is not None:
             with tempfile.TemporaryDirectory(prefix="mrrobotia_ver_") as tmp:
-                return Deteccion(True, _consultar_version(herramienta, ruta, herramienta.entorno_seguro(tmp), tmp),
-                                 ruta, None)
+                return Deteccion(True, _consultar_version(herramienta, ruta, herramienta.entorno_seguro(tmp, overrides),
+                                                          tmp), ruta, None)
         if env is None and herramienta.aislar_xdg:
             with tempfile.TemporaryDirectory(prefix="mrrobotia_xdg_") as tmp:
                 env = {**os.environ, "XDG_DATA_HOME": tmp, "XDG_CONFIG_HOME": tmp, "XDG_CACHE_HOME": tmp}

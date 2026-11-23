@@ -19,7 +19,11 @@ comprobación de telemetría de vLLM que estaba en H2-ARRANQUE vive aquí (`H6-S
 Límites (se repiten en el informe y los README): con TLS se ve el destino, no el contenido; el muestreo puede perder
 conexiones de menos de unos 100 ms; solo se ve el árbol del servidor y solo durante la ventana; no se ve el DNS; un
 servidor dentro de WSL no se ve desde Windows (hay que ejecutar MRRobotIA dentro de WSL); en Windows el entorno de
-otro proceso no se lee y la tabla UDP no da la dirección remota.
+otro proceso no se lee y la tabla UDP no da la dirección remota. Solo Windows y Linux leen procesos y sockets: en otro
+sistema no se observa ni se envía canario (`H6-SALIDAS-SO-NO-SOPORTADO`), y si H2-ID no asoció el servidor a un proceso
+los canales que dependen de su línea de órdenes o su entorno salen «sin comprobar» (aunque egress.pids permita observarlo).
+Una ventana en la que no se vio el árbol no cuenta como limpia, y si el árbol deja de verse tras la ventana pasiva no se
+envía canario.
 
 PRIVACIDAD: el canario nunca se imprime ni se guarda; las URL de proxy y de MCP no se conservan (solo presencia).
 """
@@ -440,6 +444,11 @@ def hallazgos_desde_observacion(pasiva, activa, envios, meta):
     return hallazgos, filas_informe, hay_salidas
 
 
+SUFIJO_ESTATICA = ("; la auditoría estática se queda en lo declarado y los canales que dependen del proceso (descargas, "
+                   "RPC, MCP, trazas, eventos KV, proxies) figuran «sin comprobar» si no se leyó su línea de órdenes ni "
+                   "su entorno")
+
+
 def _fila_informe(d, clase, pid_txt):
     return {"destino": f"{d['remota']}:{d['puerto']}", "clase": clase, "proceso": pid_txt,
             "ventana": _ventanas(d), "estados": ", ".join(sorted(d["estados"])), "n": d["n"],
@@ -506,6 +515,26 @@ class _Canales:
 
     def cerrado(self, canal, evidencia):
         self.tabla.append({"canal": canal, "estado": "cerrado", "evidencia": evidencia, "severidad": "-"})
+
+    def sin_comprobar(self, canal, evidencia):
+        """Solo la tabla, sin hallazgo propio: la evidencia de la fila dice el motivo."""
+        self.tabla.append({"canal": canal, "estado": "sin comprobar", "evidencia": evidencia, "severidad": "-"})
+
+
+# Canales que solo se ven con la línea de órdenes o el entorno del proceso (la telemetría de vLLM ya se trata aparte).
+CANALES_DEL_PROCESO = {
+    "llama.cpp": ("DESCARGA", "RPC", "MCP", "PROXY-UI", "PROXY"),
+    "vllm": ("HUB", "CARGA-REMOTA", "TRAZAS", "KV-EVENTOS", "KV-TRANSFER", "MCP", "PROXY"),
+}
+MOTIVO_SIN_PROCESO = ("H2-ID no asoció el servidor a ningún proceso (egress.pids y egress.process_names solo sirven para "
+                      "observar): sin su línea de órdenes ni su entorno no se puede saber si este canal está abierto")
+
+
+def sin_proceso_legible(servidor):
+    """True si H6 no tiene de dónde leer ni la línea de órdenes ni el entorno del servidor: no hay PID y H2-ID no dejó
+    opciones ni variables (macOS, WSL, un contenedor visto desde Windows, un servidor solo declarado). Con
+    egress.pids o egress.process_names también: esos procesos se observan, pero su línea de órdenes no se analiza."""
+    return servidor.pid is None and not servidor.opciones and not servidor.entorno
 
 
 def _canal_telemetria_vllm(c, s, env, legible, cfg, raiz):
@@ -670,6 +699,11 @@ def auditar_canales(servidor, cfg, expuesto):
         _canales_llamacpp(c, servidor, env, legible, expuesto)
         c.cerrado("TELEMETRIA", "llama.cpp no envía telemetría (comprobado en su código y su ayuda)")
     _canal_proxy(c, env)
+    if sin_proceso_legible(servidor):
+        vistos = {t["canal"] for t in c.tabla}
+        for canal in CANALES_DEL_PROCESO.get(servidor.tipo, ()):
+            if canal not in vistos:
+                c.sin_comprobar(canal, MOTIVO_SIN_PROCESO)
     return c.hallazgos, c.tabla
 
 
@@ -799,25 +833,50 @@ class H6Salidas(Modulo):
         expuesto = red.es_no_loopback(s.enlace)
         canales, tabla = auditar_canales(s, cfg, expuesto)
         h.extend(canales)
+        if self.contexto.so not in ("windows", "linux"):
+            # Sin lectura de procesos ni de sockets: no se observa ni se envía ningún canario, aunque haya egress.pids.
+            h.append(Hallazgo(
+                MODULO, "H6-SALIDAS-SO-NO-SOPORTADO", "H6 no puede observar procesos ni sockets en este sistema",
+                Severidad.INFO, "sin_concluir",
+                f"sistema «{self.contexto.so}»: H6 solo lee la tabla de procesos y de sockets en Windows y Linux, así que no "
+                "se ha observado ninguna conexión ni se ha enviado ningún canario (aunque se declararan egress.pids o "
+                "egress.process_names)" + SUFIJO_ESTATICA,
+                "Ejecuta MRRobotIA en Windows o Linux, o dentro de WSL o del contenedor del servidor, para observar sus "
+                "conexiones; mientras tanto, revisa a mano los canales sin comprobar y bloquea la salida con el cortafuegos."))
+            self._resumen(h, s, cfg, tabla, [], None, None, [], expuesto)
+            return
         if s.pid is None and not cfg["pids"] and not cfg["process_names"]:
             if self.contexto.so == "windows":
                 h.append(Hallazgo(
                     MODULO, "H6-SALIDAS-WSL", "El servidor no tiene un proceso visible desde Windows", Severidad.INFO,
                     "sin_concluir", "responde pero no hay un proceso local asociado: probablemente corre dentro de WSL o de "
-                    "un contenedor, y Windows solo ve wslrelay.exe, no sus procesos ni su tráfico",
+                    "un contenedor, y Windows solo ve wslrelay.exe, no sus procesos ni su tráfico; no se ha observado "
+                    "ninguna conexión" + SUFIJO_ESTATICA,
                     "Ejecuta MRRobotIA dentro de WSL (python3 -m mrrobotia ...) para observar sus conexiones."))
             else:
                 h.append(Hallazgo(MODULO, "H6-SALIDAS-SIN-PID", "No se conoce el proceso del servidor", Severidad.INFO,
-                                  "sin_concluir", "no hay un proceso local asociado: solo se ha hecho la auditoría estática",
+                                  "sin_concluir", "no hay un proceso local asociado; no se ha observado ninguna conexión"
+                                  + SUFIJO_ESTATICA,
                                   "Indica el PID en egress.pids o el nombre en egress.process_names."))
             self._resumen(h, s, cfg, tabla, [], None, None, [], expuesto)
             return
         observar_pasiva = cfg["passive_window"] > 0 and (self.activos_ok or self.pedido_explicito)
         pasiva = activa = None
         envios, ok = [], 0
-        if observar_pasiva or self.activos_ok:
+        raices = ([s.pid] if s.pid else []) + list(s.pids_hijos) + cfg["pids"]
+        if (observar_pasiva or self.activos_ok) and not self._arbol_visible(raices, cfg["process_names"]):
+            # Los PID o nombres declarados no existen al empezar: no se observa y, sobre todo, no se envía ningún canario.
+            h.append(Hallazgo(MODULO, "H6-SALIDAS-SIN-PID", "No se encontró el proceso del servidor",
+                              Severidad.INFO, "sin_concluir",
+                              "ni el PID ni los nombres indicados existían al empezar; no se ha observado ninguna conexión "
+                              "ni se ha enviado ningún canario" + SUFIJO_ESTATICA,
+                              "Comprueba que egress.pids o egress.process_names son los del servidor y que sigue arrancado."))
+            observar_pasiva = False
+            if self.activos_ok:
+                self._resumen(h, s, cfg, tabla, [], None, None, [], expuesto)
+                return
+        elif observar_pasiva or self.activos_ok:
             t0 = self._reloj()
-            raices = ([s.pid] if s.pid else []) + list(s.pids_hijos) + cfg["pids"]
             comunes = dict(nombres=cfg["process_names"], permitidas=reglas, propias_extra=self._propias_extra,
                            puerto_api=s.puerto, reloj=self._reloj, dormir=self._dormir, leer_procesos=self._leer_procesos,
                            leer_sockets=self._leer_sockets, t0=t0)
@@ -826,8 +885,17 @@ class H6Salidas(Modulo):
                 print(f"H6: observando las conexiones de {s.tipo} (PID {s.pid}) durante {cfg['passive_window']} s", flush=True)
                 pasiva = observar(raices, cfg["passive_window"], intervalo, ventana="pasiva", **comunes)
             if self.activos_ok:
-                activa, envios, ok, extra = self._ventana_activa(s, cfg, raices, intervalo, comunes)
-                h.extend(extra)
+                if pasiva is not None and not self._arbol_visible(raices, cfg["process_names"]):
+                    # El árbol dejó de verse durante la pasiva (¿reinicio con otro PID?): ningún canario sin observar.
+                    if pasiva.pids:
+                        h.append(Hallazgo(MODULO, "H6-SALIDAS-SIN-PID", "El proceso del servidor dejó de verse tras la "
+                                          "ventana pasiva", Severidad.INFO, "sin_concluir",
+                                          "el árbol del servidor se vio en la ventana pasiva pero no al empezar la activa; "
+                                          "no se ha enviado ningún canario",
+                                          "Comprueba que el servidor sigue arrancado (un reinicio cambia su PID) y repite."))
+                else:
+                    activa, envios, ok, extra = self._ventana_activa(s, cfg, raices, intervalo, comunes)
+                    h.extend(extra)
         if not self.activos_ok:
             h.append(Hallazgo(MODULO, "H6-SALIDAS-CANARIO-OMITIDO", "Canario no enviado", Severidad.INFO, "informativo",
                               "solo se ha hecho la auditoría estática" + (" y la ventana pasiva" if pasiva else "")
@@ -835,6 +903,16 @@ class H6Salidas(Modulo):
                               "el escaneo con -s egress",
                               "Repite con -a y allow_active=true para observar las conexiones con tráfico de canario."))
         self._resumen(h, s, cfg, tabla, envios, pasiva, activa, [], expuesto, ok)
+
+    def _arbol_visible(self, raices, nombres):
+        """¿Se ve ahora al menos un proceso del árbol? Lo mismo que usa `observar`; nunca lanza."""
+        try:
+            tabla = (self._leer_procesos or procesos.tabla_pid_ppid)()
+            nombres = {n.lower() for n in nombres}
+            todas = set(raices) | {p for p, (_, n) in tabla.items() if n.lower() in nombres}
+            return bool(procesos.arbol_de(tabla, todas))
+        except Exception:
+            return False
 
     def _ventana_activa(self, s, cfg, raices, intervalo, comunes):
         """(observación, envíos, nº ok, hallazgos extra). Hilo de muestreo + peticiones con canario en el principal."""
@@ -891,13 +969,22 @@ class H6Salidas(Modulo):
                     "puertos_internos": perfil_de(s).puertos_internos}
             extra, conexiones, hay_salidas = hallazgos_desde_observacion(pasiva, activa, envios, meta)
             h.extend(extra)
-        total_s = round(sum(o.segundos for o in observadas), 1)
+        # Una ventana en la que no se vio el árbol no cuenta como limpia (sus segundos no suman en VENTANA-LIMPIA).
+        total_s = round(sum(o.segundos for o in observadas if o.pids), 1)
         sin_arbol = bool(observadas) and not any(o.pids for o in observadas)
+        perdidas = [o.ventana for o in observadas if not o.pids] if not sin_arbol else []
         if sin_arbol:
             h.append(Hallazgo(MODULO, "H6-SALIDAS-SIN-PID", "No se encontró el proceso del servidor durante la observación",
-                              Severidad.INFO, "sin_concluir", "ni el PID ni los nombres indicados existían durante la ventana",
-                              "Comprueba que el servidor sigue arrancado."))
-        elif observadas and not hay_salidas:
+                              Severidad.INFO, "sin_concluir", "ni el PID ni los nombres indicados existían durante la ventana; "
+                              "no se ha observado ninguna conexión" + SUFIJO_ESTATICA,
+                              "Comprueba que egress.pids o egress.process_names son los del servidor y que sigue arrancado."))
+        elif perdidas:
+            h.append(Hallazgo(MODULO, "H6-SALIDAS-SIN-PID", "El proceso del servidor dejó de verse durante la observación",
+                              Severidad.INFO, "sin_concluir",
+                              f"el árbol del servidor no se vio en la ventana {', '.join(perdidas)}: lo que hiciera entonces "
+                              "no se ha observado y esa ventana no cuenta como limpia",
+                              "Comprueba que el servidor sigue arrancado (un reinicio cambia su PID) y repite."))
+        if observadas and not hay_salidas and not sin_arbol:
             h.append(Hallazgo(MODULO, "H6-SALIDAS-VENTANA-LIMPIA", "Sin salidas durante la observación", Severidad.INFO,
                               "informativo", frase_ventana_limpia(total_s, cfg["interval_ms"]), "", REFS_SALIDA))
         muestras = sum(o.muestras for o in observadas)
@@ -907,11 +994,14 @@ class H6Salidas(Modulo):
             pids.update(o.pids)
         publicas = sum(1 for c in conexiones if c["clase"] == "publica")
         privadas = sum(1 for c in conexiones if c["clase"] == "privada")
-        abiertos = [t["canal"] for t in tabla if t["estado"] in ("abierto", "posible", "sin comprobar")]
+        abiertos = [t["canal"] for t in tabla if t["estado"] in ("abierto", "posible")]
+        sin_comprobar = [t["canal"] for t in tabla if t["estado"] == "sin comprobar"]
         cabecera = (f"H6 · {s.tipo} PID {s.pid if s.pid is not None else '?'} · árbol {len(pids)} proceso(s) · "
                     f"pasiva {pasiva.segundos if pasiva else 0:g} s · activa {activa.segundos if activa else 0:g} s · "
                     f"{len(envios)} canario(s) ({ok} OK) · {muestras} muestra(s) ({coste} ms/muestra) · salidas: "
-                    f"{publicas} públicas, {privadas} privadas · canales abiertos: {', '.join(abiertos) or 'ninguno'}")
+                    f"{publicas} públicas, {privadas} privadas · canales abiertos: "
+                    f"{', '.join(abiertos) or ('ninguno de los comprobados' if sin_comprobar else 'ninguno')}"
+                    + (f" · canales sin comprobar: {', '.join(sin_comprobar)}" if sin_comprobar else ""))
         limites = None
         if observadas and not hay_salidas and not sin_arbol:
             limites = frase_ventana_limpia(total_s, cfg["interval_ms"])
