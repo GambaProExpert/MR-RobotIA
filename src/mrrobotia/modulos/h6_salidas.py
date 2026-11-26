@@ -16,7 +16,7 @@ llama.cpp o vLLM que corre en ESTA máquina:
 No lanza, reinicia ni modifica nada. Solo biblioteca estándar. Es el ÚNICO dueño de los canales de salida: la
 comprobación de telemetría de vLLM que estaba en H2-ARRANQUE vive aquí (`H6-SALIDAS-CANAL-TELEMETRIA`).
 
-Límites (se repiten en el informe y los README): con TLS se ve el destino, no el contenido; el muestreo puede perder
+Límites (se repiten en el informe y la guía): con TLS se ve el destino, no el contenido; el muestreo puede perder
 conexiones de menos de unos 100 ms; solo se ve el árbol del servidor y solo durante la ventana; no se ve el DNS; un
 servidor dentro de WSL no se ve desde Windows (hay que ejecutar MRRobotIA dentro de WSL); en Windows el entorno de
 otro proceso no se lee y la tabla UDP no da la dirección remota. Solo Windows y Linux leen procesos y sockets: en otro
@@ -799,7 +799,7 @@ class H6Salidas(Modulo):
         if error:
             return [Hallazgo(MODULO, "H6-SALIDAS-CONFIG", "Configuración de egress no válida", Severidad.MEDIA, "sin_concluir",
                              error + "; no se ha observado nada",
-                             "Corrige el bloque egress del objetivo (ver el README).")]
+                             "Corrige el bloque egress del objetivo (ver la guía, docs/GUIA.md).")]
         reglas, nombres, error = parsear_permitidas(cfg["allow"], self._resolver)
         if error:
             return [Hallazgo(MODULO, "H6-SALIDAS-CONFIG", "Configuración de egress no válida", Severidad.MEDIA, "sin_concluir",

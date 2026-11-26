@@ -415,7 +415,7 @@ No guarda datos propios. El `node` que esté primero en el `PATH` es el que usa 
 
 ## promptfoo (versión fijada: 0.126.0)
 
-**Para qué la usa MRRobotIA:** Evalúa el comportamiento del chatbot (fuga del system prompt, inyección de prompt directa e indirecta, fuga entre sesiones, BOLA/BFLA...) en H5 (escaneo `promptfoo`, fuera de `all`; requiere `-a` y `allow_active=true`). **Necesita Node.js 22.22 o superior** (ver arriba) y MRRobotIA exige promptfoo 0.126.0 o posterior. Siempre se ejecuta con la red bloqueada (ver el README).
+**Para qué la usa MRRobotIA:** Evalúa el comportamiento del chatbot (fuga del system prompt, inyección de prompt directa e indirecta, fuga entre sesiones, BOLA/BFLA...) en H5 (escaneo `promptfoo`, fuera de `all`; requiere `-a` y `allow_active=true`). **Necesita Node.js 22.22 o superior** (ver arriba) y MRRobotIA exige promptfoo 0.126.0 o posterior. Siempre se ejecuta con la red bloqueada (ver [la guía](GUIA.md#h5-evaluación-del-chatbot-con-promptfoo--s-promptfoo)).
 
 ### Instalación
 
@@ -467,7 +467,7 @@ MRRobotIA ejecuta promptfoo con su estado (`PROMPTFOO_CONFIG_DIR`: base de datos
 
 ## DeepTeam (versión fijada: 1.0.10)
 
-**Para qué la usa MRRobotIA:** Evalúa el comportamiento del chatbot (fuga de datos personales y del system prompt, BOLA, BFLA, RBAC, SSRF, agencia excesiva...) en H5 (escaneo `deepteam`, segundo motor de H5 junto a promptfoo; fuera de `all`; requiere `-a` y `allow_active=true`). Necesita Python 3.10 a 3.13 (DeepTeam 1.0.10 exige menos de 3.14) y MRRobotIA exige la 1.0.10 o posterior, con DeepEval 4.3.4. **`sentry-sdk` es obligatorio:** DeepTeam 1.0.10 lo importa sin declararlo (fallo de empaquetado) y sin él ni siquiera se importa. Siempre se ejecuta con la red bloqueada (ver el README).
+**Para qué la usa MRRobotIA:** Evalúa el comportamiento del chatbot (fuga de datos personales y del system prompt, BOLA, BFLA, RBAC, SSRF, agencia excesiva...) en H5 (escaneo `deepteam`, segundo motor de H5 junto a promptfoo; fuera de `all`; requiere `-a` y `allow_active=true`). Necesita Python 3.10 a 3.13 (DeepTeam 1.0.10 exige menos de 3.14) y MRRobotIA exige la 1.0.10 o posterior, con DeepEval 4.3.4. **`sentry-sdk` es obligatorio:** DeepTeam 1.0.10 lo importa sin declararlo (fallo de empaquetado) y sin él ni siquiera se importa. Siempre se ejecuta con la red bloqueada (ver [la guía](GUIA.md#h5-segundo-motor-deepteam--s-deepteam)).
 
 ### Instalación
 

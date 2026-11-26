@@ -879,5 +879,5 @@ def test_los_casos_de_la_descripcion_de_cada_preset_son_los_reales():
     minutos = int(re.search(r"unos (\d+) min", h5_deepteam.PRESETS["standard"]["duracion"]).group(1))
     assert minutos == round(h5_deepteam.estimar(n) / 60)
     raiz = Path(__file__).resolve().parent.parent
-    for fichero, frase in (("README.md", f"{n} cases (about {minutos} min"), ("README.es.md", f"{n} casos (unos {minutos} min")):
+    for fichero, frase in (("docs/GUIDE.md", f"{n} cases (about {minutos} min"), ("docs/GUIA.md", f"{n} casos (unos {minutos} min")):
         assert frase in (raiz / fichero).read_text(encoding="utf-8"), fichero

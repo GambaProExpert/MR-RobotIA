@@ -895,7 +895,7 @@ class H4Garak(ModuloHerramienta):
             if not sondas:
                 return self._config_invalida("tras quitar las sondas que necesitan descargar de Hugging Face no queda ninguna")
         notas_excluidas = [
-            (f"{c} (requiere descargar de Hugging Face; ver prefetch en el README)" if c == SONDA_PREFETCH else
+            (f"{c} (requiere descargar de Hugging Face; para cachearla, ver H4 en docs/GUIA.md)" if c == SONDA_PREFETCH else
              f"{c} (su detector necesita un clasificador de Hugging Face; pídela con offline=false)")
             for c in excluidas]
 

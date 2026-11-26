@@ -3,6 +3,24 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.15.2] - 2026-11-26
+
+### Cambiado
+- **README corto.** `README.md` y `README.es.md` pasan de unas 830 líneas a unas 115: qué es, qué revisa cada hito
+  (tabla con escaneo, tipo y si entra en `all`), estado de la validación en siete puntos, instalación, inicio rápido,
+  enlaces a la documentación, principios y qué no incluye.
+- **Guía de uso nueva** en `docs/GUIDE.md` (inglés) y `docs/GUIA.md` (español), con todo el detalle que tenía el README,
+  movido tal cual: tabla completa de validación, fichero de objetivo clave por clave, opciones, escaneos y grupos, H4,
+  H5 (promptfoo y DeepTeam), H6, modelo de amenazas, estructura del proyecto e hitos con sus alias. Las dos lenguas
+  tienen las mismas secciones en el mismo orden.
+- Las referencias al README de `docs/TOOLS.md`, `docs/HERRAMIENTAS.md`, la ayuda de `cli.py` y los mensajes de H4 y H6
+  apuntan ahora a la guía.
+
+### Corregido
+- La tabla comparativa de H5 decía «unos 75 s por caso» (inglés) y «unos 80 s» (español) para DeepTeam: son **127 s**,
+  la cifra medida que usa el código para estimar.
+- En español quedaban una viñeta de los límites de DeepTeam en inglés y otros restos menores de traducción.
+
 ## [0.15.1] - 2026-11-23
 
 Arreglos de las incoherencias que salieron al poner al día el manual de usuario.

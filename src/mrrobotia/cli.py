@@ -24,7 +24,7 @@ canary traffic need -a (the passive window also runs if you ask for it with -s e
 
 The garak sweep (H4, label 'garak') and the two engines of the chatbot-behaviour evaluation (H5: promptfoo, label
 'promptfoo', and DeepTeam, label 'deepteam') are active, long and NOT part of 'all': ask for them with '-s garak -a',
-'-s promptfoo -a' or '-s deepteam -a' (or '-s all,garak,promptfoo,deepteam -a'); see the README for their 'garak',
+'-s promptfoo -a' or '-s deepteam -a' (or '-s all,garak,promptfoo,deepteam -a'); see docs/GUIDE.md for their 'garak',
 'promptfoo' and 'deepteam' blocks in the target file. promptfoo and DeepTeam always run with the network blocked.
 
 Before any module, H2-ID identifies what it is dealing with (server, version, startup

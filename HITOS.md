@@ -1,7 +1,7 @@
 # MRRobotIA — Hitos (roadmap por capas)
 
 > Operativiza [Guia_agentes.md](Guia_agentes.md). Alcance elegido: **LLM + RAG + host**.
-> Estado de este documento: versión 0.15.1 (2026-11-23). H0-H6 hechos; H7 por hacer (con el diseño hecho). vLLM está validado contra un
+> Estado de este documento: versión 0.15.2 (2026-11-26). H0-H6 hechos; H7 por hacer (con el diseño hecho). vLLM está validado contra un
 > vLLM 0.33.0 real en CPU; quedan por validar GPU, generación y el escaneo real de ssh-audit (ver más abajo). Trivy ya está validado en real (0.11.0).
 
 ## Qué es ahora MRRobotIA

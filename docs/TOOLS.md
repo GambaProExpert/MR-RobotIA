@@ -415,7 +415,7 @@ Stores no data of its own. Whichever `node` comes first in the `PATH` is the one
 
 ## promptfoo (pinned version: 0.126.0)
 
-**What MRRobotIA uses it for:** Evaluates the behaviour of the chatbot (system-prompt leak, direct and indirect prompt injection, cross-session leak, BOLA/BFLA...) in H5 (scan `promptfoo`, not part of `all`; it needs `-a` and `allow_active=true`). **Needs Node.js 22.22 or later** (see above) and MRRobotIA requires promptfoo 0.126.0 or later. It always runs with the network blocked (see the README).
+**What MRRobotIA uses it for:** Evaluates the behaviour of the chatbot (system-prompt leak, direct and indirect prompt injection, cross-session leak, BOLA/BFLA...) in H5 (scan `promptfoo`, not part of `all`; it needs `-a` and `allow_active=true`). **Needs Node.js 22.22 or later** (see above) and MRRobotIA requires promptfoo 0.126.0 or later. It always runs with the network blocked (see the [guide](GUIDE.md#h5-chatbot-evaluation-with-promptfoo--s-promptfoo)).
 
 ### Installation
 
@@ -467,7 +467,7 @@ MRRobotIA runs promptfoo with its state (`PROMPTFOO_CONFIG_DIR`: database, cache
 
 ## DeepTeam (pinned version: 1.0.10)
 
-**What MRRobotIA uses it for:** Evaluates the behaviour of the chatbot (leaks of personal data and of the system prompt, BOLA, BFLA, RBAC, SSRF, excessive agency...) in H5 (scan `deepteam`, the second engine of H5 next to promptfoo; not part of `all`; it needs `-a` and `allow_active=true`). Needs Python 3.10 to 3.13 (DeepTeam 1.0.10 requires less than 3.14) and MRRobotIA requires 1.0.10 or later, with DeepEval 4.3.4. **`sentry-sdk` is mandatory:** DeepTeam 1.0.10 imports it without declaring it (a packaging bug) and without it DeepTeam does not even import. It always runs with the network blocked (see the README).
+**What MRRobotIA uses it for:** Evaluates the behaviour of the chatbot (leaks of personal data and of the system prompt, BOLA, BFLA, RBAC, SSRF, excessive agency...) in H5 (scan `deepteam`, the second engine of H5 next to promptfoo; not part of `all`; it needs `-a` and `allow_active=true`). Needs Python 3.10 to 3.13 (DeepTeam 1.0.10 requires less than 3.14) and MRRobotIA requires 1.0.10 or later, with DeepEval 4.3.4. **`sentry-sdk` is mandatory:** DeepTeam 1.0.10 imports it without declaring it (a packaging bug) and without it DeepTeam does not even import. It always runs with the network blocked (see the [guide](GUIDE.md#h5-second-engine-deepteam--s-deepteam)).
 
 ### Installation
 
